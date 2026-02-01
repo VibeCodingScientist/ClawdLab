@@ -1,0 +1,257 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # DATABASES
+  # ===========================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: asrp-postgres
+    environment:
+      POSTGRES_USER: asrp
+      POSTGRES_PASSWORD: asrp_dev_password
+      POSTGRES_DB: asrp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./platform/infrastructure/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asrp -d asrp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asrp-network
+
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: asrp-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_dev_password
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*,gds.*"
+      NEO4J_dbms_security_procedures_allowlist: "apoc.*,gds.*"
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asrp-network
+
+  weaviate:
+    image: semitechnologies/weaviate:1.23.0
+    container_name: asrp-weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers'
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080'
+      CLUSTER_HOSTNAME: 'node1'
+    ports:
+      - "8080:8080"
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    depends_on:
+      - t2v-transformers
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asrp-network
+
+  t2v-transformers:
+    image: semitechnologies/transformers-inference:sentence-transformers-all-mpnet-base-v2
+    container_name: asrp-t2v
+    environment:
+      ENABLE_CUDA: '0'
+    networks:
+      - asrp-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: asrp-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asrp-network
+
+  # ===========================================
+  # MESSAGE BROKER
+  # ===========================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: asrp-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - asrp-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: asrp-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - asrp-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: asrp-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - asrp-network
+
+  # ===========================================
+  # OBJECT STORAGE
+  # ===========================================
+
+  minio:
+    image: minio/minio:latest
+    container_name: asrp-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - asrp-network
+
+  # ===========================================
+  # MONITORING
+  # ===========================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: asrp-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./platform/infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - asrp-network
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: asrp-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_dev_password
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./platform/infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - asrp-network
+
+  # ===========================================
+  # APPLICATION SERVICES (for development)
+  # ===========================================
+
+  # Uncomment to run services in Docker instead of locally
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: ./platform/services/api-gateway/Dockerfile
+  #   container_name: asrp-api-gateway
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://asrp:asrp_dev_password@postgres:5432/asrp
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - kafka
+  #   networks:
+  #     - asrp-network
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  weaviate_data:
+  redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  asrp-network:
+    driver: bridge

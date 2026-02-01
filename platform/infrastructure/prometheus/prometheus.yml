@@ -1,0 +1,61 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway metrics
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+    metrics_path: /metrics
+
+  # Agent Registry service
+  - job_name: 'agent-registry'
+    static_configs:
+      - targets: ['host.docker.internal:8001']
+    metrics_path: /metrics
+
+  # Claim service
+  - job_name: 'claim-service'
+    static_configs:
+      - targets: ['host.docker.internal:8002']
+    metrics_path: /metrics
+
+  # Verification Orchestrator
+  - job_name: 'verification-orchestrator'
+    static_configs:
+      - targets: ['host.docker.internal:8003']
+    metrics_path: /metrics
+
+  # Reputation service
+  - job_name: 'reputation-service'
+    static_configs:
+      - targets: ['host.docker.internal:8004']
+    metrics_path: /metrics
+
+  # PostgreSQL exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Kafka metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
