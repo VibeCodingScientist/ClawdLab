@@ -43,6 +43,8 @@ def verify_math_claim(
     Returns:
         Verification result
     """
+    import asyncio
+
     logger.info(
         "math_verification_started",
         claim_id=claim_id,
@@ -50,24 +52,47 @@ def verify_math_claim(
         proof_system=payload.get("proof_system"),
     )
 
-    # Placeholder - actual implementation would:
-    # 1. Extract proof code and proof system
-    # 2. Run in sandboxed container
-    # 3. Parse output for success/failure
-    # 4. Check for novelty
+    try:
+        # Import the math verification service
+        from platform.verification_engines.math_verifier.service import (
+            get_math_verification_service,
+        )
 
-    result = {
-        "verified": False,
-        "status": "pending_implementation",
-        "verifier": "math_verifier",
-        "message": "Mathematics verification engine not yet implemented",
-        "details": {
-            "proof_system": payload.get("proof_system"),
+        # Get the service instance
+        service = get_math_verification_service()
+
+        # Run verification asynchronously
+        result = asyncio.run(service.verify_claim(claim_id, payload))
+
+        logger.info(
+            "math_verification_completed",
+            claim_id=claim_id,
+            job_id=job_id,
+            verified=result.get("verified", False),
+        )
+
+        return result
+
+    except Exception as e:
+        logger.exception(
+            "math_verification_error",
+            claim_id=claim_id,
+            job_id=job_id,
+            error=str(e),
+        )
+
+        # Retry on transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "verified": False,
+            "status": "error",
+            "verifier": "math_verifier",
+            "message": f"Verification failed: {str(e)}",
+            "error_type": "internal_error",
             "claim_id": claim_id,
-        },
-    }
-
-    return result
+        }
 
 
 # ===========================================
