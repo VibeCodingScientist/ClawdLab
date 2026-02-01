@@ -129,6 +129,8 @@ def verify_ml_claim(
     Returns:
         Verification result
     """
+    import asyncio
+
     logger.info(
         "ml_verification_started",
         claim_id=claim_id,
@@ -136,19 +138,47 @@ def verify_ml_claim(
         experiment_type=payload.get("experiment_type"),
     )
 
-    result = {
-        "verified": False,
-        "status": "pending_implementation",
-        "verifier": "ml_verifier",
-        "message": "ML verification engine not yet implemented",
-        "details": {
-            "experiment_type": payload.get("experiment_type"),
-            "model_name": payload.get("model_name"),
-            "claim_id": claim_id,
-        },
-    }
+    try:
+        # Import the ML verification service
+        from platform.verification_engines.ml_verifier.service import (
+            get_ml_verification_service,
+        )
 
-    return result
+        # Get the service instance
+        service = get_ml_verification_service()
+
+        # Run verification asynchronously
+        result = asyncio.run(service.verify_claim(claim_id, payload))
+
+        logger.info(
+            "ml_verification_completed",
+            claim_id=claim_id,
+            job_id=job_id,
+            verified=result.get("verified", False),
+        )
+
+        return result
+
+    except Exception as e:
+        logger.exception(
+            "ml_verification_error",
+            claim_id=claim_id,
+            job_id=job_id,
+            error=str(e),
+        )
+
+        # Retry on transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "verified": False,
+            "status": "error",
+            "verifier": "ml_verifier",
+            "message": f"Verification failed: {str(e)}",
+            "error_type": "internal_error",
+            "claim_id": claim_id,
+        }
 
 
 # ===========================================
