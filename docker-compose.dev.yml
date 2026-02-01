@@ -1,0 +1,87 @@
+# ===========================================
+# Development Overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ===========================================
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      RELOAD: "true"
+      ENVIRONMENT: development
+      # Enable debugpy for remote debugging
+      DEBUGPY_ENABLE: "true"
+      DEBUGPY_PORT: 5678
+    volumes:
+      # Mount source code for hot-reload
+      - ./platform:/app/platform:cached
+      - ./tests:/app/tests:cached
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./requirements.txt:/app/requirements.txt:ro
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debug port
+    command: >
+      sh -c "
+        if [ \"$$DEBUGPY_ENABLE\" = 'true' ]; then
+          python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m uvicorn platform.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/platform;
+        else
+          uvicorn platform.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/platform;
+        fi
+      "
+
+  celery-worker:
+    build:
+      target: development
+    environment:
+      LOG_LEVEL: DEBUG
+      CELERY_LOG_LEVEL: DEBUG
+    volumes:
+      - ./platform:/app/platform:cached
+    command: celery -A platform.infrastructure.celery.app worker --loglevel=debug
+
+  celery-beat:
+    build:
+      target: development
+    environment:
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./platform:/app/platform:cached
+
+  # Enable Kafka UI in development
+  kafka-ui:
+    profiles: [""]  # Always run in dev
+
+  # Development-only test database
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: asrp-postgres-test
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: asrp_test
+    ports:
+      - "5433:5432"
+    networks:
+      - asrp-network
+    profiles:
+      - test
+
+  # Development-only test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: asrp-redis-test
+    command: redis-server
+    ports:
+      - "6380:6379"
+    networks:
+      - asrp-network
+    profiles:
+      - test

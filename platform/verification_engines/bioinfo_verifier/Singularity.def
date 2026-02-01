@@ -1,0 +1,193 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author Autonomous Research Platform
+    Version 1.0.0
+    Description Bioinformatics Verification Engine
+
+%environment
+    export PATH=/opt/conda/bin:/opt/nextflow:/opt/snakemake/bin:$PATH
+    export PYTHONPATH=/app:$PYTHONPATH
+    export R_LIBS_USER=/opt/R/libs
+    export NXF_HOME=/opt/nextflow
+
+%post
+    # Update and install system dependencies
+    apt-get update && apt-get install -y \
+        build-essential \
+        git \
+        wget \
+        curl \
+        openjdk-17-jre-headless \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        libbz2-dev \
+        liblzma-dev \
+        zlib1g-dev \
+        libncurses5-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install Miniconda
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+    /opt/conda/bin/conda init bash
+
+    # Create conda environment with bioinformatics tools
+    /opt/conda/bin/conda create -n bioinfo python=3.11 -y
+    /opt/conda/bin/conda run -n bioinfo pip install --upgrade pip
+
+    # Install Nextflow
+    mkdir -p /opt/nextflow
+    cd /opt/nextflow
+    curl -s https://get.nextflow.io | bash
+    chmod +x nextflow
+
+    # Install Snakemake
+    /opt/conda/bin/conda run -n bioinfo pip install snakemake>=8.0.0
+
+    # Install bioinformatics tools via conda
+    /opt/conda/bin/conda install -n bioinfo -c bioconda -c conda-forge -y \
+        samtools>=1.18 \
+        bcftools>=1.18 \
+        bedtools>=2.31 \
+        bwa>=0.7.17 \
+        bowtie2>=2.5.0 \
+        star>=2.7.11 \
+        hisat2>=2.2.1 \
+        minimap2>=2.26 \
+        fastp>=0.23.4 \
+        multiqc>=1.17 \
+        fastqc>=0.12.1 \
+        cutadapt>=4.5 \
+        trimmomatic>=0.39
+
+    # Install variant calling tools
+    /opt/conda/bin/conda install -n bioinfo -c bioconda -c conda-forge -y \
+        gatk4>=4.4.0 \
+        freebayes>=1.3.6 \
+        deepvariant>=1.5.0
+
+    # Install R and Bioconductor packages
+    apt-get update && apt-get install -y r-base r-base-dev
+    mkdir -p /opt/R/libs
+
+    R -e "install.packages(c('BiocManager', 'tidyverse', 'data.table'), repos='https://cloud.r-project.org/')"
+    R -e "BiocManager::install(c('DESeq2', 'edgeR', 'limma', 'clusterProfiler', 'org.Hs.eg.db', 'GenomicRanges', 'rtracklayer', 'Rsubread'), ask=FALSE, update=FALSE)"
+
+    # Install Python scientific packages
+    /opt/conda/bin/conda run -n bioinfo pip install \
+        numpy>=1.24.0 \
+        scipy>=1.11.0 \
+        pandas>=2.0.0 \
+        scikit-learn>=1.3.0 \
+        statsmodels>=0.14.0 \
+        matplotlib>=3.7.0 \
+        seaborn>=0.12.0
+
+    # Install bioinformatics Python packages
+    /opt/conda/bin/conda run -n bioinfo pip install \
+        biopython>=1.81 \
+        pysam>=0.22.0 \
+        pyvcf3>=1.0.3 \
+        pybedtools>=0.9.1 \
+        htseq>=2.0.3 \
+        scanpy>=1.9.0 \
+        anndata>=0.10.0
+
+    # Install workflow management
+    /opt/conda/bin/conda run -n bioinfo pip install \
+        cwltool>=3.1.0 \
+        toil>=5.12.0
+
+    # Install statistics packages
+    /opt/conda/bin/conda run -n bioinfo pip install \
+        pingouin>=0.5.3 \
+        lifelines>=0.27.0
+
+    # Create app directory
+    mkdir -p /app
+
+    # Make conda environment the default
+    ln -s /opt/conda/envs/bioinfo/bin/python /usr/local/bin/python
+    ln -s /opt/conda/envs/bioinfo/bin/pip /usr/local/bin/pip
+
+%files
+    # Copy verification engine code (will be mounted or copied at build time)
+
+%runscript
+    exec /opt/conda/envs/bioinfo/bin/python "$@"
+
+%startscript
+    exec /opt/conda/envs/bioinfo/bin/python "$@"
+
+%test
+    # Test Python and key packages
+    /opt/conda/envs/bioinfo/bin/python -c "
+import numpy
+print(f'NumPy version: {numpy.__version__}')
+
+import pandas
+print(f'Pandas version: {pandas.__version__}')
+
+import scipy
+print(f'SciPy version: {scipy.__version__}')
+
+import Bio
+print(f'Biopython version: {Bio.__version__}')
+
+import pysam
+print(f'Pysam version: {pysam.__version__}')
+
+print('Python packages OK')
+"
+
+    # Test bioinformatics tools
+    which samtools && samtools --version | head -1
+    which bcftools && bcftools --version | head -1
+    which nextflow && nextflow -version | head -1
+    which snakemake && snakemake --version
+
+    # Test R packages
+    R -e "library(DESeq2); library(edgeR); library(limma); print('R packages OK')"
+
+    echo "All tests passed!"
+
+%help
+    Bioinformatics Verification Engine Container
+
+    This container provides tools for bioinformatics verification including:
+    - Pipeline execution (Nextflow, Snakemake)
+    - Sequence analysis (samtools, bcftools, bwa, STAR)
+    - Variant calling (GATK, FreeBayes)
+    - Differential expression (DESeq2, edgeR, limma)
+    - Enrichment analysis (clusterProfiler)
+
+    Usage:
+        # Interactive Python
+        singularity run bioinfo-verifier.sif
+
+        # Run a script
+        singularity exec bioinfo-verifier.sif python my_script.py
+
+        # Run Nextflow pipeline
+        singularity exec bioinfo-verifier.sif nextflow run pipeline.nf
+
+        # Run Snakemake workflow
+        singularity exec bioinfo-verifier.sif snakemake --cores 4
+
+        # Run R analysis
+        singularity exec bioinfo-verifier.sif Rscript analysis.R
+
+    Tools included:
+        Alignment: bwa, bowtie2, STAR, hisat2, minimap2
+        QC: fastqc, fastp, multiqc
+        Variant calling: GATK4, FreeBayes, bcftools
+        RNA-seq: DESeq2, edgeR, limma, htseq
+        Utilities: samtools, bedtools, pysam, biopython
+
+    Workflow engines:
+        - Nextflow 23.x
+        - Snakemake 8.x

@@ -1,0 +1,158 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+
+%labels
+    Author Autonomous Scientific Research Platform
+    Version 1.0
+    Description ML/AI Verification Engine with PyTorch, CUDA, and benchmark tools
+
+%post
+    # Update and install base dependencies
+    apt-get update && apt-get install -y \
+        curl \
+        git \
+        wget \
+        build-essential \
+        cmake \
+        python3-pip \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Upgrade pip
+    pip install --upgrade pip setuptools wheel
+
+    # Install core ML libraries
+    pip install --no-cache-dir \
+        torch==2.1.0 \
+        torchvision==0.16.0 \
+        torchaudio==2.1.0 \
+        transformers==4.36.0 \
+        datasets==2.16.0 \
+        accelerate==0.25.0 \
+        peft==0.7.0 \
+        bitsandbytes==0.41.0 \
+        sentencepiece==0.1.99 \
+        tokenizers==0.15.0
+
+    # Install additional ML frameworks
+    pip install --no-cache-dir \
+        jax[cuda12_pip]==0.4.23 \
+        flax==0.8.0 \
+        optax==0.1.7 \
+        tensorflow==2.15.0
+
+    # Install ML evaluation libraries
+    pip install --no-cache-dir \
+        scikit-learn==1.3.2 \
+        scipy==1.11.4 \
+        numpy==1.26.2 \
+        pandas==2.1.3
+
+    # Install lm-evaluation-harness
+    pip install --no-cache-dir lm-eval==0.4.0
+
+    # Install HELM (Stanford's Holistic Evaluation)
+    pip install --no-cache-dir crfm-helm==0.3.0
+
+    # Install visualization and logging
+    pip install --no-cache-dir \
+        tensorboard==2.15.0 \
+        wandb==0.16.0 \
+        matplotlib==3.8.2 \
+        seaborn==0.13.0
+
+    # Install code quality tools
+    pip install --no-cache-dir \
+        black==23.12.0 \
+        ruff==0.1.8 \
+        mypy==1.7.1
+
+    # Install utility libraries
+    pip install --no-cache-dir \
+        pyyaml==6.0.1 \
+        toml==0.10.2 \
+        aiohttp==3.9.1 \
+        aiofiles==23.2.1 \
+        httpx==0.25.2 \
+        pydantic==2.5.2
+
+    # Install Nix for reproducible environments
+    curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
+    . /root/.nix-profile/etc/profile.d/nix.sh
+
+    # Create directories
+    mkdir -p /workspace /data /output
+    chmod 777 /workspace /data /output
+
+    # Clean up
+    apt-get clean
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    pip cache purge
+
+%environment
+    export PATH="/opt/conda/bin:$PATH"
+    export CUDA_HOME="/usr/local/cuda"
+    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+    export HF_HOME="/data/hf_cache"
+    export TRANSFORMERS_CACHE="/data/hf_cache"
+    export TORCH_HOME="/data/torch_cache"
+    export PYTHONPATH="/workspace:$PYTHONPATH"
+
+%runscript
+    exec "$@"
+
+%test
+    # Test Python
+    echo "Testing Python..."
+    python --version
+
+    # Test PyTorch
+    echo "Testing PyTorch..."
+    python -c "import torch; print(f'PyTorch {torch.__version__}')"
+    python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+
+    # Test Transformers
+    echo "Testing Transformers..."
+    python -c "import transformers; print(f'Transformers {transformers.__version__}')"
+
+    # Test lm-eval
+    echo "Testing lm-evaluation-harness..."
+    python -c "import lm_eval; print('lm-eval loaded successfully')"
+
+    # Test HELM
+    echo "Testing HELM..."
+    python -c "import helm; print('HELM loaded successfully')" || echo "HELM import may require additional setup"
+
+    # Test JAX
+    echo "Testing JAX..."
+    python -c "import jax; print(f'JAX {jax.__version__}')"
+
+    echo "All tests passed!"
+
+%help
+    ML/AI Verification Container
+
+    This container provides:
+    - PyTorch 2.1 with CUDA 12.1 support
+    - Transformers and HuggingFace ecosystem
+    - JAX/Flax for alternative ML framework support
+    - TensorFlow 2.15
+    - lm-evaluation-harness for LLM benchmarks
+    - HELM for comprehensive model evaluation
+    - Nix for reproducible environment building
+
+    Usage:
+        singularity exec --nv ml-verifier.sif python train.py
+        singularity exec --nv ml-verifier.sif lm_eval --model hf --model_args pretrained=gpt2 --tasks hellaswag
+        singularity exec --nv ml-verifier.sif python -m helm.benchmark.run
+
+    Environment variables:
+        HF_HOME: HuggingFace cache directory
+        TORCH_HOME: PyTorch cache directory
+        CUDA_VISIBLE_DEVICES: GPU devices to use
+
+    Bind mounts recommended:
+        -B /path/to/data:/data
+        -B /path/to/workspace:/workspace
+        -B /path/to/output:/output
