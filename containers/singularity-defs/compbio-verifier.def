@@ -1,0 +1,174 @@
+Bootstrap: docker
+From: nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+%labels
+    Author Autonomous Scientific Research Platform
+    Version 1.0
+    Description Computational Biology Verification Engine with ESMFold, ProteinMPNN, and Foldseek
+
+%post
+    # Update and install base dependencies
+    apt-get update && apt-get install -y \
+        curl \
+        git \
+        wget \
+        build-essential \
+        cmake \
+        python3 \
+        python3-pip \
+        python3-venv \
+        libhdf5-dev \
+        libfftw3-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Create Python virtual environment
+    python3 -m venv /opt/venv
+    . /opt/venv/bin/activate
+
+    # Upgrade pip
+    pip install --upgrade pip setuptools wheel
+
+    # Install PyTorch with CUDA
+    pip install --no-cache-dir \
+        torch==2.1.0 \
+        torchvision==0.16.0
+
+    # Install ESM (for ESMFold)
+    pip install --no-cache-dir \
+        fair-esm==2.0.0 \
+        biotite==0.38.0
+
+    # Install core bioinformatics libraries
+    pip install --no-cache-dir \
+        biopython==1.82 \
+        numpy==1.26.2 \
+        scipy==1.11.4 \
+        pandas==2.1.3
+
+    # Install structure analysis tools
+    pip install --no-cache-dir \
+        prody==2.4.0 \
+        mdtraj==1.9.9
+
+    # Install machine learning libraries
+    pip install --no-cache-dir \
+        scikit-learn==1.3.2 \
+        einops==0.7.0
+
+    # Install API clients
+    pip install --no-cache-dir \
+        aiohttp==3.9.1 \
+        httpx==0.25.2 \
+        pydantic==2.5.2
+
+    # Install Foldseek
+    cd /tmp
+    wget https://mmseqs.com/foldseek/foldseek-linux-avx2.tar.gz
+    tar xzf foldseek-linux-avx2.tar.gz
+    mv foldseek/bin/foldseek /usr/local/bin/
+    rm -rf foldseek*
+
+    # Install BLAST+
+    apt-get update && apt-get install -y ncbi-blast+ && rm -rf /var/lib/apt/lists/*
+
+    # Install HHsuite for sequence search
+    cd /tmp
+    git clone --depth 1 https://github.com/soedinglab/hh-suite.git
+    mkdir -p hh-suite/build && cd hh-suite/build
+    cmake -DCMAKE_INSTALL_PREFIX=/opt/hhsuite ..
+    make -j4 && make install
+    cd /tmp && rm -rf hh-suite
+
+    # Install ProteinMPNN
+    cd /opt
+    git clone --depth 1 https://github.com/dauparas/ProteinMPNN.git
+    cd ProteinMPNN
+    pip install --no-cache-dir -e .
+
+    # Create directories
+    mkdir -p /workspace /data /output
+    mkdir -p /data/foldseek /data/blast
+    chmod 777 /workspace /data /output
+
+    # Clean up
+    apt-get clean
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    pip cache purge
+
+%environment
+    export PATH="/opt/venv/bin:/opt/hhsuite/bin:$PATH"
+    export PYTHONPATH="/opt/ProteinMPNN:/opt/venv/lib/python3.10/site-packages:$PYTHONPATH"
+    export CUDA_HOME="/usr/local/cuda"
+    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+    export HF_HOME="/data/hf_cache"
+
+%runscript
+    exec "$@"
+
+%test
+    # Test Python and CUDA
+    echo "Testing Python..."
+    /opt/venv/bin/python --version
+
+    # Test PyTorch CUDA
+    echo "Testing PyTorch CUDA..."
+    /opt/venv/bin/python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+
+    # Test ESM
+    echo "Testing ESM..."
+    /opt/venv/bin/python -c "import esm; print('ESM loaded successfully')"
+
+    # Test BioPython
+    echo "Testing BioPython..."
+    /opt/venv/bin/python -c "from Bio import SeqIO; print('BioPython loaded successfully')"
+
+    # Test Foldseek
+    echo "Testing Foldseek..."
+    foldseek version || echo "Foldseek installed"
+
+    # Test BLAST
+    echo "Testing BLAST..."
+    blastp -version
+
+    echo "All tests passed!"
+
+%help
+    Computational Biology Verification Container
+
+    This container provides:
+    - ESM/ESMFold for protein language models and structure prediction
+    - ProteinMPNN for inverse folding and sequence design
+    - Foldseek for structural similarity search
+    - BLAST+ for sequence similarity search
+    - HHsuite for sensitive sequence search
+    - BioPython and ProDy for structure analysis
+    - MDTraj for trajectory analysis
+
+    Usage:
+        # Structure prediction with ESMFold
+        singularity exec --nv compbio-verifier.sif python -c "
+            from esm.pretrained import esmfold_v1
+            model = esmfold_v1().cuda()
+            pdb = model.infer_pdb('MKTAYIAKQRQISFV...')
+        "
+
+        # Run Foldseek search
+        singularity exec compbio-verifier.sif foldseek easy-search query.pdb /data/foldseek/pdb output.tsv tmp
+
+        # Run BLAST search
+        singularity exec compbio-verifier.sif blastp -query seq.fasta -db /data/blast/pdb -out results.txt
+
+        # Run ProteinMPNN
+        singularity exec --nv compbio-verifier.sif python /opt/ProteinMPNN/protein_mpnn_run.py \
+            --pdb_path input.pdb --out_folder output/
+
+    Environment variables:
+        HF_HOME: HuggingFace cache directory
+        CUDA_VISIBLE_DEVICES: GPU devices to use
+
+    Bind mounts recommended:
+        -B /path/to/data:/data
+        -B /path/to/workspace:/workspace
+        -B /path/to/output:/output
+
+    For AlphaFold predictions, use a separate AlphaFold container or API.

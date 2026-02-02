@@ -215,26 +215,56 @@ def verify_compbio_claim(
     Returns:
         Verification result
     """
+    import asyncio
+
     logger.info(
         "compbio_verification_started",
         claim_id=claim_id,
         job_id=job_id,
-        design_type=payload.get("design_type"),
+        claim_type=payload.get("claim_type"),
     )
 
-    result = {
-        "verified": False,
-        "status": "pending_implementation",
-        "verifier": "compbio_verifier",
-        "message": "Computational biology verification engine not yet implemented",
-        "details": {
-            "design_type": payload.get("design_type"),
-            "sequence_length": len(payload.get("sequence", "")),
-            "claim_id": claim_id,
-        },
-    }
+    try:
+        # Import the CompBio verification service
+        from platform.verification_engines.compbio_verifier.service import (
+            get_compbio_verification_service,
+        )
 
-    return result
+        # Get the service instance
+        service = get_compbio_verification_service()
+
+        # Run verification asynchronously
+        result = asyncio.run(service.verify_claim(claim_id, payload))
+
+        logger.info(
+            "compbio_verification_completed",
+            claim_id=claim_id,
+            job_id=job_id,
+            verified=result.get("verified", False),
+        )
+
+        return result
+
+    except Exception as e:
+        logger.exception(
+            "compbio_verification_error",
+            claim_id=claim_id,
+            job_id=job_id,
+            error=str(e),
+        )
+
+        # Retry on transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "verified": False,
+            "status": "error",
+            "verifier": "compbio_verifier",
+            "message": f"Verification failed: {str(e)}",
+            "error_type": "internal_error",
+            "claim_id": claim_id,
+        }
 
 
 # ===========================================
