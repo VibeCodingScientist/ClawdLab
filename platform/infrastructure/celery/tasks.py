@@ -384,8 +384,9 @@ def verify_bioinformatics_claim(
 
     Handles:
     - Pipeline execution (Nextflow, Snakemake)
-    - Statistical validation
-    - Result reproduction
+    - Statistical validation (p-values, effect sizes, multiple testing)
+    - Differential expression (DESeq2, edgeR, limma)
+    - Sequence analysis and variant calling
 
     Args:
         claim_id: ID of the claim
@@ -395,26 +396,63 @@ def verify_bioinformatics_claim(
     Returns:
         Verification result
     """
+    import asyncio
+
     logger.info(
         "bioinfo_verification_started",
         claim_id=claim_id,
         job_id=job_id,
-        analysis_type=payload.get("analysis_type"),
+        claim_type=payload.get("claim_type"),
     )
 
-    result = {
-        "verified": False,
-        "status": "pending_implementation",
-        "verifier": "bioinfo_verifier",
-        "message": "Bioinformatics verification engine not yet implemented",
-        "details": {
-            "analysis_type": payload.get("analysis_type"),
-            "pipeline": payload.get("pipeline"),
-            "claim_id": claim_id,
-        },
-    }
+    try:
+        # Import the Bioinformatics verification service
+        from platform.verification_engines.bioinfo_verifier.service import (
+            get_bioinfo_verification_service,
+        )
 
-    return result
+        # Get the service instance
+        service = get_bioinfo_verification_service()
+
+        # Build claim dict
+        claim = {
+            "claim_id": claim_id,
+            **payload,
+        }
+
+        # Run verification asynchronously
+        result = asyncio.run(service.verify_claim(claim))
+
+        logger.info(
+            "bioinfo_verification_completed",
+            claim_id=claim_id,
+            job_id=job_id,
+            verified=result.verified,
+            status=result.status.value,
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        logger.exception(
+            "bioinfo_verification_error",
+            claim_id=claim_id,
+            job_id=job_id,
+            error=str(e),
+        )
+
+        # Retry on transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "verified": False,
+            "status": "error",
+            "verifier": "bioinfo_verifier",
+            "message": f"Verification failed: {str(e)}",
+            "error_type": "internal_error",
+            "claim_id": claim_id,
+        }
 
 
 # ===========================================
