@@ -290,8 +290,9 @@ def verify_materials_claim(
 
     Handles:
     - Crystal structure validation
-    - Stability calculations (MACE, CHGNet)
+    - Stability calculations (MACE, CHGNet, M3GNet)
     - Property predictions
+    - Novelty checking (MP, AFLOW, OQMD)
 
     Args:
         claim_id: ID of the claim
@@ -301,6 +302,8 @@ def verify_materials_claim(
     Returns:
         Verification result
     """
+    import asyncio
+
     logger.info(
         "materials_verification_started",
         claim_id=claim_id,
@@ -308,19 +311,54 @@ def verify_materials_claim(
         claim_type=payload.get("claim_type"),
     )
 
-    result = {
-        "verified": False,
-        "status": "pending_implementation",
-        "verifier": "materials_verifier",
-        "message": "Materials science verification engine not yet implemented",
-        "details": {
-            "claim_type": payload.get("claim_type"),
-            "composition": payload.get("composition"),
-            "claim_id": claim_id,
-        },
-    }
+    try:
+        # Import the Materials verification service
+        from platform.verification_engines.materials_verifier.service import (
+            MaterialsVerificationService,
+        )
 
-    return result
+        # Create service instance (MCP tool provider can be injected)
+        service = MaterialsVerificationService()
+
+        # Build claim dict
+        claim = {
+            "claim_id": claim_id,
+            **payload,
+        }
+
+        # Run verification asynchronously
+        result = asyncio.run(service.verify_claim(claim))
+
+        logger.info(
+            "materials_verification_completed",
+            claim_id=claim_id,
+            job_id=job_id,
+            verified=result.verified,
+            status=result.status.value,
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        logger.exception(
+            "materials_verification_error",
+            claim_id=claim_id,
+            job_id=job_id,
+            error=str(e),
+        )
+
+        # Retry on transient errors
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "verified": False,
+            "status": "error",
+            "verifier": "materials_verifier",
+            "message": f"Verification failed: {str(e)}",
+            "error_type": "internal_error",
+            "claim_id": claim_id,
+        }
 
 
 # ===========================================

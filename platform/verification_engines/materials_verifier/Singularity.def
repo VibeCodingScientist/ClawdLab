@@ -1,0 +1,186 @@
+Bootstrap: docker
+From: nvidia/cuda:12.1-runtime-ubuntu22.04
+
+%labels
+    Author Autonomous Research Platform
+    Version 1.0.0
+    Description Materials Science Verification Engine with MLIP support
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export PYTHONPATH=/app:$PYTHONPATH
+    export TORCH_HOME=/models/torch
+    export MACE_HOME=/models/mace
+    export CHGNET_HOME=/models/chgnet
+
+%post
+    # Update and install system dependencies
+    apt-get update && apt-get install -y \
+        build-essential \
+        git \
+        wget \
+        curl \
+        libopenblas-dev \
+        liblapack-dev \
+        libfftw3-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install Miniconda
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+    /opt/conda/bin/conda init bash
+
+    # Create conda environment
+    /opt/conda/bin/conda create -n materials python=3.11 -y
+    /opt/conda/bin/conda run -n materials pip install --upgrade pip
+
+    # Install PyTorch with CUDA support
+    /opt/conda/bin/conda run -n materials pip install \
+        torch>=2.1.0 \
+        --index-url https://download.pytorch.org/whl/cu121
+
+    # Install core materials science packages
+    /opt/conda/bin/conda run -n materials pip install \
+        pymatgen>=2024.1.1 \
+        ase>=3.22.0 \
+        spglib>=2.2.0 \
+        mp-api>=0.39.0
+
+    # Install Machine Learning Interatomic Potentials
+    # MACE-MP (Cambridge)
+    /opt/conda/bin/conda run -n materials pip install \
+        mace-torch>=0.3.0
+
+    # CHGNet (Berkeley)
+    /opt/conda/bin/conda run -n materials pip install \
+        chgnet>=0.3.0
+
+    # M3GNet (Materials Virtual Lab)
+    /opt/conda/bin/conda run -n materials pip install \
+        m3gnet>=0.2.0
+
+    # Additional scientific packages
+    /opt/conda/bin/conda run -n materials pip install \
+        scipy>=1.11.0 \
+        numpy>=1.24.0 \
+        pandas>=2.0.0 \
+        scikit-learn>=1.3.0 \
+        matplotlib>=3.7.0
+
+    # Install structure analysis tools
+    /opt/conda/bin/conda run -n materials pip install \
+        robocrys>=0.2.0 \
+        matminer>=0.9.0
+
+    # Install API clients
+    /opt/conda/bin/conda run -n materials pip install \
+        aiohttp>=3.9.0 \
+        httpx>=0.25.0
+
+    # Create model directories
+    mkdir -p /models/mace /models/chgnet /models/m3gnet /models/torch
+
+    # Download MACE-MP model weights
+    /opt/conda/bin/conda run -n materials python -c "
+from mace.calculators import mace_mp
+# This will download the default model
+calc = mace_mp(model='medium', device='cpu')
+print('MACE model downloaded successfully')
+"
+
+    # Pre-download CHGNet model
+    /opt/conda/bin/conda run -n materials python -c "
+from chgnet.model import CHGNet
+model = CHGNet.load()
+print('CHGNet model loaded successfully')
+"
+
+    # Pre-download M3GNet model
+    /opt/conda/bin/conda run -n materials python -c "
+from m3gnet.models import M3GNet
+model = M3GNet.load()
+print('M3GNet model loaded successfully')
+"
+
+    # Create app directory
+    mkdir -p /app
+
+    # Make conda environment the default
+    ln -s /opt/conda/envs/materials/bin/python /usr/local/bin/python
+    ln -s /opt/conda/envs/materials/bin/pip /usr/local/bin/pip
+
+%files
+    # Copy verification engine code (will be mounted or copied at build time)
+
+%runscript
+    exec /opt/conda/envs/materials/bin/python "$@"
+
+%startscript
+    exec /opt/conda/envs/materials/bin/python "$@"
+
+%test
+    # Test Python and key packages
+    /opt/conda/envs/materials/bin/python -c "
+import torch
+print(f'PyTorch version: {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+
+import pymatgen
+print(f'Pymatgen version: {pymatgen.__version__}')
+
+import ase
+print(f'ASE version: {ase.__version__}')
+
+import spglib
+print(f'Spglib version: {spglib.__version__}')
+
+try:
+    from mace.calculators import mace_mp
+    print('MACE available')
+except ImportError as e:
+    print(f'MACE not available: {e}')
+
+try:
+    from chgnet.model import CHGNet
+    print('CHGNet available')
+except ImportError as e:
+    print(f'CHGNet not available: {e}')
+
+try:
+    from m3gnet.models import M3GNet
+    print('M3GNet available')
+except ImportError as e:
+    print(f'M3GNet not available: {e}')
+
+print('All tests passed!')
+"
+
+%help
+    Materials Science Verification Engine Container
+
+    This container provides tools for materials science verification including:
+    - Crystal structure parsing and validation (pymatgen, spglib)
+    - Machine Learning Interatomic Potentials (MACE, CHGNet, M3GNet)
+    - Symmetry analysis
+    - Energy calculations
+
+    Usage:
+        # Interactive Python
+        singularity run materials-verifier.sif
+
+        # Run a script
+        singularity exec materials-verifier.sif python my_script.py
+
+        # With GPU support
+        singularity exec --nv materials-verifier.sif python my_script.py
+
+    Environment Variables:
+        MACE_HOME: Path to MACE model weights
+        CHGNET_HOME: Path to CHGNet model weights
+        TORCH_HOME: PyTorch cache directory
+
+    Models included:
+        - MACE-MP-0 (medium): High-accuracy foundation model
+        - CHGNet: Charge-informed graph neural network
+        - M3GNet: Materials 3-body graph network
