@@ -456,6 +456,217 @@ def verify_bioinformatics_claim(
 
 
 # ===========================================
+# ORCHESTRATION TASKS
+# ===========================================
+
+
+@shared_task(
+    bind=True,
+    name="orchestration.process_workflow",
+    queue="orchestration",
+    max_retries=2,
+    default_retry_delay=60,
+)
+def process_workflow(
+    self,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """
+    Process a research workflow.
+
+    Advances the workflow through its steps and handles claim verification.
+
+    Args:
+        workflow_id: ID of workflow to process
+
+    Returns:
+        Workflow status
+    """
+    import asyncio
+
+    logger.info("workflow_processing_started", workflow_id=workflow_id)
+
+    try:
+        from platform.orchestration.service import get_orchestration_service
+
+        service = get_orchestration_service()
+
+        # Process workflow claims
+        asyncio.run(service.process_workflow_claims(workflow_id))
+
+        # Get updated status
+        status = asyncio.run(service.get_workflow_status(workflow_id))
+
+        logger.info(
+            "workflow_processing_completed",
+            workflow_id=workflow_id,
+            status=status.get("status"),
+        )
+
+        return status
+
+    except Exception as e:
+        logger.exception("workflow_processing_error", workflow_id=workflow_id)
+
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "workflow_id": workflow_id,
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@shared_task(
+    bind=True,
+    name="orchestration.route_claim",
+    queue="orchestration",
+    max_retries=2,
+)
+def route_and_verify_claim(
+    self,
+    claim_id: str,
+    claim_data: dict[str, Any],
+    workflow_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Route a claim and submit for verification.
+
+    Args:
+        claim_id: Claim ID
+        claim_data: Claim data
+        workflow_id: Optional workflow context
+
+    Returns:
+        Routing result
+    """
+    import asyncio
+
+    logger.info("claim_routing_started", claim_id=claim_id)
+
+    try:
+        from platform.orchestration.base import Claim
+        from platform.orchestration.service import get_orchestration_service
+
+        service = get_orchestration_service()
+
+        # Create claim object
+        claim = Claim(
+            claim_id=claim_id,
+            claim_type=claim_data.get("claim_type", ""),
+            content=claim_data.get("content", ""),
+            domain=claim_data.get("domain"),
+            source=claim_data.get("source", ""),
+            metadata=claim_data.get("metadata", {}),
+        )
+
+        # Process claim
+        result = asyncio.run(service.process_claim(claim, workflow_id))
+
+        logger.info(
+            "claim_routing_completed",
+            claim_id=claim_id,
+            domain=result.domain,
+            verifier=result.verifier,
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        logger.exception("claim_routing_error", claim_id=claim_id)
+
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+
+        return {
+            "claim_id": claim_id,
+            "status": "error",
+            "error": str(e),
+        }
+
+
+@shared_task(name="orchestration.handle_result")
+def handle_verification_result(
+    workflow_id: str,
+    claim_id: str,
+    result: dict[str, Any],
+) -> None:
+    """
+    Handle a verification result from a verification engine.
+
+    Updates the workflow with the result.
+
+    Args:
+        workflow_id: Workflow ID
+        claim_id: Claim ID
+        result: Verification result
+    """
+    import asyncio
+
+    logger.info(
+        "verification_result_received",
+        workflow_id=workflow_id,
+        claim_id=claim_id,
+    )
+
+    try:
+        from platform.orchestration.service import get_orchestration_service
+
+        service = get_orchestration_service()
+
+        asyncio.run(service.handle_verification_result(workflow_id, claim_id, result))
+
+    except Exception as e:
+        logger.exception(
+            "verification_result_handling_error",
+            workflow_id=workflow_id,
+            claim_id=claim_id,
+            error=str(e),
+        )
+
+
+@shared_task(name="orchestration.cleanup_sessions")
+def cleanup_expired_sessions() -> int:
+    """
+    Periodic task to clean up expired sessions.
+
+    Returns:
+        Number of sessions cleaned up
+    """
+    import asyncio
+
+    from platform.orchestration.session_manager import get_session_manager
+
+    manager = get_session_manager()
+    count = asyncio.run(manager.cleanup_expired_sessions())
+
+    logger.info("expired_sessions_cleaned", count=count)
+    return count
+
+
+@shared_task(name="orchestration.check_timeouts")
+def check_task_timeouts() -> list[str]:
+    """
+    Periodic task to check for timed out tasks.
+
+    Returns:
+        List of timed out task IDs
+    """
+    import asyncio
+
+    from platform.orchestration.task_scheduler import get_task_scheduler
+
+    scheduler = get_task_scheduler()
+    timed_out = asyncio.run(scheduler.check_timeouts())
+
+    if timed_out:
+        logger.warning("tasks_timed_out", count=len(timed_out))
+
+    return timed_out
+
+
+# ===========================================
 # UTILITY TASKS
 # ===========================================
 
