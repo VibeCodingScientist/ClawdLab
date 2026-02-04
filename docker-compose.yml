@@ -217,27 +217,103 @@ services:
       - asrp-network
 
   # ===========================================
-  # APPLICATION SERVICES (for development)
+  # APPLICATION SERVICES
   # ===========================================
 
-  # Uncomment to run services in Docker instead of locally
-  # api-gateway:
-  #   build:
-  #     context: .
-  #     dockerfile: ./platform/services/api-gateway/Dockerfile
-  #   container_name: asrp-api-gateway
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://asrp:asrp_dev_password@postgres:5432/asrp
-  #     - REDIS_URL=redis://redis:6379/0
-  #     - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #     - kafka
-  #   networks:
-  #     - asrp-network
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: asrp-api
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debug port
+    environment:
+      # Database connections
+      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4j_dev_password
+      WEAVIATE_URL: http://weaviate:8080
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minio_admin
+      MINIO_SECRET_KEY: minio_dev_password
+      # Security
+      JWT_SECRET_KEY: dev_jwt_secret_key_change_in_production
+      JWT_ALGORITHM: HS256
+      # Environment
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      ENVIRONMENT: development
+    volumes:
+      - ./platform:/app/platform:cached
+      - ./tests:/app/tests:cached
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - asrp-network
+    restart: unless-stopped
+
+  # Celery worker for background tasks
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: asrp-celery-worker
+    command: celery -A platform.infrastructure.celery.app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ./platform:/app/platform:cached
+    depends_on:
+      - api
+      - redis
+    networks:
+      - asrp-network
+    restart: unless-stopped
+
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: asrp-celery-beat
+    command: celery -A platform.infrastructure.celery.app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ./platform:/app/platform:cached
+    depends_on:
+      - celery-worker
+    networks:
+      - asrp-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:

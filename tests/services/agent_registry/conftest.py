@@ -1,9 +1,15 @@
 """Pytest fixtures for Agent Registry tests."""
 
 import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 from platform.shared.utils.crypto import generate_agent_keypair
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time with timezone info."""
+    return datetime.now(timezone.utc)
 
 
 @pytest.fixture
@@ -70,8 +76,6 @@ def valid_signature(agent_keypair, registration_challenge_data):
 @pytest.fixture
 def mock_agent_data(agent_keypair):
     """Create mock agent data."""
-    from datetime import datetime
-
     return {
         "agent_id": agent_keypair["agent_id"],
         "display_name": "TestAgent",
@@ -80,20 +84,18 @@ def mock_agent_data(agent_keypair):
         "capabilities": [
             {"domain": "mathematics", "capability_level": "basic", "verified_at": None}
         ],
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": _utcnow(),
+        "updated_at": _utcnow(),
     }
 
 
 @pytest.fixture
 def mock_token_data():
     """Create mock token data."""
-    from datetime import datetime, timedelta
-
     return {
         "token_id": "test-token-id",
         "token_prefix": "srp_abcd1234",
         "name": "default",
         "scopes": ["read", "write"],
-        "expires_at": datetime.utcnow() + timedelta(days=365),
+        "expires_at": _utcnow() + timedelta(days=365),
     }

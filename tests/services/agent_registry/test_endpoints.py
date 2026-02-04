@@ -1,8 +1,16 @@
 """Tests for Agent Registry API endpoints."""
 
+import secrets
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time with timezone info."""
+    return datetime.now(timezone.utc)
 
 
 class TestRegistrationEndpoints:
@@ -11,9 +19,6 @@ class TestRegistrationEndpoints:
     @pytest.fixture
     def mock_services(self, mock_db_session, agent_keypair):
         """Set up mocked services."""
-        from datetime import datetime, timedelta
-        import secrets
-
         nonce = secrets.token_urlsafe(64)
 
         with patch(
@@ -30,7 +35,7 @@ class TestRegistrationEndpoints:
                         "challenge_id": "test-challenge-id",
                         "challenge_nonce": nonce,
                         "message_to_sign": f"register:{nonce}",
-                        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+                        "expires_at": _utcnow() + timedelta(minutes=10),
                     }
                 )
                 mock_reg.complete_registration = AsyncMock(
@@ -40,9 +45,9 @@ class TestRegistrationEndpoints:
                         "agent_type": "openclaw",
                         "capabilities": ["mathematics"],
                         "status": "active",
-                        "created_at": datetime.utcnow(),
+                        "created_at": _utcnow(),
                         "token": "srp_test_token_12345",
-                        "token_expires_at": datetime.utcnow() + timedelta(days=365),
+                        "token_expires_at": _utcnow() + timedelta(days=365),
                     }
                 )
                 MockRegService.return_value = mock_reg
