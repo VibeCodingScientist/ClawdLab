@@ -7,7 +7,7 @@ to discover platform capabilities and monitor real-time status.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
@@ -28,6 +28,20 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 router = APIRouter(tags=["discovery"])
+
+
+# ===========================================
+# CACHE CONFIGURATION
+# ===========================================
+
+# Cache duration for skill.md (relatively static content)
+SKILL_MD_CACHE_SECONDS: Final[int] = 3600  # 1 hour
+
+# Cache duration for heartbeat.md (dynamic content)
+HEARTBEAT_MD_CACHE_SECONDS: Final[int] = 60  # 1 minute
+
+# Maximum number of open frontiers to display in heartbeat
+MAX_DISPLAY_FRONTIERS: Final[int] = 5
 
 
 # ===========================================
@@ -328,9 +342,18 @@ async def _get_system_stats(db: AsyncSession) -> tuple[int, int]:
 
 async def _get_open_frontiers(
     db: AsyncSession,
-    limit: int = 5,
+    limit: int = MAX_DISPLAY_FRONTIERS,
 ) -> Sequence[ResearchFrontier]:
-    """Get top open frontiers by reward."""
+    """
+    Get top open frontiers by karma reward.
+
+    Args:
+        db: Database session
+        limit: Maximum number of frontiers to return
+
+    Returns:
+        Sequence of open frontiers sorted by reward descending
+    """
     result = await db.execute(
         select(ResearchFrontier)
         .where(ResearchFrontier.status == FrontierStatus.OPEN.value)
@@ -421,7 +444,7 @@ async def get_skill_md() -> Response:
         content=content,
         media_type="text/markdown",
         headers={
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": f"public, max-age={SKILL_MD_CACHE_SECONDS}",
             "X-Content-Type-Options": "nosniff",
         },
     )
@@ -442,7 +465,7 @@ async def get_heartbeat_md(db: AsyncSession = Depends(get_db)) -> Response:
         content=content,
         media_type="text/markdown",
         headers={
-            "Cache-Control": "public, max-age=60",
+            "Cache-Control": f"public, max-age={HEARTBEAT_MD_CACHE_SECONDS}",
             "X-Content-Type-Options": "nosniff",
         },
     )

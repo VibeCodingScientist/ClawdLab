@@ -454,7 +454,15 @@ class FrontierService:
         return await self.repo.count_by_status()
 
     def _frontier_to_dict(self, frontier: ResearchFrontier) -> dict[str, Any]:
-        """Convert frontier model to dictionary."""
+        """
+        Convert frontier model to API response dictionary.
+
+        Args:
+            frontier: The ResearchFrontier model instance
+
+        Returns:
+            Dictionary with all frontier fields serialized for API response
+        """
         return {
             "id": str(frontier.id),
             "domain": frontier.domain,
@@ -483,7 +491,17 @@ class FrontierService:
         event_type: str,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        """Publish frontier event to Kafka."""
+        """
+        Publish frontier event to Kafka for downstream processing.
+
+        Args:
+            frontier: The frontier that triggered the event
+            event_type: Event type (e.g., 'frontier.created', 'frontier.claimed')
+            extra: Additional fields to include in the event payload
+
+        Note:
+            Errors are logged but not raised to prevent blocking the main operation.
+        """
         try:
             producer = KafkaProducer()
             event = {

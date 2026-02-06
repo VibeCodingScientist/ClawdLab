@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Final
 from uuid import UUID
 
 from sqlalchemy import select, update, func, and_
@@ -14,6 +14,16 @@ from platform.infrastructure.database.models import (
     FrontierSubscription,
 )
 from platform.shared.schemas.base import FrontierStatus
+
+
+# Valid sort columns for frontier queries
+VALID_SORT_COLUMNS: Final[set[str]] = {
+    "created_at",
+    "updated_at",
+    "base_karma_reward",
+    "difficulty_estimate",
+    "title",
+}
 
 
 class FrontierRepository:
@@ -111,39 +121,54 @@ class FrontierRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[ResearchFrontier], int]:
-        """List frontiers with filtering and pagination."""
+        """
+        List frontiers with filtering and pagination.
+
+        Args:
+            domain: Filter by domain
+            status: Filter by status
+            problem_type: Filter by problem type
+            difficulty: Filter by difficulty estimate
+            min_reward: Minimum base karma reward
+            sort_by: Column to sort by (must be in VALID_SORT_COLUMNS)
+            sort_order: Sort direction ('asc' or 'desc')
+            limit: Maximum results to return
+            offset: Number of results to skip
+
+        Returns:
+            Tuple of (list of frontiers, total count)
+        """
+        # Build base query and filters
+        filters = []
+        if domain:
+            filters.append(ResearchFrontier.domain == domain)
+        if status:
+            filters.append(ResearchFrontier.status == status)
+        if problem_type:
+            filters.append(ResearchFrontier.problem_type == problem_type)
+        if difficulty:
+            filters.append(ResearchFrontier.difficulty_estimate == difficulty)
+        if min_reward:
+            filters.append(ResearchFrontier.base_karma_reward >= min_reward)
+
+        # Build main query
         query = select(ResearchFrontier)
+        if filters:
+            query = query.where(and_(*filters))
 
-        # Apply filters
-        if domain:
-            query = query.where(ResearchFrontier.domain == domain)
-        if status:
-            query = query.where(ResearchFrontier.status == status)
-        if problem_type:
-            query = query.where(ResearchFrontier.problem_type == problem_type)
-        if difficulty:
-            query = query.where(ResearchFrontier.difficulty_estimate == difficulty)
-        if min_reward:
-            query = query.where(ResearchFrontier.base_karma_reward >= min_reward)
-
-        # Count total
+        # Count total (reusing same filters)
         count_query = select(func.count(ResearchFrontier.id))
-        if domain:
-            count_query = count_query.where(ResearchFrontier.domain == domain)
-        if status:
-            count_query = count_query.where(ResearchFrontier.status == status)
-        if problem_type:
-            count_query = count_query.where(ResearchFrontier.problem_type == problem_type)
-        if difficulty:
-            count_query = count_query.where(ResearchFrontier.difficulty_estimate == difficulty)
-        if min_reward:
-            count_query = count_query.where(ResearchFrontier.base_karma_reward >= min_reward)
+        if filters:
+            count_query = count_query.where(and_(*filters))
 
         total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
 
-        # Apply sorting
-        sort_column = getattr(ResearchFrontier, sort_by, ResearchFrontier.created_at)
+        # Validate and apply sorting
+        if sort_by not in VALID_SORT_COLUMNS:
+            sort_by = "created_at"
+        sort_column = getattr(ResearchFrontier, sort_by)
+
         if sort_order == "desc":
             query = query.order_by(sort_column.desc())
         else:

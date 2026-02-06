@@ -74,7 +74,17 @@ class KarmaResult:
 
 
 def _clamp(value: float, min_val: float = 0.0, max_val: float = 1.0) -> float:
-    """Clamp a value to a range."""
+    """
+    Clamp a value to a specified range.
+
+    Args:
+        value: The value to clamp
+        min_val: Minimum allowed value (default 0.0)
+        max_val: Maximum allowed value (default 1.0)
+
+    Returns:
+        The value clamped to [min_val, max_val]
+    """
     return max(min_val, min(max_val, value))
 
 

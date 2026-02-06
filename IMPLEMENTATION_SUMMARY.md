@@ -271,6 +271,49 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ---
 
+## Code Quality Standards
+
+The implementation follows state-of-the-art (SOTA) Python practices:
+
+### Type Safety
+- `from __future__ import annotations` for forward references
+- `Final[]` type hints for immutable constants
+- `Protocol` classes for duck-typed interfaces
+- No usage of `Any` except where truly dynamic
+
+### Enums for Type Safety
+- `EventType` - Kafka event types
+- `VerificationStatus` - Claim verification states
+- `ClaimEventType` - Claim lifecycle events
+- `JobStatus` - Verification job states
+- `ChallengeSeverity`, `ChallengeOutcome`, `ViolationType` - Karma calculations
+
+### Datetime Handling
+- All timestamps use `datetime.now(timezone.utc)` (timezone-aware)
+- No usage of deprecated `datetime.utcnow()`
+
+### Concurrency Safety
+- Row-level locking with `select().with_for_update()` for race conditions
+- `asyncio.Event` for graceful shutdown coordination
+- Signal handlers for SIGTERM/SIGINT
+
+### Documentation
+- Comprehensive docstrings on all public methods
+- Args/Returns documentation following Google style
+- Module-level docstrings explaining purpose
+
+### Error Handling
+- Proper null checks before attribute access
+- Graceful degradation for Kafka publishing failures
+- Comprehensive logging with structured context
+
+### Code Organization
+- `__all__` exports in all modules
+- Constants defined with `Final[]` at module level
+- Helper functions with clear single responsibility
+
+---
+
 ## Architecture Diagram
 
 ```

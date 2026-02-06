@@ -13,11 +13,15 @@ from datetime import datetime, timezone
 from typing import Any, Final
 
 from platform.infrastructure.database.session import get_async_session
-from platform.reputation.handlers import KarmaEventHandler
+from platform.reputation.handlers import EventType, KarmaEventHandler
 from platform.shared.clients.kafka_client import KafkaConsumer
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# Type alias for health status
+HealthStatus = dict[str, Any]
 
 
 class KarmaWorker:
@@ -118,7 +122,13 @@ class KarmaWorker:
         handler: KarmaEventHandler,
         message: dict[str, Any],
     ) -> None:
-        """Process a single Kafka message."""
+        """
+        Process a single Kafka message and route to appropriate handler.
+
+        Args:
+            handler: The karma event handler instance
+            message: The Kafka message payload containing event_type and data
+        """
         event_type = message.get("event_type", "")
 
         logger.debug(
@@ -127,24 +137,23 @@ class KarmaWorker:
             claim_id=message.get("claim_id"),
         )
 
-        # Route to appropriate handler
-        if event_type == "verification.completed":
+        # Route to appropriate handler using EventType enum
+        if event_type == EventType.VERIFICATION_COMPLETED.value:
             await handler.handle_verification_completed(message)
 
-        elif event_type == "challenge.resolved":
+        elif event_type == EventType.CHALLENGE_RESOLVED.value:
             await handler.handle_challenge_resolved(message)
 
-        elif event_type == "frontier.solved":
+        elif event_type == EventType.FRONTIER_SOLVED.value:
             await handler.handle_frontier_solved(message)
 
-        elif event_type == "claim.cited":
+        elif event_type == EventType.CLAIM_CITED.value:
             await handler.handle_claim_cited(message)
 
-        # Specific event types for verified/failed
-        elif event_type == "claim.verified":
+        elif event_type == EventType.CLAIM_VERIFIED.value:
             await handler.handle_claim_verified(message)
 
-        elif event_type == "claim.failed":
+        elif event_type == EventType.CLAIM_FAILED.value:
             await handler.handle_claim_failed(message)
 
         else:
@@ -189,3 +198,6 @@ def run_karma_worker() -> None:
 
 if __name__ == "__main__":
     run_karma_worker()
+
+
+__all__ = ["KarmaWorker", "start_karma_worker", "run_karma_worker"]

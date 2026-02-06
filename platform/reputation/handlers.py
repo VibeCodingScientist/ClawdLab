@@ -6,7 +6,8 @@ and process karma accordingly.
 
 from __future__ import annotations
 
-from typing import Any
+from enum import Enum
+from typing import Any, Final
 from uuid import UUID
 
 from sqlalchemy import select
@@ -17,6 +18,30 @@ from platform.reputation.service import KarmaService
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class VerificationStatus(str, Enum):
+    """Verification status values for event handling."""
+
+    VERIFIED = "verified"
+    FAILED = "failed"
+    REFUTED = "refuted"
+
+
+class EventType(str, Enum):
+    """Kafka event types for karma processing."""
+
+    VERIFICATION_COMPLETED = "verification.completed"
+    CLAIM_VERIFIED = "claim.verified"
+    CLAIM_FAILED = "claim.failed"
+    CHALLENGE_RESOLVED = "challenge.resolved"
+    FRONTIER_SOLVED = "frontier.solved"
+    CLAIM_CITED = "claim.cited"
+
+
+# Default difficulty when not specified
+DEFAULT_DIFFICULTY: Final[str] = "medium"
+DEFAULT_BONUS_MULTIPLIER: Final[float] = 1.0
 
 
 class KarmaEventHandler:
@@ -41,12 +66,12 @@ class KarmaEventHandler:
         event_type = event.get("event_type")
 
         handlers = {
-            "verification.completed": self.handle_verification_completed,
-            "claim.verified": self.handle_claim_verified,
-            "claim.failed": self.handle_claim_failed,
-            "challenge.resolved": self.handle_challenge_resolved,
-            "frontier.solved": self.handle_frontier_solved,
-            "claim.cited": self.handle_claim_cited,
+            EventType.VERIFICATION_COMPLETED.value: self.handle_verification_completed,
+            EventType.CLAIM_VERIFIED.value: self.handle_claim_verified,
+            EventType.CLAIM_FAILED.value: self.handle_claim_failed,
+            EventType.CHALLENGE_RESOLVED.value: self.handle_challenge_resolved,
+            EventType.FRONTIER_SOLVED.value: self.handle_frontier_solved,
+            EventType.CLAIM_CITED.value: self.handle_claim_cited,
         }
 
         handler = handlers.get(event_type)
@@ -87,7 +112,7 @@ class KarmaEventHandler:
             logger.error("verification_completed_claim_not_found", claim_id=claim_id)
             return
 
-        if status == "verified":
+        if status == VerificationStatus.VERIFIED.value:
             await self.karma_service.process_claim_verified(
                 agent_id=claim.agent_id,
                 claim_id=UUID(claim_id),
@@ -96,7 +121,7 @@ class KarmaEventHandler:
                 impact_score=result.get("impact_score"),
                 verification_score=result.get("verification_score"),
             )
-        elif status in ("failed", "refuted"):
+        elif status in (VerificationStatus.FAILED.value, VerificationStatus.REFUTED.value):
             await self.karma_service.process_claim_failed(
                 agent_id=claim.agent_id,
                 claim_id=UUID(claim_id),
@@ -208,7 +233,10 @@ class KarmaEventHandler:
             return
 
         # Get severity from challenge evidence if available
-        severity = challenge.evidence.get("severity") if challenge.evidence else None
+        # Safe access: check evidence exists and is a dict before calling .get()
+        severity: str | None = None
+        if challenge.evidence and isinstance(challenge.evidence, dict):
+            severity = challenge.evidence.get("severity")
 
         await self.karma_service.process_challenge_resolved(
             challenger_id=challenge.challenger_agent_id,
@@ -256,9 +284,9 @@ class KarmaEventHandler:
             frontier_id=UUID(frontier_id),
             claim_id=UUID(claim_id),
             domain=frontier.domain,
-            difficulty=frontier.difficulty_estimate or "medium",
+            difficulty=frontier.difficulty_estimate or DEFAULT_DIFFICULTY,
             base_reward=frontier.base_karma_reward,
-            bonus_multiplier=float(frontier.bonus_multiplier) if frontier.bonus_multiplier else 1.0,
+            bonus_multiplier=float(frontier.bonus_multiplier) if frontier.bonus_multiplier else DEFAULT_BONUS_MULTIPLIER,
         )
 
         logger.info(

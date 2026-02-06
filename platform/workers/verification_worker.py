@@ -9,8 +9,13 @@ from __future__ import annotations
 import asyncio
 import signal
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Final
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from platform.infrastructure.database.models import Claim
 from platform.infrastructure.database.session import get_async_session
 from platform.services.verification_orchestrator.orchestrator import (
     ClaimEventConsumer,
@@ -20,6 +25,21 @@ from platform.shared.clients.kafka_client import KafkaConsumer
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class ClaimEventType(str, Enum):
+    """Claim event types."""
+
+    SUBMITTED = "claim.submitted"
+    RETRACTED = "claim.retracted"
+
+
+class JobStatus(str, Enum):
+    """Verification job status values."""
+
+    QUEUED = "queued"
+    DISPATCHED = "dispatched"
+    RUNNING = "running"
 
 
 class VerificationWorker:
@@ -113,10 +133,17 @@ class VerificationWorker:
     async def _process_message(
         self,
         orchestrator: VerificationOrchestrator,
-        session,
+        session: AsyncSession,
         message: dict[str, Any],
     ) -> None:
-        """Process a single Kafka message."""
+        """
+        Process a single Kafka message and route to appropriate handler.
+
+        Args:
+            orchestrator: The verification orchestrator instance
+            session: Database session for claim lookups
+            message: The Kafka message payload
+        """
         event_type = message.get("event_type", "")
 
         logger.debug(
@@ -125,10 +152,10 @@ class VerificationWorker:
             claim_id=message.get("claim_id"),
         )
 
-        if event_type == "claim.submitted":
+        if event_type == ClaimEventType.SUBMITTED.value:
             await self._handle_claim_submitted(orchestrator, session, message)
 
-        elif event_type == "claim.retracted":
+        elif event_type == ClaimEventType.RETRACTED.value:
             await self._handle_claim_retracted(orchestrator, message)
 
         else:
@@ -137,10 +164,17 @@ class VerificationWorker:
     async def _handle_claim_submitted(
         self,
         orchestrator: VerificationOrchestrator,
-        session,
+        session: AsyncSession,
         message: dict[str, Any],
     ) -> None:
-        """Handle claim submission - dispatch verification."""
+        """
+        Handle claim submission event by dispatching verification.
+
+        Args:
+            orchestrator: The verification orchestrator
+            session: Database session
+            message: Event payload with claim_id, domain, claim_type
+        """
         claim_id = message.get("claim_id")
         domain = message.get("domain")
         claim_type = message.get("claim_type")
@@ -150,9 +184,6 @@ class VerificationWorker:
             return
 
         # Get full claim payload from database
-        from platform.infrastructure.database.models import Claim
-        from sqlalchemy import select
-
         result = await session.execute(
             select(Claim).where(Claim.id == claim_id)
         )
@@ -182,35 +213,65 @@ class VerificationWorker:
         orchestrator: VerificationOrchestrator,
         message: dict[str, Any],
     ) -> None:
-        """Handle claim retraction - cancel pending verification."""
+        """
+        Handle claim retraction by cancelling pending verification.
+
+        Args:
+            orchestrator: The verification orchestrator
+            message: Event payload with claim_id
+        """
         claim_id = message.get("claim_id")
 
         if not claim_id:
             logger.error("invalid_claim_retracted_event", message=message)
             return
 
-        # Get verification job
+        # Get verification job link from cache
         link = await orchestrator.cache.get(f"claim_verification:{claim_id}")
-        if link and link.get("status") in ("queued", "dispatched", "running"):
-            job_id = link.get("job_id")
-            if job_id:
-                job_data = await orchestrator.cache.get(f"verification_job:{job_id}")
-                if job_data and job_data.get("celery_task_id"):
-                    try:
-                        from platform.infrastructure.celery.app import celery_app
-                        celery_app.control.revoke(job_data["celery_task_id"], terminate=True)
+        if not link:
+            return
 
-                        logger.info(
-                            "verification_cancelled_on_retraction",
-                            job_id=job_id,
-                            claim_id=claim_id,
-                        )
-                    except Exception as e:
-                        logger.error(
-                            "failed_to_cancel_verification",
-                            error=str(e),
-                            job_id=job_id,
-                        )
+        # Check if job is in a cancellable state
+        cancellable_statuses = {
+            JobStatus.QUEUED.value,
+            JobStatus.DISPATCHED.value,
+            JobStatus.RUNNING.value,
+        }
+        if link.get("status") not in cancellable_statuses:
+            return
+
+        job_id = link.get("job_id")
+        if not job_id:
+            return
+
+        job_data = await orchestrator.cache.get(f"verification_job:{job_id}")
+        celery_task_id = job_data.get("celery_task_id") if job_data else None
+        if not celery_task_id:
+            return
+
+        try:
+            # Import celery app only when needed for cancellation
+            from platform.infrastructure.celery.app import celery_app
+            celery_app.control.revoke(celery_task_id, terminate=True)
+
+            logger.info(
+                "verification_cancelled_on_retraction",
+                job_id=job_id,
+                claim_id=claim_id,
+            )
+        except ImportError:
+            logger.error(
+                "celery_app_not_available",
+                job_id=job_id,
+                claim_id=claim_id,
+            )
+        except Exception as e:
+            logger.error(
+                "failed_to_cancel_verification",
+                error=str(e),
+                job_id=job_id,
+                claim_id=claim_id,
+            )
 
 
 class VerificationResultWorker:
@@ -378,3 +439,12 @@ def run_verification_worker() -> None:
 
 if __name__ == "__main__":
     run_verification_worker()
+
+
+__all__ = [
+    "VerificationWorker",
+    "VerificationResultWorker",
+    "start_verification_worker",
+    "start_verification_result_worker",
+    "run_verification_worker",
+]

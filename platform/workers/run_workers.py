@@ -10,10 +10,12 @@ Usage:
     python -m platform.workers.run_workers --workers karma verification
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import signal
-from typing import Any
+from typing import Any, Protocol, Final
 
 from platform.workers.karma_worker import KarmaWorker
 from platform.workers.verification_worker import (
@@ -25,20 +27,44 @@ from platform.shared.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class Worker(Protocol):
+    """Protocol defining the interface for background workers."""
+
+    running: bool
+
+    async def start(self) -> None:
+        """Start the worker."""
+        ...
+
+    async def stop(self) -> None:
+        """Stop the worker."""
+        ...
+
+
+# Available worker types
+WORKER_TYPES: Final[list[str]] = ["karma", "verification", "verification_result"]
+
+
 class WorkerManager:
     """
     Manages multiple background workers.
 
-    Handles startup, shutdown, and graceful termination.
+    Handles startup, shutdown, and graceful termination of all workers.
+    Supports signal-based shutdown (SIGTERM, SIGINT).
     """
 
-    def __init__(self):
-        self.workers: list[Any] = []
-        self.tasks: list[asyncio.Task] = []
+    def __init__(self) -> None:
+        self.workers: list[Worker] = []
+        self.tasks: list[asyncio.Task[None]] = []
         self.shutdown_event = asyncio.Event()
 
-    def add_worker(self, worker: Any) -> None:
-        """Add a worker to manage."""
+    def add_worker(self, worker: Worker) -> None:
+        """
+        Add a worker to be managed.
+
+        Args:
+            worker: A worker implementing the Worker protocol
+        """
         self.workers.append(worker)
 
     async def start_all(self) -> None:
@@ -82,20 +108,30 @@ class WorkerManager:
 
 
 def setup_signal_handlers(manager: WorkerManager) -> None:
-    """Set up signal handlers for graceful shutdown."""
-    loop = asyncio.get_event_loop()
+    """
+    Set up signal handlers for graceful shutdown.
+
+    Args:
+        manager: The worker manager to signal on shutdown
+    """
+    loop = asyncio.get_running_loop()
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, manager.shutdown)
 
 
 async def run_workers(worker_types: list[str] | None = None) -> None:
-    """Run specified workers or all workers."""
+    """
+    Run specified workers or all workers.
+
+    Args:
+        worker_types: List of worker types to run, or None for all workers
+    """
     manager = WorkerManager()
 
     # Determine which workers to run
     if worker_types is None or "all" in worker_types:
-        worker_types = ["karma", "verification", "verification_result"]
+        worker_types = list(WORKER_TYPES)
 
     # Create and add workers
     if "karma" in worker_types:
@@ -127,12 +163,12 @@ async def run_workers(worker_types: list[str] | None = None) -> None:
 
 
 def main() -> None:
-    """Main entry point."""
+    """Main entry point for the combined worker runner."""
     parser = argparse.ArgumentParser(description="Run platform background workers")
     parser.add_argument(
         "--workers",
         nargs="+",
-        choices=["all", "karma", "verification", "verification_result"],
+        choices=["all"] + WORKER_TYPES,
         default=["all"],
         help="Workers to run (default: all)",
     )
@@ -142,6 +178,7 @@ def main() -> None:
 
     try:
         asyncio.run(run_workers(args.workers))
+        logger.info("platform_workers_stopped_cleanly")
     except KeyboardInterrupt:
         logger.info("platform_workers_interrupted")
     except Exception as e:
@@ -151,3 +188,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+__all__ = ["WorkerManager", "run_workers", "main", "Worker"]
