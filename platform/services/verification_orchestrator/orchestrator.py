@@ -209,18 +209,37 @@ class VerificationOrchestrator:
             {"job_id": job_id, "status": status},
         )
 
-        # Publish result event
+        # Get claim to include agent_id and domain in event
+        from platform.infrastructure.database.models import Claim
+        from sqlalchemy import select
+
+        claim_result = await self.session.execute(
+            select(Claim).where(Claim.id == claim_id)
+        )
+        claim = claim_result.scalar_one_or_none()
+
+        # Publish result event with agent info for karma processing
+        event_payload = {
+            "event_type": "verification.completed",
+            "job_id": job_id,
+            "claim_id": claim_id,
+            "status": status,
+            "result": result,
+            "error": error,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        if claim:
+            event_payload["agent_id"] = str(claim.agent_id)
+            event_payload["domain"] = claim.domain
+            if result:
+                event_payload["novelty_score"] = result.get("novelty_score")
+                event_payload["impact_score"] = result.get("impact_score")
+                event_payload["verification_score"] = result.get("verification_score")
+
         await self.producer.send(
             topic="verification.results",
-            value={
-                "event_type": "verification.completed",
-                "job_id": job_id,
-                "claim_id": claim_id,
-                "status": status,
-                "result": result,
-                "error": error,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
+            value=event_payload,
         )
 
         # Update claim in database
@@ -285,40 +304,63 @@ class VerificationOrchestrator:
     ) -> None:
         """Update claim verification status in database."""
         from platform.infrastructure.database.models import Claim, VerificationResult
-        from sqlalchemy import update
+        from sqlalchemy import select, update
 
         # Map verification status
         verification_status_map = {
             "verified": "verified",
-            "refuted": "refuted",
-            "error": "error",
-            "timeout": "error",
-            "inconclusive": "inconclusive",
+            "refuted": "failed",
+            "error": "failed",
+            "timeout": "failed",
+            "inconclusive": "partial",
         }
-        db_status = verification_status_map.get(status, "error")
+        db_status = verification_status_map.get(status, "failed")
 
-        # Update claim
+        # Extract scores from result
+        novelty_score = None
+        verification_score = None
+        if result:
+            novelty_score = result.get("novelty_score")
+            verification_score = result.get("verification_score")
+
+        # Update claim with scores
+        update_values = {
+            "verification_status": db_status,
+            "updated_at": datetime.utcnow(),
+        }
+
+        if db_status == "verified":
+            update_values["verified_at"] = datetime.utcnow()
+            if novelty_score is not None:
+                update_values["novelty_score"] = novelty_score
+            if verification_score is not None:
+                update_values["verification_score"] = verification_score
+
         await self.session.execute(
             update(Claim)
             .where(Claim.id == claim_id)
-            .values(
-                verification_status=db_status,
-                status="active" if db_status == "verified" else "pending",
-                verified_at=datetime.utcnow() if db_status == "verified" else None,
-                updated_at=datetime.utcnow(),
-            )
+            .values(**update_values)
         )
+
+        # Get claim domain for verifier type
+        claim_result = await self.session.execute(
+            select(Claim.domain).where(Claim.id == claim_id)
+        )
+        domain = claim_result.scalar_one_or_none() or "unknown"
 
         # Create verification result record
         result_id = str(uuid4())
+        now = datetime.utcnow()
         verification_result = VerificationResult(
             id=result_id,
             claim_id=claim_id,
-            verifier_type=f"domain_{status}",
-            status=db_status,
-            result=result or {},
-            error_message=error,
-            completed_at=datetime.utcnow(),
+            verifier_type=f"{domain}_verifier",
+            verifier_version="1.0.0",
+            passed=(status == "verified"),
+            score=verification_score,
+            results=result or {},
+            started_at=now,  # Approximation - actual start time from job
+            completed_at=now,
         )
         self.session.add(verification_result)
 

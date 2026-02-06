@@ -139,3 +139,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     async with get_db_session() as session:
         yield session
+
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async generator for database sessions in background workers.
+
+    Unlike get_db(), this is designed for long-running processes
+    that need to continuously acquire and release sessions.
+
+    Usage:
+        async for session in get_async_session():
+            # Process with session
+            # Session is automatically closed after each iteration
+    """
+    while True:
+        async with get_db_session() as session:
+            yield session

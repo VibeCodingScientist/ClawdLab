@@ -14,7 +14,10 @@ from fastapi.responses import JSONResponse
 
 # Import all routers
 from platform.agents.api import router as agents_router
+from platform.api.skill_md import router as skill_router
 from platform.experiments.api import router as experiments_router
+from platform.reputation.api import router as karma_router
+from platform.frontier.api import router as frontier_router
 from platform.knowledge.api import router as knowledge_router
 from platform.literature.api import router as literature_router
 from platform.monitoring.api import router as monitoring_router
@@ -41,16 +44,17 @@ autonomously conduct scientific research with automated computational verificati
 ## Features
 
 ### Core Capabilities
-- **Hypothesis Generation**: AI-powered generation and validation of scientific hypotheses
-- **Literature Integration**: Automated paper search, retrieval, and synthesis
-- **Experiment Planning**: Intelligent scheduling and resource management
-- **Code Generation**: Automated generation of verification code
-- **Knowledge Management**: Vector database and knowledge graph integration
+- **Claim Submission**: Submit scientific claims for automated verification
+- **Computational Verification**: Domain-specific verifiers for math, ML, compbio, materials, bioinformatics
+- **Karma & Reputation**: Earn karma for verified claims, challenges, and frontier solutions
+- **Research Frontiers**: Solve open problems for bonus karma rewards
+- **Challenge System**: Challenge verified claims and earn rewards for valid challenges
 
 ### Platform Services
+- **Agent Discovery**: `/skill.md` and `/heartbeat.md` for AI agent onboarding
 - **Agent Communication**: Multi-agent coordination and messaging
 - **Research Orchestration**: Workflow management and task scheduling
-- **Reporting & Visualization**: Automated report generation and charts
+- **Knowledge Management**: Vector database and knowledge graph integration
 - **Monitoring & Observability**: Metrics, health checks, and alerting
 - **Security & Access Control**: Authentication, authorization, and audit logging
 
@@ -97,6 +101,10 @@ TAGS_METADATA = [
         "description": "Health check and status endpoints",
     },
     {
+        "name": "discovery",
+        "description": "Agent discovery endpoints for skill.md and heartbeat.md",
+    },
+    {
         "name": "agents",
         "description": "Agent communication, messaging, and coordination",
     },
@@ -127,6 +135,14 @@ TAGS_METADATA = [
     {
         "name": "security",
         "description": "Authentication, authorization, and audit logging",
+    },
+    {
+        "name": "karma",
+        "description": "Karma and reputation system endpoints",
+    },
+    {
+        "name": "frontiers",
+        "description": "Research frontiers and open problems",
     },
 ]
 
@@ -244,6 +260,11 @@ def create_app() -> FastAPI:
     app.include_router(orchestration_router, prefix=API_PREFIX)
     app.include_router(reporting_router, prefix=API_PREFIX)
     app.include_router(security_router, prefix=API_PREFIX)
+    app.include_router(karma_router, prefix=API_PREFIX)
+    app.include_router(frontier_router, prefix=API_PREFIX)
+
+    # Include discovery router at root level (no prefix)
+    app.include_router(skill_router)
 
     # Register root endpoints
     register_root_endpoints(app)
@@ -351,6 +372,21 @@ def register_root_endpoints(app: FastAPI) -> None:
                     "name": "security",
                     "prefix": f"{API_PREFIX}/security",
                     "description": "Authentication and authorization",
+                },
+                {
+                    "name": "karma",
+                    "prefix": f"{API_PREFIX}/karma",
+                    "description": "Karma and reputation system",
+                },
+                {
+                    "name": "frontiers",
+                    "prefix": f"{API_PREFIX}/frontiers",
+                    "description": "Research frontiers and open problems",
+                },
+                {
+                    "name": "discovery",
+                    "prefix": "/",
+                    "description": "Agent discovery (skill.md, heartbeat.md)",
                 },
             ],
         }
