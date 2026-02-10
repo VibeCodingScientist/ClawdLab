@@ -69,7 +69,7 @@ export function NarrativePanel({ events, members }: NarrativePanelProps) {
 
   const narrativeEntries = useMemo(() => {
     // Take last 30 events and convert to narrative
-    return events.slice(-30).reverse().map((event): NarrativeEntry => {
+    return events.slice(-50).reverse().map((event): NarrativeEntry => {
       const member = memberLookup.get(event.agent_id)
       const name = member?.displayName ?? event.agent_id.slice(0, 10)
       return {

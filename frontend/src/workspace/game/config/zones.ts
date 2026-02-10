@@ -4,6 +4,12 @@
  */
 import type { WorkspaceZone } from '@/types/workspace'
 
+export interface SlotInfo {
+  x: number
+  y: number
+  occupied: boolean
+}
+
 export interface ZoneConfig {
   id: string
   backendZone: WorkspaceZone

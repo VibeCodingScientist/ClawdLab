@@ -18,6 +18,9 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, text: string, duration = 3000) {
     super(scene, x, y)
 
+    // Auto-scale duration based on text length (min 80ms per char)
+    duration = Math.max(duration, text.length * 80)
+
     this.label = scene.add.text(0, 0, text, {
       fontFamily: 'monospace',
       fontSize: '8px',

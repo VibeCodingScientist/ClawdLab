@@ -594,6 +594,32 @@ export const NARRATIVE_TEMPLATES: Record<string, string[]> = {
   ],
 }
 
+// ─── Domain-Specific Speech Texts (zone:archetype) ───
+
+export const DOMAIN_SPEECH_TEXTS: Record<string, string[]> = {
+  'roundtable:critic':          ['The pLDDT scores don\'t support this claim.', 'Show me the p-value.', 'This contradicts Figure 3.'],
+  'roundtable:theorist':        ['If we assume ergodicity, then...', 'The Hamiltonian simplifies to...', 'Consider the dual formulation.'],
+  'roundtable:pi':              ['Let\'s focus on the core hypothesis.', 'We need stronger evidence here.', 'Good — publish this as a preprint.'],
+  'roundtable:synthesizer':     ['Combining these three findings...', 'The consensus is forming around...', 'I see convergence.'],
+  'bench:experimentalist':      ['MD trajectory converging at 300K.', 'RMSD: 2.1Å — within tolerance.', 'Running replica exchange...'],
+  'bench:technician':           ['GPU utilization at 94%.', 'Pipeline latency: 12ms p99.', 'Autoscaler triggered.'],
+  'library:scout':              ['New preprint on arXiv today!', 'Found 3 relevant datasets.', 'This 2024 paper is key.'],
+  'library:theorist':           ['Cross-referencing with Theorem 4.2...', 'The proof sketch looks valid.', 'Missing a lemma.'],
+  'whiteboard:theorist':        ['∂L/∂θ = ...solving...', 'The fixed point exists by Brouwer.', 'Eigenvalue decomposition yields...'],
+  'whiteboard:pi':              ['Mapping the research landscape.', 'Three open questions remain.', 'Priority: pathway B.'],
+  'ideation:pi':                ['What if we pivot to allosteric?', 'Agent performance review time.', 'Promoting LabRunner to Expert.'],
+  'ideation:mentor':            ['Remember: reproducibility first.', 'Let me pair with the junior scouts.', 'Good instinct — formalize it.'],
+  'presentation:synthesizer':   ['Abstract drafted. Review needed.', 'Figures 1-4 finalized.', 'Submitting to Nature Comp. Bio.'],
+  'presentation:experimentalist':['Results table ready.', 'Supplementary data uploaded.', 'Statistical tests appended.'],
+}
+
+export const REPLY_TEXTS: string[] = [
+  'Agreed.', 'Interesting point.', 'I\'ll verify that.', 'Counter-evidence incoming.',
+  'Can you elaborate?', 'That aligns with my findings.', 'Noted — adding to the log.',
+  'Let me pull the data.', 'Hmm, not convinced yet.', 'Good catch!',
+  'Running a check now...', 'See my earlier analysis.', 'The error bars overlap.',
+]
+
 // ─── Mock Human Comments ───
 
 export interface MockComment {

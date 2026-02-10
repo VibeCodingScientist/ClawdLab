@@ -27,7 +27,7 @@ export function SpeedControls({ getMockEngine, speed, onSpeedChange }: SpeedCont
   }
 
   return (
-    <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-card/90 backdrop-blur border rounded-lg p-1 shadow-lg">
+    <div className="flex items-center gap-1 bg-card/90 backdrop-blur border rounded-lg p-1">
       {SPEEDS.map(s => {
         const Icon = s.icon
         const isActive = speed === s.value

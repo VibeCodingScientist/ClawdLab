@@ -15,6 +15,7 @@ import { AgentManager } from '../systems/AgentManager'
 import { EventProcessor } from '../systems/EventProcessor'
 import { AmbientEffects } from '../systems/AmbientEffects'
 import { ProgressionRenderer } from '../systems/ProgressionRenderer'
+import { WhiteboardRenderer } from '../systems/WhiteboardRenderer'
 import { GameBridge } from '../GameBridge'
 import type { AgentTier, AgentResearchState, WorkspaceAgentExtended, WorkspaceZone } from '@/types/workspace'
 
@@ -23,6 +24,7 @@ export class LabScene extends Phaser.Scene {
   private eventProcessor!: EventProcessor
   private ambientEffects!: AmbientEffects
   private progressionRenderer!: ProgressionRenderer
+  private whiteboardRenderer!: WhiteboardRenderer
   private zones: Map<string, ZoneArea> = new Map()
   private bridge = GameBridge.getInstance()
 
@@ -40,12 +42,14 @@ export class LabScene extends Phaser.Scene {
     this.addWarmLightSpots()
     this.addZoneFloorTints()
     this.createZones()
+    this.addZoneBoundaryLines()
     this.addVignette()
 
     this.agentManager = new AgentManager(this)
     this.eventProcessor = new EventProcessor(this.agentManager)
     this.ambientEffects = new AmbientEffects(this)
     this.progressionRenderer = new ProgressionRenderer(this)
+    this.whiteboardRenderer = new WhiteboardRenderer(this)
 
     // Wire zone click events to bridge
     this.events.on('zone_clicked', (zoneId: string) => {
@@ -71,6 +75,14 @@ export class LabScene extends Phaser.Scene {
 
     this.bridge.on('show_bubble', (agentId: string, text: string, duration: number) => {
       this.agentManager.showBubble(agentId, text, duration)
+    })
+
+    // Handle zone activity level from React
+    this.bridge.on('zone_activity', (zoneId: string, level: number) => {
+      const zone = this.zones.get(zoneId)
+      if (zone) {
+        zone.setActivityLevel(level)
+      }
     })
 
     // Handle highlight_zone from React
@@ -216,8 +228,8 @@ export class LabScene extends Phaser.Scene {
       CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 0,
       CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.7,
     )
-    gradient.addColorStop(0, '#22242a')
-    gradient.addColorStop(1, '#121416')
+    gradient.addColorStop(0, '#3C3E44')
+    gradient.addColorStop(1, '#35373D')
     bgCtx.fillStyle = gradient
     bgCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
@@ -356,6 +368,22 @@ export class LabScene extends Phaser.Scene {
     }
   }
 
+  /** Draw 1px hairlines at zone edges for subtle spatial separation. */
+  private addZoneBoundaryLines(): void {
+    const gfx = this.add.graphics()
+    gfx.setDepth(0.7)
+    gfx.lineStyle(1, 0x888888, 0.06)
+
+    for (const config of ZONE_CONFIGS) {
+      const px = config.tileRect.x * TILE_SIZE * SCALE
+      const py = config.tileRect.y * TILE_SIZE * SCALE
+      const pw = config.tileRect.w * TILE_SIZE * SCALE
+      const ph = config.tileRect.h * TILE_SIZE * SCALE
+
+      gfx.strokeRect(px, py, pw, ph)
+    }
+  }
+
   update(time: number, delta: number): void {
     this.agentManager.update(time, delta)
   }
@@ -384,9 +412,12 @@ export class LabScene extends Phaser.Scene {
     this.bridge.off('update_agent_status')
     this.bridge.off('show_bubble')
     this.bridge.off('highlight_zone')
+    this.bridge.off('zone_activity')
+    this.bridge.off('update_progress')
     this.bridge.off('update_agent_level')
     this.bridge.off('update_agent_research_state')
     this.bridge.off('agent_level_up')
+    this.whiteboardRenderer?.destroy()
     this.progressionRenderer?.destroy()
     this.ambientEffects?.destroy()
     this.eventProcessor?.destroy()

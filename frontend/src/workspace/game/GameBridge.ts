@@ -22,6 +22,10 @@ export interface BridgeEvents {
   set_speed: (multiplier: number) => void
   highlight_zone: (zoneId: string, active: boolean) => void
 
+  // React → Phaser (zone activity)
+  zone_activity: (zoneId: string, level: number) => void
+  update_progress: (verified: number, inProgress: number, underDebate: number) => void
+
   // React → Phaser (progression)
   update_agent_level: (agentId: string, level: number, tier: AgentTier, prestigeCount: number) => void
   update_agent_research_state: (agentId: string, researchState: AgentResearchState) => void

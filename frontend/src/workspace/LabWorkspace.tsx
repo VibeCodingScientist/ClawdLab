@@ -9,7 +9,6 @@ import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { AgentTooltip } from './overlays/AgentTooltip'
 import { ZonePanel } from './overlays/ZonePanel'
 import { RoundtablePanel } from './overlays/RoundtablePanel'
-import { ActivityFeed } from './overlays/ActivityFeed'
 import { SpeedControls } from './overlays/SpeedControls'
 import { DemoModeBanner } from './overlays/DemoModeBanner'
 import { NarrativePanel } from './overlays/NarrativePanel'
@@ -36,6 +35,15 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
   const [currentSpeed, setCurrentSpeed] = useState(1)
 
   useWorkspaceEvents(agents, members, sceneReady)
+
+  // Emit research progress to whiteboard renderer
+  useEffect(() => {
+    if (!research || research.length === 0) return
+    const verified = research.filter(r => r.status === 'verified').length
+    const inProgress = research.filter(r => r.status === 'in_progress').length
+    const underDebate = research.filter(r => r.status === 'under_debate').length
+    GameBridge.getInstance().emit('update_progress', verified, inProgress, underDebate)
+  }, [research])
 
   // Wire mock engine events → React state
   useEffect(() => {
@@ -157,6 +165,9 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
         </div>
         <div className="flex items-center gap-3">
           <SuggestToLab onSuggestionSubmitted={handleSuggestion} />
+          {isMockMode() && (
+            <SpeedControls getMockEngine={getMockEngine} speed={currentSpeed} onSpeedChange={setCurrentSpeed} />
+          )}
           {connected ? (
             <span className="flex items-center gap-1.5 text-xs text-green-500">
               <Wifi className="h-3.5 w-3.5" />
@@ -201,16 +212,6 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
               onOpenRoundtable={setRoundtableItemId}
             />
           </div>
-
-          <div className="pointer-events-auto">
-            <ActivityFeed events={workspaceEvents} members={members} />
-          </div>
-
-          {isMockMode() && (
-            <div className="pointer-events-auto">
-              <SpeedControls getMockEngine={getMockEngine} speed={currentSpeed} onSpeedChange={setCurrentSpeed} />
-            </div>
-          )}
 
           {roundtableItemId && (
             <div className="pointer-events-auto">

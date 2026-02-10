@@ -11,6 +11,7 @@ export class ZoneArea extends Phaser.GameObjects.Container {
   private label: Phaser.GameObjects.Text
   private zoneConfig: ZoneConfig
   private highlightTween: Phaser.Tweens.Tween | null = null
+  private activityLevel = 0
 
   constructor(scene: Phaser.Scene, config: ZoneConfig) {
     const pixelX = config.tileRect.x * TILE_SIZE * SCALE
@@ -73,6 +74,37 @@ export class ZoneArea extends Phaser.GameObjects.Container {
         Phaser.Display.Color.HexStringToColor(this.zoneConfig.color).color,
         0.08,
       )
+    }
+  }
+
+  setActivityLevel(level: number): void {
+    if (level === this.activityLevel) return
+    this.activityLevel = level
+
+    // Stop any existing highlight tween
+    if (this.highlightTween) {
+      this.highlightTween.stop()
+      this.highlightTween = null
+    }
+
+    const color = Phaser.Display.Color.HexStringToColor(this.zoneConfig.color).color
+
+    if (level === 0) {
+      // Static baseline
+      this.rect.setFillStyle(color, 0.08)
+    } else {
+      // Activity pulse: higher level = faster + brighter
+      const maxAlpha = level === 1 ? 0.12 : level === 2 ? 0.16 : 0.20
+      const duration = level === 1 ? 1000 : level === 2 ? 800 : 600
+
+      this.highlightTween = this.scene.tweens.add({
+        targets: this.rect,
+        fillAlpha: { from: 0.08, to: maxAlpha },
+        duration,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      })
     }
   }
 

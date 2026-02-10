@@ -6,16 +6,56 @@ import Phaser from 'phaser'
 import { AgentSprite } from '../entities/AgentSprite'
 import { PathfindingSystem } from './PathfindingSystem'
 import type { WorkspaceAgentExtended, WorkspaceZone } from '@/types/workspace'
-import { getZoneByBackendZone, TILE_SIZE, SCALE } from '../config/zones'
+import { getZoneByBackendZone, TILE_SIZE, SCALE, ZONE_CONFIGS } from '../config/zones'
+import type { ZoneConfig } from '../config/zones'
 
 export class AgentManager {
   private scene: Phaser.Scene
   private agents: Map<string, AgentSprite> = new Map()
   private pathfinding: PathfindingSystem
+  /** Maps agentId → { zoneId, slotIndex } */
+  private slotAssignments: Map<string, { zoneId: string; slotIndex: number }> = new Map()
+  /** Maps zoneId → boolean[] of occupied slots */
+  private zoneSlotOccupancy: Map<string, boolean[]> = new Map()
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene
     this.pathfinding = new PathfindingSystem()
+
+    // Initialize slot occupancy for all zones
+    for (const config of ZONE_CONFIGS) {
+      this.zoneSlotOccupancy.set(config.id, new Array(config.spawnPoints.length).fill(false))
+    }
+  }
+
+  private releaseSlot(agentId: string): void {
+    const assignment = this.slotAssignments.get(agentId)
+    if (!assignment) return
+
+    const occupancy = this.zoneSlotOccupancy.get(assignment.zoneId)
+    if (occupancy && assignment.slotIndex >= 0 && assignment.slotIndex < occupancy.length) {
+      occupancy[assignment.slotIndex] = false
+    }
+    this.slotAssignments.delete(agentId)
+  }
+
+  private assignSlot(agentId: string, zoneConfig: ZoneConfig): { x: number; y: number } {
+    const occupancy = this.zoneSlotOccupancy.get(zoneConfig.id)
+    if (!occupancy) return { x: zoneConfig.centerTile.x, y: zoneConfig.centerTile.y }
+
+    const freeIndex = occupancy.indexOf(false)
+    if (freeIndex !== -1) {
+      occupancy[freeIndex] = true
+      this.slotAssignments.set(agentId, { zoneId: zoneConfig.id, slotIndex: freeIndex })
+      return zoneConfig.spawnPoints[freeIndex]
+    }
+
+    // Overflow — no dedicated slot
+    this.slotAssignments.set(agentId, { zoneId: zoneConfig.id, slotIndex: -1 })
+    return {
+      x: zoneConfig.centerTile.x + (Math.random() - 0.5) * 2,
+      y: zoneConfig.centerTile.y + (Math.random() - 0.5) * 2,
+    }
   }
 
   addAgent(extended: WorkspaceAgentExtended): AgentSprite {
@@ -25,9 +65,9 @@ export class AgentManager {
     }
 
     const zone = getZoneByBackendZone(extended.zone)
-    const spawnPoints = zone.spawnPoints
-    if (spawnPoints.length === 0) return this.addAgentAtCenter(extended, zone)
-    const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)]
+    if (zone.spawnPoints.length === 0) return this.addAgentAtCenter(extended, zone)
+
+    const spawn = this.assignSlot(extended.agent_id, zone)
 
     const sprite = new AgentSprite(
       this.scene,
@@ -47,9 +87,13 @@ export class AgentManager {
     const sprite = this.agents.get(agentId)
     if (!sprite) return
 
+    // Release old slot
+    this.releaseSlot(agentId)
+
     const zoneConfig = getZoneByBackendZone(zone)
     if (zoneConfig.spawnPoints.length === 0) return
-    const target = zoneConfig.spawnPoints[Math.floor(Math.random() * zoneConfig.spawnPoints.length)]
+
+    const target = this.assignSlot(agentId, zoneConfig)
 
     const currentTileX = Math.round(sprite.x / (TILE_SIZE * SCALE))
     const currentTileY = Math.round(sprite.y / (TILE_SIZE * SCALE))
@@ -57,14 +101,15 @@ export class AgentManager {
     const path = await this.pathfinding.findPath(
       currentTileX,
       currentTileY,
-      target.x,
-      target.y,
+      Math.round(target.x),
+      Math.round(target.y),
     )
 
     sprite.walkTo(path)
   }
 
   removeAgent(agentId: string): void {
+    this.releaseSlot(agentId)
     const sprite = this.agents.get(agentId)
     if (sprite) {
       sprite.destroy()

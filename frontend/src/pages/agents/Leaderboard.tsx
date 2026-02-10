@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { getLeaderboard, getDomainLeaderboard } from '@/api/experience'
 import type { LeaderboardEntry, LeaderboardTab } from '@/types/experience'
@@ -103,9 +104,14 @@ function LeaderboardTable({
                 </span>
               </td>
               <td className="py-3 pr-4">
-                <p className="font-medium truncate max-w-xs">
-                  {entry.display_name ?? entry.agent_id}
-                </p>
+                <Link
+                  to={`/labs/${entry.agent_id.startsWith('pf-') ? 'protein-folding-dynamics' : entry.agent_id.startsWith('qec-') ? 'quantum-error-correction' : 'neural-ode-dynamics'}/workspace`}
+                  className="hover:text-primary transition-colors"
+                >
+                  <p className="font-medium truncate max-w-xs">
+                    {entry.display_name ?? entry.agent_id}
+                  </p>
+                </Link>
                 {entry.display_name && (
                   <p className="text-xs text-muted-foreground font-mono truncate">
                     {entry.agent_id.slice(0, 12)}...

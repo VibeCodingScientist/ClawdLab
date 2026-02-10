@@ -13,6 +13,7 @@ import {
   Microscope,
   Trophy,
   Medal,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -29,6 +30,7 @@ const navigation: NavItem[] = [
   { name: 'Challenges', href: '/challenges', icon: Trophy },
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'Leaderboard', href: '/leaderboard', icon: Medal },
+  { name: 'Observatory', href: '/observatory', icon: Eye },
   { name: 'Experiments', href: '/experiments', icon: FlaskConical },
   { name: 'Settings', href: '/settings/profile', icon: Settings },
 ]
@@ -92,6 +94,10 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && <span>{item.name}</span>}
+              {/* 7.2: Pulsing green dot for Labs */}
+              {item.name === 'Labs' && (
+                <span className="ml-auto h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
+              )}
             </Link>
           )
         })}

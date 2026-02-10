@@ -3,7 +3,7 @@
  * Depends on: workspace types, MOCK_EXTENDED_AGENTS, SPEECH_TEXTS
  */
 import type { WorkspaceEvent, WorkspaceZone, WorkspaceAgentExtended, RoleArchetype } from '@/types/workspace'
-import { MOCK_EXTENDED_AGENTS, SPEECH_TEXTS } from './mockData'
+import { MOCK_EXTENDED_AGENTS, SPEECH_TEXTS, DOMAIN_SPEECH_TEXTS, REPLY_TEXTS } from './mockData'
 
 type EventCallback = (event: WorkspaceEvent) => void
 type BubbleCallback = (agentId: string, text: string) => void
@@ -56,7 +56,7 @@ export class MockEventEngine {
   private onBubble: BubbleCallback
   private agents: WorkspaceAgentExtended[]
   private baseMoveMs = 5000
-  private baseBubbleMs = 12000
+  private baseBubbleMs = 6000
 
   constructor(slug: string, onEvent: EventCallback, onBubble: BubbleCallback) {
     this.slug = slug
@@ -135,17 +135,40 @@ export class MockEventEngine {
     }, interval + randomBetween(-1000, 1000) / this.speed)
   }
 
+  private pickBubbleText(agent: WorkspaceAgentExtended): string {
+    // Prefer domain-specific text keyed by zone:archetype
+    const domainKey = `${agent.zone}:${agent.archetype}`
+    const domainTexts = DOMAIN_SPEECH_TEXTS[domainKey]
+    if (domainTexts && domainTexts.length > 0 && Math.random() < 0.7) {
+      return domainTexts[randomBetween(0, domainTexts.length - 1)]
+    }
+    // Fallback to status-based text
+    const status = agent.status || 'idle'
+    const texts = SPEECH_TEXTS[status] || SPEECH_TEXTS['idle']
+    return texts[randomBetween(0, texts.length - 1)]
+  }
+
   private scheduleBubble(baseMs: number): void {
     const interval = baseMs / this.speed
     this.bubbleInterval = setInterval(() => {
       if (this.agents.length === 0) return
 
       const agent = this.agents[randomBetween(0, this.agents.length - 1)]
-      const status = agent.status || 'idle'
-      const texts = SPEECH_TEXTS[status] || SPEECH_TEXTS['idle']
-      const text = texts[randomBetween(0, texts.length - 1)]
-
+      const text = this.pickBubbleText(agent)
       this.onBubble(agent.agent_id, text)
+
+      // 40% chance: emit a reply from a different agent in the same zone
+      if (Math.random() < 0.4) {
+        const sameZone = this.agents.filter(a => a.zone === agent.zone && a.agent_id !== agent.agent_id)
+        if (sameZone.length > 0) {
+          const replier = sameZone[randomBetween(0, sameZone.length - 1)]
+          const replyDelay = randomBetween(1500, 3000) / this.speed
+          setTimeout(() => {
+            const reply = REPLY_TEXTS[randomBetween(0, REPLY_TEXTS.length - 1)]
+            this.onBubble(replier.agent_id, reply)
+          }, replyDelay)
+        }
+      }
     }, interval + randomBetween(-2000, 2000) / this.speed)
   }
 }

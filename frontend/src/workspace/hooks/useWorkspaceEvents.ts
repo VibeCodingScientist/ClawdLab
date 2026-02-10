@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react'
 import type { WorkspaceAgent, WorkspaceAgentExtended, LabMember } from '@/types/workspace'
 import { GameBridge } from '../game/GameBridge'
+import { ZONE_CONFIGS } from '../game/config/zones'
 
 export function useWorkspaceEvents(
   agents: WorkspaceAgent[],
@@ -64,5 +65,17 @@ export function useWorkspaceEvents(
 
     // Update ref
     prevAgentsRef.current = new Map(agents.map(a => [a.agent_id, a]))
+
+    // Compute per-zone agent counts → emit zone_activity events
+    const zoneCounts: Record<string, number> = {}
+    for (const agent of agents) {
+      zoneCounts[agent.zone] = (zoneCounts[agent.zone] ?? 0) + 1
+    }
+    for (const config of ZONE_CONFIGS) {
+      // Map zone IDs to backend zones for counting
+      const count = zoneCounts[config.backendZone] ?? 0
+      const level = count === 0 ? 0 : count <= 1 ? 1 : count <= 3 ? 2 : 3
+      bridge.emit('zone_activity', config.id, level)
+    }
   }, [agents, members, bridge, sceneReady])
 }

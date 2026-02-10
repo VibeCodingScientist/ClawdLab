@@ -6,48 +6,9 @@
  */
 import Phaser from 'phaser'
 import { ARCHETYPE_CONFIGS, type RoleArchetype } from '../config/archetypes'
+import { darken, lighten, px, hline, vline } from './colorUtils'
 
 // ─── Color helpers ───────────────────────────────────────────────────────────
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result
-    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
-    : { r: 128, g: 128, b: 128 }
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
-}
-
-function darken(hex: string, amount = 0.3): string {
-  const { r, g, b } = hexToRgb(hex)
-  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount))
-}
-
-function lighten(hex: string, amount = 0.3): string {
-  const { r, g, b } = hexToRgb(hex)
-  return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount)
-}
-
-/** Set a single pixel on a canvas context */
-function px(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
-  ctx.fillStyle = color
-  ctx.fillRect(x, y, 1, 1)
-}
-
-/** Draw a horizontal line */
-function hline(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, color: string): void {
-  ctx.fillStyle = color
-  ctx.fillRect(x, y, w, 1)
-}
-
-/** Draw a vertical line */
-function vline(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, color: string): void {
-  ctx.fillStyle = color
-  ctx.fillRect(x, y, 1, h)
-}
 
 /** Checkerboard dither fill for SDV gradient transitions */
 function dither(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, colorA: string, colorB: string): void {

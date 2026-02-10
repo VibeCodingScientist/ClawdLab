@@ -3,7 +3,7 @@
  */
 
 import { Link } from 'react-router-dom'
-import { FlaskConical, Plus, Clock, CheckCircle, Play } from 'lucide-react'
+import { FlaskConical, Plus, Clock, CheckCircle, Play, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/Card'
 import { MOCK_EXPERIMENTS } from '@/mock/mockData'
@@ -112,6 +112,14 @@ export default function ExperimentList() {
                     </span>
                   ))}
                 </div>
+
+                {/* 7.2: View in Workspace link */}
+                <Link to={`/labs/${exp.labSlug}/workspace`}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    View in Workspace
+                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           )
