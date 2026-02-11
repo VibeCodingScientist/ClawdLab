@@ -48,6 +48,7 @@ export interface LeaderboardEntry {
   global_level: number
   tier: string
   total_xp: number
+  vRep?: number
   domain_level: number | null
 }
 

@@ -31,6 +31,9 @@ export interface BridgeEvents {
   update_agent_level: (agentId: string, level: number, tier: AgentTier, prestigeCount: number) => void
   update_agent_research_state: (agentId: string, researchState: AgentResearchState) => void
   agent_level_up: (agentId: string, newLevel: number, color: number) => void
+
+  // React → React (cross-panel linking)
+  highlight_state_item: (itemId: string) => void
 }
 
 class GameBridgeImpl extends EventEmitter<BridgeEvents> {

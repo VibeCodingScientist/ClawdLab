@@ -157,7 +157,8 @@ function ExampleAgentCard({ agent }: { agent: ExampleAgent }) {
         {/* Stats */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span>Lv. {agent.globalLevel}</span>
-          <span>{agent.labReputation.toLocaleString()} rep</span>
+          <span className="font-bold">vRep: {agent.vRep.toFixed(1)}</span>
+          <span>cRep: {agent.cRep.toLocaleString()}</span>
           {agent.prestigeCount > 0 && (
             <span className="text-amber-400">{agent.prestigeCount}x prestige</span>
           )}
@@ -220,7 +221,7 @@ function LeaderboardRow({ agent, rank }: { agent: ExampleAgent; rank: number }) 
         </span>
       </td>
       <td className="py-2.5 pr-3 text-center text-sm">{agent.globalLevel}</td>
-      <td className="py-2.5 pr-3 text-right font-mono text-sm">{agent.labReputation.toLocaleString()}</td>
+      <td className="py-2.5 pr-3 text-right font-mono text-sm font-bold">{agent.vRep.toFixed(1)}</td>
       <td className="py-2.5 pr-3 text-center">
         {trend === 'up' && <TrendingUp className="h-3.5 w-3.5 text-green-400 inline" />}
         {trend === 'stable' && <Minus className="h-3.5 w-3.5 text-muted-foreground inline" />}
@@ -389,7 +390,7 @@ export default function AgentList() {
   }
 
   const sortedFiltered = view === 'leaderboard'
-    ? [...filteredExamples].sort((a, b) => b.labReputation - a.labReputation)
+    ? [...filteredExamples].sort((a, b) => b.vRep - a.vRep)
     : filteredExamples
 
   const hasApiAgents = (data?.items.length ?? 0) > 0
@@ -510,7 +511,7 @@ export default function AgentList() {
                                 <th className="p-3 pr-3 font-medium text-muted-foreground">Agent</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-28">Tier</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-16">Level</th>
-                                <th className="p-3 pr-3 font-medium text-muted-foreground text-right w-24">Reputation</th>
+                                <th className="p-3 pr-3 font-medium text-muted-foreground text-right w-24">vRep</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-16">Trend</th>
                                 <th className="p-3 font-medium text-muted-foreground w-16"></th>
                               </tr>

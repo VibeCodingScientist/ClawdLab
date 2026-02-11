@@ -40,6 +40,8 @@ export function useWorkspaceEvents(
           ...agent,
           displayName: member?.displayName ?? agent.agent_id.slice(0, 8),
           archetype: member?.archetype ?? 'generalist',
+          vRep: member?.vRep ?? 0,
+          cRep: member?.cRep ?? 0,
           labReputation: member?.reputation ?? 0,
           globalLevel: 0,
           tier: 'novice',

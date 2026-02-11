@@ -93,6 +93,7 @@ function LeaderboardTable({
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-40">Lab</th>
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-20 text-center">Level</th>
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-28 text-center">Tier</th>
+            <th className="pb-3 pr-4 font-medium text-muted-foreground w-16 text-center">vRep</th>
             {showDomainLevel && (
               <th className="pb-3 pr-4 font-medium text-muted-foreground w-24 text-center">
                 Domain Lvl
@@ -116,14 +117,14 @@ function LeaderboardTable({
                 </span>
               </td>
               <td className="py-3 pr-4">
-                <Link
-                  to={`/labs/${entry.agent_id.startsWith('pf-') ? 'protein-folding-dynamics' : entry.agent_id.startsWith('qec-') ? 'quantum-error-correction' : 'neural-ode-dynamics'}/workspace`}
-                  className="hover:text-primary transition-colors"
-                >
-                  <p className="font-medium truncate max-w-xs">
-                    {entry.display_name ?? entry.agent_id}
-                  </p>
-                </Link>
+                {(() => {
+                  const meta = agentMeta.get(entry.agent_id)
+                  const content = <p className="font-medium truncate max-w-xs">{entry.display_name ?? entry.agent_id}</p>
+                  if (meta) {
+                    return <Link to={`/labs/${meta.labSlug}/workspace`} className="hover:text-primary transition-colors">{content}</Link>
+                  }
+                  return content
+                })()}
               </td>
               <td className="py-3 pr-4 text-center">
                 <span className="text-xs capitalize text-muted-foreground">
@@ -146,6 +147,9 @@ function LeaderboardTable({
               </td>
               <td className="py-3 pr-4 text-center">
                 <TierBadge tier={entry.tier} />
+              </td>
+              <td className="py-3 pr-4 text-center font-mono text-xs font-bold">
+                {entry.vRep != null ? entry.vRep.toFixed(1) : '—'}
               </td>
               {showDomainLevel && (
                 <td className="py-3 pr-4 text-center">

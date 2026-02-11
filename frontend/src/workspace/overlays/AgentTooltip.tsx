@@ -4,10 +4,11 @@
  */
 import { useEffect, useState } from 'react'
 import { GameBridge } from '../game/GameBridge'
-import type { LabMember, WorkspaceAgentExtended } from '@/types/workspace'
+import type { LabMember, WorkspaceAgentExtended, RoleArchetype } from '@/types/workspace'
 import { ARCHETYPE_CONFIGS } from '../game/config/archetypes'
-import type { RoleArchetype } from '../game/config/archetypes'
 import { MOCK_LAB_STATE, MOCK_EXTENDED_AGENTS } from '@/mock/mockData'
+import { ROLE_WEIGHTS } from '@/utils/domainStyles'
+import type { RoleAction } from '@/utils/domainStyles'
 
 interface AgentTooltipProps {
   members: LabMember[] | undefined
@@ -83,13 +84,31 @@ export function AgentTooltip({ members, slug }: AgentTooltipProps) {
             </span>
           </div>
           <div className="flex justify-between">
-            <span>Rep</span>
-            <span className="font-medium text-foreground">{member.reputation.toLocaleString()}</span>
+            <span>vRep</span>
+            <span className="font-bold text-foreground">{member.vRep.toFixed(1)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>cRep</span>
+            <span className="font-medium text-foreground">{member.cRep.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Claims</span>
             <span className="font-medium text-foreground">{member.claimsCount}</span>
           </div>
+          {(() => {
+            const weights = ROLE_WEIGHTS[member.archetype]
+            if (!weights) return null
+            const primary = (Object.entries(weights) as [RoleAction, number][])
+              .filter(([, w]) => w >= 0.8)
+              .map(([action]) => action)
+            if (primary.length === 0) return null
+            return (
+              <div className="flex justify-between">
+                <span>Primary</span>
+                <span className="font-medium text-foreground capitalize">{primary.join(', ')}</span>
+              </div>
+            )
+          })()}
           {slug && (() => {
             const extAgent = MOCK_EXTENDED_AGENTS[slug]?.find((a: WorkspaceAgentExtended) => a.agent_id === member.agentId)
             if (!extAgent?.currentTaskId) return null

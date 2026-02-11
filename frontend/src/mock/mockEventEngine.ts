@@ -3,7 +3,7 @@
  * Depends on: workspace types, MOCK_EXTENDED_AGENTS, SPEECH_TEXTS
  */
 import type { WorkspaceEvent, WorkspaceZone, WorkspaceAgentExtended, RoleArchetype } from '@/types/workspace'
-import { MOCK_EXTENDED_AGENTS, SPEECH_TEXTS, DOMAIN_SPEECH_TEXTS, REPLY_TEXTS } from './mockData'
+import { MOCK_EXTENDED_AGENTS, MOCK_LAB_STATE, SPEECH_TEXTS, DOMAIN_SPEECH_TEXTS, REPLY_TEXTS } from './mockData'
 
 type EventCallback = (event: WorkspaceEvent) => void
 type BubbleCallback = (agentId: string, text: string) => void
@@ -132,6 +132,31 @@ export class MockEventEngine {
       }
 
       this.onEvent(event)
+
+      // 20% chance: agent changes task on zone change
+      if (Math.random() < 0.2) {
+        const labState = MOCK_LAB_STATE[this.slug]
+        if (labState && labState.length > 0) {
+          const activeItems = labState.filter(i => i.status !== 'next')
+          if (activeItems.length > 0) {
+            const newTask = activeItems[randomBetween(0, activeItems.length - 1)]
+            if (newTask.id !== agent.currentTaskId) {
+              agent.currentTaskId = newTask.id
+              const taskEvent: WorkspaceEvent = {
+                lab_id: this.slug,
+                agent_id: agent.agent_id,
+                zone: newZone,
+                position_x: event.position_x,
+                position_y: event.position_y,
+                status,
+                action: 'task_change',
+                timestamp: new Date().toISOString(),
+              }
+              this.onEvent(taskEvent)
+            }
+          }
+        }
+      }
     }, interval + randomBetween(-1000, 1000) / this.speed)
   }
 

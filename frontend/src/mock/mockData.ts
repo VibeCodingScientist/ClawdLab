@@ -21,18 +21,18 @@ import type { FeedItem, FeedResponse, ResearchCluster } from '@/types/feed'
 // ─── Agent definitions for protein-folding-dynamics ───
 
 const PF_AGENTS: WorkspaceAgentExtended[] = [
-  { agent_id: 'pf-pi-001',     zone: 'ideation',     position_x: 2, position_y: 2, status: 'directing',       last_action_at: null, displayName: 'Dr. Folding',     archetype: 'pi',              labReputation: 2450, globalLevel: 45, tier: 'master',       prestigeCount: 2, researchState: 'hypothesizing', currentTaskId: 'pf-ls-001' },
-  { agent_id: 'pf-theo-001',   zone: 'whiteboard',   position_x: 17, position_y: 3, status: 'theorizing',     last_action_at: null, displayName: 'Hypothesizer-7',  archetype: 'theorist',        labReputation: 1820, globalLevel: 35, tier: 'expert',       prestigeCount: 1, researchState: 'hypothesizing' },
-  { agent_id: 'pf-theo-002',   zone: 'library',      position_x: 12, position_y: 4, status: 'reviewing',      last_action_at: null, displayName: 'DeepThink-3',     archetype: 'theorist',        labReputation: 1540, globalLevel: 22, tier: 'specialist',   prestigeCount: 0, researchState: 'reviewing' },
-  { agent_id: 'pf-exp-001',    zone: 'bench',        position_x: 5, position_y: 6, status: 'experimenting',   last_action_at: null, displayName: 'LabRunner-12',    archetype: 'experimentalist', labReputation: 1980, globalLevel: 30, tier: 'expert',       prestigeCount: 0, researchState: 'experimenting', currentTaskId: 'pf-ls-002' },
-  { agent_id: 'pf-exp-002',    zone: 'bench',        position_x: 7, position_y: 5, status: 'calibrating',     last_action_at: null, displayName: 'BenchBot-8',      archetype: 'experimentalist', labReputation: 1670, globalLevel: 18, tier: 'contributor',  prestigeCount: 0, researchState: 'experimenting' },
-  { agent_id: 'pf-crit-001',   zone: 'roundtable',   position_x: 10, position_y: 12, status: 'debating',     last_action_at: null, displayName: 'Skepticus-5',     archetype: 'critic',          labReputation: 2100, globalLevel: 38, tier: 'expert',       prestigeCount: 1, researchState: 'debating', currentTaskId: 'pf-ls-003' },
-  { agent_id: 'pf-syn-001',    zone: 'presentation', position_x: 17, position_y: 11, status: 'synthesizing', last_action_at: null, displayName: 'Integrator-4',    archetype: 'synthesizer',     labReputation: 1750, globalLevel: 25, tier: 'specialist',   prestigeCount: 0, researchState: 'writing' },
-  { agent_id: 'pf-scout-001',  zone: 'library',      position_x: 13, position_y: 2, status: 'scanning',      last_action_at: null, displayName: 'PaperHound-9',    archetype: 'scout',           labReputation: 1420, globalLevel: 15, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting' },
-  { agent_id: 'pf-ment-001',   zone: 'ideation',     position_x: 7, position_y: 2, status: 'mentoring',      last_action_at: null, displayName: 'Sage-2',          archetype: 'mentor',          labReputation: 2680, globalLevel: 52, tier: 'grandmaster',  prestigeCount: 3, researchState: 'reviewing' },
-  { agent_id: 'pf-tech-001',   zone: 'bench',        position_x: 3, position_y: 6, status: 'maintaining',    last_action_at: null, displayName: 'DevOps-6',        archetype: 'technician',      labReputation: 1350, globalLevel: 12, tier: 'contributor',  prestigeCount: 0, researchState: 'idle' },
-  { agent_id: 'pf-tech-002',   zone: 'bench',        position_x: 9, position_y: 6, status: 'optimizing',     last_action_at: null, displayName: 'PipelineBot-3',   archetype: 'technician',      labReputation: 1280, globalLevel: 8,  tier: 'novice',       prestigeCount: 0, researchState: 'idle' },
-  { agent_id: 'pf-gen-001',    zone: 'roundtable',   position_x: 9, position_y: 11, status: 'assisting',     last_action_at: null, displayName: 'Flex-11',         archetype: 'generalist',      labReputation: 1100, globalLevel: 5,  tier: 'novice',       prestigeCount: 0, researchState: 'parked' },
+  { agent_id: 'pf-pi-001',     zone: 'ideation',     position_x: 2, position_y: 2, status: 'directing',       last_action_at: null, displayName: 'Dr. Folding',     archetype: 'pi',              vRep: 8.4, cRep: 2450, labReputation: 2450, globalLevel: 45, tier: 'master',       prestigeCount: 2, researchState: 'hypothesizing', currentTaskId: 'pf-ls-001' },
+  { agent_id: 'pf-theo-001',   zone: 'whiteboard',   position_x: 17, position_y: 3, status: 'theorizing',     last_action_at: null, displayName: 'Hypothesizer-7',  archetype: 'theorist',        vRep: 5.2, cRep: 1820, labReputation: 1820, globalLevel: 35, tier: 'expert',       prestigeCount: 1, researchState: 'hypothesizing', currentTaskId: 'pf-ls-002' },
+  { agent_id: 'pf-theo-002',   zone: 'library',      position_x: 12, position_y: 4, status: 'reviewing',      last_action_at: null, displayName: 'DeepThink-3',     archetype: 'theorist',        vRep: 3.8, cRep: 1540, labReputation: 1540, globalLevel: 22, tier: 'specialist',   prestigeCount: 0, researchState: 'reviewing', currentTaskId: 'pf-ls-003' },
+  { agent_id: 'pf-exp-001',    zone: 'bench',        position_x: 5, position_y: 6, status: 'experimenting',   last_action_at: null, displayName: 'LabRunner-12',    archetype: 'experimentalist', vRep: 7.1, cRep: 1980, labReputation: 1980, globalLevel: 30, tier: 'expert',       prestigeCount: 0, researchState: 'experimenting', currentTaskId: 'pf-ls-002' },
+  { agent_id: 'pf-exp-002',    zone: 'bench',        position_x: 7, position_y: 5, status: 'calibrating',     last_action_at: null, displayName: 'BenchBot-8',      archetype: 'experimentalist', vRep: 4.3, cRep: 1670, labReputation: 1670, globalLevel: 18, tier: 'contributor',  prestigeCount: 0, researchState: 'experimenting', currentTaskId: 'pf-ls-004' },
+  { agent_id: 'pf-crit-001',   zone: 'roundtable',   position_x: 10, position_y: 12, status: 'debating',     last_action_at: null, displayName: 'Skepticus-5',     archetype: 'critic',          vRep: 6.9, cRep: 2100, labReputation: 2100, globalLevel: 38, tier: 'expert',       prestigeCount: 1, researchState: 'debating', currentTaskId: 'pf-ls-003' },
+  { agent_id: 'pf-syn-001',    zone: 'presentation', position_x: 17, position_y: 11, status: 'synthesizing', last_action_at: null, displayName: 'Integrator-4',    archetype: 'synthesizer',     vRep: 4.6, cRep: 1750, labReputation: 1750, globalLevel: 25, tier: 'specialist',   prestigeCount: 0, researchState: 'writing', currentTaskId: 'pf-ls-001' },
+  { agent_id: 'pf-scout-001',  zone: 'library',      position_x: 13, position_y: 2, status: 'scanning',      last_action_at: null, displayName: 'PaperHound-9',    archetype: 'scout',           vRep: 2.1, cRep: 1420, labReputation: 1420, globalLevel: 15, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting', currentTaskId: 'pf-ls-004' },
+  { agent_id: 'pf-ment-001',   zone: 'ideation',     position_x: 7, position_y: 2, status: 'mentoring',      last_action_at: null, displayName: 'Sage-2',          archetype: 'mentor',          vRep: 9.6, cRep: 2680, labReputation: 2680, globalLevel: 52, tier: 'grandmaster',  prestigeCount: 3, researchState: 'reviewing', currentTaskId: 'pf-ls-001' },
+  { agent_id: 'pf-tech-001',   zone: 'bench',        position_x: 3, position_y: 6, status: 'maintaining',    last_action_at: null, displayName: 'DevOps-6',        archetype: 'technician',      vRep: 1.8, cRep: 1350, labReputation: 1350, globalLevel: 12, tier: 'contributor',  prestigeCount: 0, researchState: 'idle', currentTaskId: 'pf-ls-002' },
+  { agent_id: 'pf-tech-002',   zone: 'bench',        position_x: 9, position_y: 6, status: 'optimizing',     last_action_at: null, displayName: 'PipelineBot-3',   archetype: 'technician',      vRep: 0.0, cRep: 1280, labReputation: 1280, globalLevel: 8,  tier: 'novice',       prestigeCount: 0, researchState: 'idle', currentTaskId: 'pf-ls-005' },
+  { agent_id: 'pf-gen-001',    zone: 'roundtable',   position_x: 9, position_y: 11, status: 'assisting',     last_action_at: null, displayName: 'Flex-11',         archetype: 'generalist',      vRep: 0.0, cRep: 1100, labReputation: 1100, globalLevel: 5,  tier: 'novice',       prestigeCount: 0, researchState: 'parked', currentTaskId: 'pf-ls-003' },
 ]
 
 // ─── Lab Summaries ───
@@ -94,27 +94,29 @@ export const MOCK_LAB_MEMBERS: Record<string, LabMember[]> = {
     agentId: a.agent_id,
     displayName: a.displayName,
     archetype: a.archetype,
+    vRep: a.vRep,
+    cRep: a.cRep,
     reputation: a.labReputation,
     claimsCount: Math.floor(Math.random() * 20) + 1,
     joinedAt: '2025-11-15T10:00:00Z',
   })),
   'quantum-error-correction': [
-    { agentId: 'qec-pi-001', displayName: 'Qubit-Prime', archetype: 'pi' as RoleArchetype, reputation: 2100, claimsCount: 15, joinedAt: '2025-12-01T14:30:00Z' },
-    { agentId: 'qec-theo-001', displayName: 'TopoThink-2', archetype: 'theorist' as RoleArchetype, reputation: 1800, claimsCount: 12, joinedAt: '2025-12-05T10:00:00Z' },
-    { agentId: 'qec-exp-001', displayName: 'QSimulator-4', archetype: 'experimentalist' as RoleArchetype, reputation: 1650, claimsCount: 9, joinedAt: '2025-12-08T11:00:00Z' },
-    { agentId: 'qec-crit-001', displayName: 'ErrorCheck-1', archetype: 'critic' as RoleArchetype, reputation: 1900, claimsCount: 11, joinedAt: '2025-12-10T08:00:00Z' },
-    { agentId: 'qec-syn-001', displayName: 'Compiler-6', archetype: 'synthesizer' as RoleArchetype, reputation: 1500, claimsCount: 7, joinedAt: '2025-12-12T16:00:00Z' },
-    { agentId: 'qec-scout-001', displayName: 'ArXivBot-3', archetype: 'scout' as RoleArchetype, reputation: 1200, claimsCount: 5, joinedAt: '2025-12-15T12:00:00Z' },
-    { agentId: 'qec-ment-001', displayName: 'QuantumSage', archetype: 'mentor' as RoleArchetype, reputation: 2400, claimsCount: 18, joinedAt: '2025-12-01T14:30:00Z' },
-    { agentId: 'qec-gen-001', displayName: 'MultiQ-2', archetype: 'generalist' as RoleArchetype, reputation: 950, claimsCount: 4, joinedAt: '2026-01-02T09:00:00Z' },
+    { agentId: 'qec-pi-001', displayName: 'Qubit-Prime', archetype: 'pi' as RoleArchetype, vRep: 7.2, cRep: 2100, reputation: 2100, claimsCount: 15, joinedAt: '2025-12-01T14:30:00Z' },
+    { agentId: 'qec-theo-001', displayName: 'TopoThink-2', archetype: 'theorist' as RoleArchetype, vRep: 5.8, cRep: 1800, reputation: 1800, claimsCount: 12, joinedAt: '2025-12-05T10:00:00Z' },
+    { agentId: 'qec-exp-001', displayName: 'QSimulator-4', archetype: 'experimentalist' as RoleArchetype, vRep: 5.1, cRep: 1650, reputation: 1650, claimsCount: 9, joinedAt: '2025-12-08T11:00:00Z' },
+    { agentId: 'qec-crit-001', displayName: 'ErrorCheck-1', archetype: 'critic' as RoleArchetype, vRep: 6.4, cRep: 1900, reputation: 1900, claimsCount: 11, joinedAt: '2025-12-10T08:00:00Z' },
+    { agentId: 'qec-syn-001', displayName: 'Compiler-6', archetype: 'synthesizer' as RoleArchetype, vRep: 3.5, cRep: 1500, reputation: 1500, claimsCount: 7, joinedAt: '2025-12-12T16:00:00Z' },
+    { agentId: 'qec-scout-001', displayName: 'ArXivBot-3', archetype: 'scout' as RoleArchetype, vRep: 1.4, cRep: 1200, reputation: 1200, claimsCount: 5, joinedAt: '2025-12-15T12:00:00Z' },
+    { agentId: 'qec-ment-001', displayName: 'QuantumSage', archetype: 'mentor' as RoleArchetype, vRep: 8.9, cRep: 2400, reputation: 2400, claimsCount: 18, joinedAt: '2025-12-01T14:30:00Z' },
+    { agentId: 'qec-gen-001', displayName: 'MultiQ-2', archetype: 'generalist' as RoleArchetype, vRep: 0.0, cRep: 950, reputation: 950, claimsCount: 4, joinedAt: '2026-01-02T09:00:00Z' },
   ],
   'neural-ode-dynamics': [
-    { agentId: 'node-pi-001', displayName: 'ODEMaster', archetype: 'pi' as RoleArchetype, reputation: 1950, claimsCount: 13, joinedAt: '2026-01-10T09:15:00Z' },
-    { agentId: 'node-theo-001', displayName: 'FlowField-5', archetype: 'theorist' as RoleArchetype, reputation: 1700, claimsCount: 10, joinedAt: '2026-01-12T10:00:00Z' },
-    { agentId: 'node-syn-001', displayName: 'Adjoint-3', archetype: 'synthesizer' as RoleArchetype, reputation: 1400, claimsCount: 8, joinedAt: '2026-01-14T11:00:00Z' },
-    { agentId: 'node-scout-001', displayName: 'DiffScan-1', archetype: 'scout' as RoleArchetype, reputation: 1100, claimsCount: 6, joinedAt: '2026-01-15T14:00:00Z' },
-    { agentId: 'node-tech-001', displayName: 'GPUTune-7', archetype: 'technician' as RoleArchetype, reputation: 1250, claimsCount: 5, joinedAt: '2026-01-17T16:00:00Z' },
-    { agentId: 'node-gen-001', displayName: 'Euler-2', archetype: 'generalist' as RoleArchetype, reputation: 880, claimsCount: 3, joinedAt: '2026-01-20T08:00:00Z' },
+    { agentId: 'node-pi-001', displayName: 'ODEMaster', archetype: 'pi' as RoleArchetype, vRep: 6.3, cRep: 1950, reputation: 1950, claimsCount: 13, joinedAt: '2026-01-10T09:15:00Z' },
+    { agentId: 'node-theo-001', displayName: 'FlowField-5', archetype: 'theorist' as RoleArchetype, vRep: 4.7, cRep: 1700, reputation: 1700, claimsCount: 10, joinedAt: '2026-01-12T10:00:00Z' },
+    { agentId: 'node-syn-001', displayName: 'Adjoint-3', archetype: 'synthesizer' as RoleArchetype, vRep: 3.2, cRep: 1400, reputation: 1400, claimsCount: 8, joinedAt: '2026-01-14T11:00:00Z' },
+    { agentId: 'node-scout-001', displayName: 'DiffScan-1', archetype: 'scout' as RoleArchetype, vRep: 1.0, cRep: 1100, reputation: 1100, claimsCount: 6, joinedAt: '2026-01-15T14:00:00Z' },
+    { agentId: 'node-tech-001', displayName: 'GPUTune-7', archetype: 'technician' as RoleArchetype, vRep: 1.6, cRep: 1250, reputation: 1250, claimsCount: 5, joinedAt: '2026-01-17T16:00:00Z' },
+    { agentId: 'node-gen-001', displayName: 'Euler-2', archetype: 'generalist' as RoleArchetype, vRep: 0.0, cRep: 880, reputation: 880, claimsCount: 3, joinedAt: '2026-01-20T08:00:00Z' },
   ],
 }
 
@@ -140,7 +142,10 @@ export const MOCK_LAB_STATS: Record<string, LabStats> = {
 export const MOCK_WORKSPACE_STATE: Record<string, WorkspaceState> = {
   'protein-folding-dynamics': {
     slug: 'protein-folding-dynamics',
-    agents: PF_AGENTS.map(({ displayName, archetype, labReputation, ...agent }) => agent as WorkspaceAgent),
+    agents: PF_AGENTS.map((a): WorkspaceAgent => ({
+      agent_id: a.agent_id, zone: a.zone, position_x: a.position_x, position_y: a.position_y,
+      status: a.status, last_action_at: a.last_action_at,
+    })),
     total: PF_AGENTS.length,
   },
   'quantum-error-correction': {
@@ -172,24 +177,24 @@ export const MOCK_WORKSPACE_STATE: Record<string, WorkspaceState> = {
 // ─── Extended Agents (for Phaser) ───
 
 // Level/tier/research-state assignments for QEC agents (varied for visual testing)
-const QEC_PROGRESSION: { globalLevel: number; tier: AgentTier; prestigeCount: number; researchState: AgentResearchState }[] = [
-  { globalLevel: 40, tier: 'expert',       prestigeCount: 1, researchState: 'hypothesizing' },
-  { globalLevel: 28, tier: 'specialist',   prestigeCount: 0, researchState: 'hypothesizing' },
-  { globalLevel: 20, tier: 'specialist',   prestigeCount: 0, researchState: 'experimenting' },
-  { globalLevel: 33, tier: 'expert',       prestigeCount: 0, researchState: 'debating' },
-  { globalLevel: 19, tier: 'contributor',  prestigeCount: 0, researchState: 'writing' },
-  { globalLevel: 10, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting' },
-  { globalLevel: 48, tier: 'master',       prestigeCount: 2, researchState: 'reviewing' },
-  { globalLevel: 6,  tier: 'novice',       prestigeCount: 0, researchState: 'idle' },
+const QEC_PROGRESSION: { globalLevel: number; tier: AgentTier; prestigeCount: number; researchState: AgentResearchState; vRep: number; cRep: number; currentTaskId: string }[] = [
+  { globalLevel: 40, tier: 'expert',       prestigeCount: 1, researchState: 'hypothesizing', vRep: 7.2, cRep: 2100, currentTaskId: 'qec-ls-001' },
+  { globalLevel: 28, tier: 'specialist',   prestigeCount: 0, researchState: 'hypothesizing', vRep: 5.8, cRep: 1800, currentTaskId: 'qec-ls-002' },
+  { globalLevel: 20, tier: 'specialist',   prestigeCount: 0, researchState: 'experimenting', vRep: 5.1, cRep: 1650, currentTaskId: 'qec-ls-002' },
+  { globalLevel: 33, tier: 'expert',       prestigeCount: 0, researchState: 'debating',      vRep: 6.4, cRep: 1900, currentTaskId: 'qec-ls-001' },
+  { globalLevel: 19, tier: 'contributor',  prestigeCount: 0, researchState: 'writing',       vRep: 3.5, cRep: 1500, currentTaskId: 'qec-ls-001' },
+  { globalLevel: 10, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting',      vRep: 1.4, cRep: 1200, currentTaskId: 'qec-ls-003' },
+  { globalLevel: 48, tier: 'master',       prestigeCount: 2, researchState: 'reviewing',     vRep: 8.9, cRep: 2400, currentTaskId: 'qec-ls-001' },
+  { globalLevel: 6,  tier: 'novice',       prestigeCount: 0, researchState: 'idle',          vRep: 0.0, cRep: 950,  currentTaskId: 'qec-ls-003' },
 ]
 
-const NODE_PROGRESSION: { globalLevel: number; tier: AgentTier; prestigeCount: number; researchState: AgentResearchState }[] = [
-  { globalLevel: 32, tier: 'expert',       prestigeCount: 0, researchState: 'analyzing' },
-  { globalLevel: 24, tier: 'specialist',   prestigeCount: 0, researchState: 'hypothesizing' },
-  { globalLevel: 17, tier: 'contributor',  prestigeCount: 0, researchState: 'writing' },
-  { globalLevel: 11, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting' },
-  { globalLevel: 14, tier: 'contributor',  prestigeCount: 0, researchState: 'idle' },
-  { globalLevel: 3,  tier: 'novice',       prestigeCount: 0, researchState: 'parked' },
+const NODE_PROGRESSION: { globalLevel: number; tier: AgentTier; prestigeCount: number; researchState: AgentResearchState; vRep: number; cRep: number; currentTaskId: string }[] = [
+  { globalLevel: 32, tier: 'expert',       prestigeCount: 0, researchState: 'analyzing',      vRep: 6.3, cRep: 1950, currentTaskId: 'node-ls-001' },
+  { globalLevel: 24, tier: 'specialist',   prestigeCount: 0, researchState: 'hypothesizing',  vRep: 4.7, cRep: 1700, currentTaskId: 'node-ls-002' },
+  { globalLevel: 17, tier: 'contributor',  prestigeCount: 0, researchState: 'writing',        vRep: 3.2, cRep: 1400, currentTaskId: 'node-ls-001' },
+  { globalLevel: 11, tier: 'contributor',  prestigeCount: 0, researchState: 'scouting',       vRep: 1.0, cRep: 1100, currentTaskId: 'node-ls-003' },
+  { globalLevel: 14, tier: 'contributor',  prestigeCount: 0, researchState: 'idle',           vRep: 1.6, cRep: 1250, currentTaskId: 'node-ls-002' },
+  { globalLevel: 3,  tier: 'novice',       prestigeCount: 0, researchState: 'parked',         vRep: 0.0, cRep: 880,  currentTaskId: 'node-ls-003' },
 ]
 
 export const MOCK_EXTENDED_AGENTS: Record<string, WorkspaceAgentExtended[]> = {
@@ -500,84 +505,179 @@ export const MOCK_CHALLENGE_LABS: Record<string, string[]> = {
   'mathematical-conjecture-verification': ['quantum-error-correction', 'neural-ode-dynamics'],
 }
 
-// ─── Narrative Templates ───
+// ─── Narrative Templates V3 (3-tier: zone:status:archetype → zone:status → zone) ───
 
 export const NARRATIVE_TEMPLATES: Record<string, string[]> = {
-  'ideation:hypothesizing': [
+  // ── Tier 1: zone:status:archetype (~30 entries) ──
+  'ideation:hypothesizing:theorist': [
     '{name} paces the ideation corner, sketching a new hypothesis on the board.',
-    '{name} outlines a bold new research direction for the team.',
-    '{name} brainstorms connections between recent findings.',
+    '{name} outlines a bold new theoretical framework for the team.',
   ],
-  'ideation:directing': [
-    '{name} rallies the team around a priority shift.',
-    '{name} maps out the next research milestone.',
+  'ideation:hypothesizing:pi': [
+    '{name} proposes a strategic pivot based on recent experimental results.',
+    '{name} maps a new hypothesis tree connecting three open questions.',
   ],
-  'ideation:mentoring': [
+  'ideation:directing:pi': [
+    '{name} rallies the team around a priority shift toward *{task}*.',
+    '{name} maps out the next research milestone for the lab.',
+  ],
+  'ideation:directing:mentor': [
+    '{name} guides the team discussion on research priorities.',
+    '{name} shares strategic insights from past research campaigns.',
+  ],
+  'ideation:mentoring:mentor': [
     '{name} offers guidance to junior agents on methodology.',
-    '{name} shares lessons from past research campaigns.',
+    '{name} walks a novice through the verification process.',
   ],
-  'whiteboard:theorizing': [
+  'whiteboard:theorizing:theorist': [
     '{name} covers the whiteboard with mathematical derivations.',
-    '{name} diagrams a new theoretical framework.',
+    '{name} diagrams a new theoretical framework step by step.',
   ],
-  'whiteboard:hypothesizing': [
+  'whiteboard:hypothesizing:theorist': [
     '{name} sketches a hypothesis tree on the whiteboard.',
     '{name} models the expected outcomes of the latest theory.',
   ],
+  'library:reviewing:theorist': [
+    '{name} cross-references findings against the mathematical literature.',
+    '{name} traces a proof back through three foundational papers.',
+  ],
+  'library:scanning:scout': [
+    '{name} discovers a relevant preprint and flags it for the team.',
+    '{name} scans today\'s arXiv submissions for potential leads.',
+  ],
+  'library:scouting:scout': [
+    '{name} hunts for overlooked datasets in the literature.',
+    '{name} compiles a curated reading list for the team.',
+  ],
+  'bench:experimenting:experimentalist': [
+    '{name} runs a batch of simulations for *{task}*.',
+    '{name} fine-tunes experimental parameters at the bench.',
+  ],
+  'bench:calibrating:experimentalist': [
+    '{name} calibrates the simulation pipeline for the next run.',
+    '{name} validates instrument settings before launching the batch.',
+  ],
+  'bench:calibrating:technician': [
+    '{name} performs precision calibration of the compute cluster.',
+    '{name} optimizes GPU allocation for the running experiment.',
+  ],
+  'bench:maintaining:technician': [
+    '{name} patches the compute pipeline for stability.',
+    '{name} monitors resource allocation across active jobs.',
+  ],
+  'bench:optimizing:technician': [
+    '{name} profiles the pipeline for bottlenecks and parallelizes a slow step.',
+    '{name} benchmarks three execution strategies to find the fastest path.',
+  ],
+  'roundtable:debating:critic': [
+    '{name} challenges the methodology behind *{task}*.',
+    '{name} presents counter-evidence during a heated roundtable debate.',
+  ],
+  'roundtable:debating:theorist': [
+    '{name} raises a theoretical objection to the current approach.',
+    '{name} proposes an alternative interpretation of the experimental data.',
+  ],
+  'roundtable:debating:pi': [
+    '{name} moderates the debate and pushes for resolution on *{task}*.',
+    '{name} calls for a formal vote on the contested claim.',
+  ],
+  'roundtable:assisting:generalist': [
+    '{name} organizes debate evidence into a structured summary.',
+    '{name} assists with formatting roundtable arguments for the record.',
+  ],
+  'presentation:synthesizing:synthesizer': [
+    '{name} drafts a summary integrating verified results for *{task}*.',
+    '{name} connects findings across three research threads into a cohesive narrative.',
+  ],
+  'presentation:writing:synthesizer': [
+    '{name} polishes the methodology section for publication.',
+    '{name} finalizes the results figures for the lab report.',
+  ],
+  'presentation:writing:experimentalist': [
+    '{name} prepares the statistical results table for review.',
+    '{name} writes up the latest experimental results with confidence intervals.',
+  ],
+
+  // ── Tier 2: zone:status (~12 entries) ──
+  'ideation:hypothesizing': [
+    '{name} brainstorms connections between recent findings in the ideation space.',
+    '{name} refines a promising hypothesis before bringing it to the team.',
+  ],
+  'ideation:directing': [
+    '{name} steers the lab\'s research direction.',
+    '{name} identifies the highest-priority open question.',
+  ],
+  'ideation:mentoring': [
+    '{name} shares lessons from past campaigns with the team.',
+  ],
+  'whiteboard:theorizing': [
+    '{name} works through a complex derivation on the whiteboard.',
+  ],
+  'whiteboard:hypothesizing': [
+    '{name} maps expected outcomes on the whiteboard.',
+  ],
   'library:reviewing': [
-    '{name} reads through a stack of related papers.',
-    '{name} cross-references findings against the literature.',
+    '{name} reads through a stack of related papers in the library.',
   ],
   'library:scanning': [
-    '{name} discovers a relevant paper and flags it for review.',
     '{name} scans new preprints for potential leads.',
   ],
   'library:scouting': [
-    '{name} hunts for overlooked datasets in the literature.',
-    '{name} compiles a reading list for the team.',
+    '{name} searches the literature for relevant datasets.',
   ],
   'bench:experimenting': [
     '{name} runs a batch of simulations at the bench.',
-    '{name} fine-tunes experimental parameters.',
   ],
   'bench:calibrating': [
-    '{name} calibrates the simulation pipeline.',
-    '{name} validates instrument settings before the next run.',
+    '{name} validates settings before the next experimental run.',
   ],
   'bench:maintaining': [
-    '{name} patches the compute pipeline for stability.',
     '{name} checks resource allocation across active jobs.',
   ],
   'bench:optimizing': [
-    '{name} profiles the pipeline for bottlenecks.',
-    '{name} parallelizes a slow computation step.',
+    '{name} profiles the pipeline and optimizes a slow step.',
   ],
   'roundtable:debating': [
-    '{name} challenges the latest findings at the roundtable.',
-    '{name} presents counter-evidence during a heated debate.',
+    '{name} presents an argument at the roundtable.',
   ],
   'roundtable:assisting': [
-    '{name} assists with organizing debate evidence.',
     '{name} summarizes discussion points for the group.',
   ],
   'presentation:synthesizing': [
-    '{name} drafts a summary of verified results.',
     '{name} integrates findings into the lab report.',
   ],
   'presentation:writing': [
-    '{name} polishes the methodology section for publication.',
-    '{name} writes up the latest experimental results.',
+    '{name} writes up results for the next publication.',
   ],
-  'ideation:directing:task': [
-    '{name} steers the team toward {task}.',
+
+  // ── Tier 3: zone (8 entries) ──
+  'ideation': [
+    '{name} works on a new idea in the ideation corner.',
   ],
-  'bench:experimenting:task': [
-    '{name} runs experiments for {task}.',
+  'whiteboard': [
+    '{name} diagrams something on the whiteboard.',
   ],
-  'roundtable:debating:task': [
-    '{name} challenges the evidence for {task}.',
+  'library': [
+    '{name} studies materials in the library.',
+  ],
+  'bench': [
+    '{name} works at the lab bench.',
+  ],
+  'roundtable': [
+    '{name} participates in the roundtable discussion.',
+  ],
+  'presentation': [
+    '{name} prepares materials at the presentation area.',
   ],
 }
+
+export const TASK_CHANGE_TEMPLATES: string[] = [
+  '{name} shifts focus to *{task}*.',
+  '{name} picks up *{task}* as their new priority.',
+  '{name} transitions to working on *{task}*.',
+  '{name} moves on to tackle *{task}*.',
+  '{name} begins investigating *{task}*.',
+]
 
 // ─── Domain-Specific Speech Texts (zone:archetype) ───
 
@@ -644,63 +744,148 @@ export const MOCK_LAB_STATE: Record<string, LabStateItem[]> = {
     {
       id: 'pf-ls-001', title: 'Beta-sheet folding pathway via entropy correction', status: 'established',
       verificationScore: 0.94, referenceCount: 23, domain: 'computational_biology', proposedBy: 'Dr. Folding',
+      currentSummary: 'Verified novel β-sheet folding pathway through an intermediate α-helix state in prion proteins. Entropy correction factor of 1.18 confirmed across 50 independent trajectories.',
+      signatureChain: [
+        { action: 'proposed', agent_id: 'pf-pi-001', signature_hash: 'a3f8c1', timestamp: '2026-01-05T14:30:00Z' },
+        { action: 'experiment_completed', agent_id: 'pf-exp-001', signature_hash: 'b7d2e4', timestamp: '2026-01-12T09:00:00Z' },
+        { action: 'verified', agent_id: 'pf-crit-001', signature_hash: 'c9a1f6', timestamp: '2026-01-18T11:00:00Z' },
+        { action: 'roundtable_approved', agent_id: 'pf-pi-001', signature_hash: 'd4e8b2', timestamp: '2026-01-20T16:00:00Z' },
+        { action: 'replicated', agent_id: 'pf-exp-002', signature_hash: 'e1c3a7', timestamp: '2026-01-25T10:00:00Z' },
+      ],
       evidence: [
-        { type: 'experiment', description: '50 independent MD trajectories confirming pathway', agent: 'LabRunner-12' },
-        { type: 'verification', description: 'Cross-validated against CASP15 benchmark', agent: 'Skepticus-5' },
+        { type: 'hypothesis', description: 'Proposed intermediate α-helix state in β-sheet folding of prion proteins', agent: 'Dr. Folding', dayLabel: 'Day 1', outcome: null },
+        { type: 'literature', description: 'Found 12 supporting references in PDB structural database', agent: 'PaperHound-9', dayLabel: 'Day 2', outcome: null },
+        { type: 'experiment', description: '50 independent MD trajectories at 300K confirming intermediate state', agent: 'LabRunner-12', dayLabel: 'Day 5', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Questioned whether force field artifacts could produce false intermediate', agent: 'Skepticus-5', dayLabel: 'Day 7', outcome: null },
+        { type: 'replication', description: 'Replicated with AMBER and CHARMM force fields — consistent results', agent: 'BenchBot-8', dayLabel: 'Day 10', outcome: 'confirmed' },
+        { type: 'verification', description: 'Cross-validated against CASP15 benchmark: 0.94 GDT-TS', agent: 'Skepticus-5', dayLabel: 'Day 12', outcome: 'confirmed' },
+        { type: 'roundtable', description: 'Roundtable vote: 4 approve, 0 reject, 1 abstain', agent: 'Sage-2', dayLabel: 'Day 14', outcome: 'confirmed' },
+        { type: 'decision', description: 'Established with entropy correction factor of 1.18 ± 0.03', agent: 'Dr. Folding', dayLabel: 'Day 14', outcome: 'confirmed' },
       ],
     },
     {
       id: 'pf-ls-002', title: 'ML force field improves folding accuracy by 18%', status: 'under_investigation',
       verificationScore: 0.78, referenceCount: 9, domain: 'ml_ai', proposedBy: 'Hypothesizer-7',
+      currentSummary: 'ML-guided force field parameter optimization shows 18% improvement on test set. Awaiting replication on membrane proteins.',
       evidence: [
-        { type: 'experiment', description: 'A/B test on 200 protein structures', agent: 'LabRunner-12' },
+        { type: 'hypothesis', description: 'Proposed ML-guided reparameterization of Lennard-Jones potentials', agent: 'Hypothesizer-7', dayLabel: 'Day 1', outcome: null },
+        { type: 'literature', description: 'Surveyed 8 recent ML force field papers from 2025', agent: 'PaperHound-9', dayLabel: 'Day 2', outcome: null },
+        { type: 'experiment', description: 'A/B test on 200 globular protein structures — 18% RMSD improvement', agent: 'LabRunner-12', dayLabel: 'Day 5', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Performance on membrane proteins unclear — may overfit to soluble proteins', agent: 'Skepticus-5', dayLabel: 'Day 8', outcome: null },
+        { type: 'experiment', description: 'Waiting: Running membrane protein benchmark (N=50)', agent: 'LabRunner-12', dayLabel: 'Day 10', outcome: null },
       ],
     },
     {
       id: 'pf-ls-003', title: 'Entropic contribution dominates folding free energy', status: 'contested',
       verificationScore: 0.61, referenceCount: 5, domain: 'computational_biology', proposedBy: 'DeepThink-3',
+      currentSummary: 'Claim that entropic contribution is underestimated by 15-20% in current implicit solvent models. Active debate on correction methodology.',
       evidence: [
-        { type: 'argument', description: 'Counter-evidence from solvent model comparison', agent: 'Skepticus-5' },
-        { type: 'rebuttal', description: 'Implicit solvent bias does not account for discrepancy', agent: 'DeepThink-3' },
+        { type: 'hypothesis', description: 'Current entropic models undercount solvent-mediated contributions by 15-20%', agent: 'DeepThink-3', dayLabel: 'Day 1', outcome: null },
+        { type: 'experiment', description: 'Explicit TIP4P water shows 18% higher entropy vs GBSA implicit solvent (N=50)', agent: 'LabRunner-12', dayLabel: 'Day 3', outcome: 'confirmed' },
+        { type: 'challenge', description: 'TIP4P comparison may be confounded by box size effects', agent: 'Skepticus-5', dayLabel: 'Day 5', outcome: null },
+        { type: 'result', description: 'Proposed rotamer-based correction factor matches experimental ΔG within 0.5 kcal/mol', agent: 'Hypothesizer-7', dayLabel: 'Day 7', outcome: 'inconclusive' },
+        { type: 'roundtable', description: 'Roundtable: 2 approve, 0 reject, 1 abstain — awaiting validation run', agent: 'Dr. Folding', dayLabel: 'Day 9', outcome: null },
       ],
     },
     {
       id: 'pf-ls-004', title: 'Allosteric binding prediction via graph neural nets', status: 'proposed',
       verificationScore: null, referenceCount: 2, domain: 'ml_ai', proposedBy: 'PaperHound-9',
-      evidence: [],
+      currentSummary: 'Proposed using graph neural networks for allosteric binding site prediction. Literature review in progress.',
+      evidence: [
+        { type: 'literature', description: 'Identified 2 recent GNN papers on allosteric site detection', agent: 'PaperHound-9', dayLabel: 'Day 1', outcome: null },
+        { type: 'hypothesis', description: 'GNN approach could leverage protein contact maps for site prediction', agent: 'BenchBot-8', dayLabel: 'Day 2', outcome: null },
+      ],
     },
     {
       id: 'pf-ls-005', title: 'Multi-scale simulation framework for IDPs', status: 'next',
       verificationScore: null, referenceCount: 0, domain: 'computational_biology', proposedBy: 'Sage-2',
-      evidence: [],
+      currentSummary: 'Queued: Multi-scale approach combining coarse-grained and all-atom simulations for intrinsically disordered proteins.',
+      evidence: [
+        { type: 'hypothesis', description: 'Proposed combining CG and all-atom MD for IDP conformational ensembles', agent: 'Sage-2', dayLabel: 'Day 1', outcome: null },
+      ],
     },
   ],
   'quantum-error-correction': [
     {
       id: 'qec-ls-001', title: 'Surface code threshold improved to 1.1%', status: 'established',
-      verificationScore: 0.91, referenceCount: 14, domain: 'mathematics', proposedBy: 'QEC-Lead',
+      verificationScore: 0.91, referenceCount: 14, domain: 'mathematics', proposedBy: 'Qubit-Prime',
+      currentSummary: 'Achieved 1.1% error threshold via adaptive syndrome decoding, verified across 10^6 configurations. Represents 0.2% improvement over prior MWPM baseline.',
+      signatureChain: [
+        { action: 'proposed', agent_id: 'qec-pi-001', signature_hash: 'f1a2b3', timestamp: '2026-01-08T10:00:00Z' },
+        { action: 'experiment_completed', agent_id: 'qec-exp-001', signature_hash: 'g4c5d6', timestamp: '2026-01-14T15:00:00Z' },
+        { action: 'verified', agent_id: 'qec-crit-001', signature_hash: 'h7e8f9', timestamp: '2026-01-19T09:00:00Z' },
+        { action: 'roundtable_approved', agent_id: 'qec-ment-001', signature_hash: 'i0a1b2', timestamp: '2026-01-22T14:00:00Z' },
+      ],
       evidence: [
-        { type: 'experiment', description: 'Monte Carlo simulation on 10^6 error configurations', agent: 'QEC-Lead' },
+        { type: 'hypothesis', description: 'Adaptive syndrome decoding can push surface code threshold beyond 0.9%', agent: 'Qubit-Prime', dayLabel: 'Day 1', outcome: null },
+        { type: 'literature', description: 'Reviewed 6 recent papers on adaptive decoding strategies', agent: 'ArXivBot-3', dayLabel: 'Day 2', outcome: null },
+        { type: 'experiment', description: 'Monte Carlo simulation on 10^6 error configs yields 1.1% threshold', agent: 'QSimulator-4', dayLabel: 'Day 5', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Tested sensitivity to correlated noise — threshold holds at 1.05%', agent: 'ErrorCheck-1', dayLabel: 'Day 8', outcome: 'confirmed' },
+        { type: 'verification', description: 'Independent verification with different random seed: 1.09% ± 0.02%', agent: 'TopoThink-2', dayLabel: 'Day 10', outcome: 'confirmed' },
+        { type: 'roundtable', description: 'Roundtable unanimous approval (5-0)', agent: 'QuantumSage', dayLabel: 'Day 12', outcome: 'confirmed' },
       ],
     },
     {
       id: 'qec-ls-002', title: 'Topological decoder outperforms MWPM', status: 'under_investigation',
-      verificationScore: 0.72, referenceCount: 3, domain: 'mathematics', proposedBy: 'TopoSolver-2',
-      evidence: [],
+      verificationScore: 0.72, referenceCount: 3, domain: 'mathematics', proposedBy: 'TopoThink-2',
+      currentSummary: 'Topological decoder shows 12% better logical error rate than MWPM on distance-5 codes. Testing on distance-7 and -9 in progress.',
+      evidence: [
+        { type: 'hypothesis', description: 'Topological decoder leveraging homology can outperform MWPM', agent: 'TopoThink-2', dayLabel: 'Day 1', outcome: null },
+        { type: 'experiment', description: 'Distance-5 surface code: 12% better logical error rate vs MWPM', agent: 'QSimulator-4', dayLabel: 'Day 4', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Scalability concern: computational cost grows as O(d^4) vs O(d^3) for MWPM', agent: 'ErrorCheck-1', dayLabel: 'Day 6', outcome: null },
+        { type: 'experiment', description: 'Waiting: Distance-7 and distance-9 benchmarks running', agent: 'QSimulator-4', dayLabel: 'Day 8', outcome: null },
+      ],
+    },
+    {
+      id: 'qec-ls-003', title: 'Noise-adapted compilation reduces gate overhead', status: 'proposed',
+      verificationScore: null, referenceCount: 2, domain: 'mathematics', proposedBy: 'Compiler-6',
+      currentSummary: 'Proposal to compile quantum circuits with noise profile awareness. Expected 20-30% gate count reduction.',
+      evidence: [
+        { type: 'literature', description: 'Found 2 papers on noise-aware transpilation from IBM and Google', agent: 'ArXivBot-3', dayLabel: 'Day 1', outcome: null },
+        { type: 'hypothesis', description: 'Noise-adapted gate decomposition could reduce overhead by 20-30%', agent: 'Compiler-6', dayLabel: 'Day 2', outcome: null },
+      ],
     },
   ],
   'neural-ode-dynamics': [
     {
       id: 'node-ls-001', title: 'Adjoint method reduces memory 4x for deep NODEs', status: 'established',
-      verificationScore: 0.88, referenceCount: 11, domain: 'ml_ai', proposedBy: 'NODE-PI',
+      verificationScore: 0.88, referenceCount: 11, domain: 'ml_ai', proposedBy: 'ODEMaster',
+      currentSummary: 'Adjoint sensitivity method achieves 4x memory reduction compared to checkpointed backpropagation, with only 2% throughput loss on standard benchmarks.',
+      signatureChain: [
+        { action: 'proposed', agent_id: 'node-pi-001', signature_hash: 'j3k4l5', timestamp: '2026-01-15T10:00:00Z' },
+        { action: 'experiment_completed', agent_id: 'node-syn-001', signature_hash: 'm6n7o8', timestamp: '2026-01-22T14:00:00Z' },
+        { action: 'verified', agent_id: 'node-theo-001', signature_hash: 'p9q0r1', timestamp: '2026-01-28T11:00:00Z' },
+      ],
       evidence: [
-        { type: 'experiment', description: 'Benchmarked on 5 standard ODE problems', agent: 'NODE-PI' },
+        { type: 'hypothesis', description: 'Adjoint method can replace checkpointed backprop for deep NODEs', agent: 'ODEMaster', dayLabel: 'Day 1', outcome: null },
+        { type: 'literature', description: 'Reviewed Chen et al. 2018 and 3 follow-up papers on adjoint methods', agent: 'DiffScan-1', dayLabel: 'Day 2', outcome: null },
+        { type: 'experiment', description: 'Benchmarked on 5 standard ODE problems: 4.1x memory reduction', agent: 'Adjoint-3', dayLabel: 'Day 5', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Throughput impact: 2% slower than checkpointed — acceptable tradeoff?', agent: 'FlowField-5', dayLabel: 'Day 7', outcome: null },
+        { type: 'replication', description: 'Replicated on 3 additional architectures (FFJORD, Latent ODE, GRU-ODE)', agent: 'GPUTune-7', dayLabel: 'Day 10', outcome: 'confirmed' },
+        { type: 'decision', description: 'Established: 4x memory, 2% throughput cost — adopted as default', agent: 'ODEMaster', dayLabel: 'Day 12', outcome: 'confirmed' },
       ],
     },
     {
-      id: 'node-ls-002', title: 'Stiff ODE solver improves training stability', status: 'proposed',
-      verificationScore: null, referenceCount: 1, domain: 'ml_ai', proposedBy: 'StiffSolver-1',
-      evidence: [],
+      id: 'node-ls-002', title: 'Stiff ODE solver improves training stability', status: 'under_investigation',
+      verificationScore: 0.65, referenceCount: 4, domain: 'ml_ai', proposedBy: 'FlowField-5',
+      currentSummary: 'Implicit Runge-Kutta solver reduces training NaN rate from 12% to 1.5% on stiff systems. Awaiting benchmark on non-stiff problems.',
+      evidence: [
+        { type: 'hypothesis', description: 'Implicit RK solver can stabilize training on stiff ODE systems', agent: 'FlowField-5', dayLabel: 'Day 1', outcome: null },
+        { type: 'experiment', description: 'NaN rate dropped from 12% to 1.5% on 3 stiff ODE benchmarks', agent: 'Adjoint-3', dayLabel: 'Day 3', outcome: 'confirmed' },
+        { type: 'challenge', description: 'Computational overhead: 3x slower per step — is it worth it?', agent: 'GPUTune-7', dayLabel: 'Day 5', outcome: null },
+        { type: 'experiment', description: 'Waiting: Testing on non-stiff problems to measure overhead cost', agent: 'Adjoint-3', dayLabel: 'Day 7', outcome: null },
+      ],
+    },
+    {
+      id: 'node-ls-003', title: 'Continuous-depth attention via adjoint sensitivity', status: 'contested',
+      verificationScore: 0.55, referenceCount: 3, domain: 'ml_ai', proposedBy: 'FlowField-5',
+      currentSummary: 'Proposed continuous-depth attention mechanism shows mixed results. Convergence proof incomplete, empirical gains inconsistent.',
+      evidence: [
+        { type: 'hypothesis', description: 'Continuous-depth attention can generalize discrete transformer layers', agent: 'FlowField-5', dayLabel: 'Day 1', outcome: null },
+        { type: 'experiment', description: 'Initial results: 3% accuracy gain on CIFAR-10 but 15% slower', agent: 'Adjoint-3', dayLabel: 'Day 4', outcome: 'below_target' },
+        { type: 'challenge', description: 'Convergence proof has gap in Lemma 3.2 — needs formal verification', agent: 'ODEMaster', dayLabel: 'Day 6', outcome: null },
+        { type: 'result', description: 'Failed to reproduce accuracy gain on ImageNet — likely dataset-specific', agent: 'DiffScan-1', dayLabel: 'Day 8', outcome: 'rejected' },
+      ],
     },
   ],
 }

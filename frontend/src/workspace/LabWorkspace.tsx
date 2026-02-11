@@ -35,6 +35,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
   const [roundtableItemId, setRoundtableItemId] = useState<string | null>(null)
   const [workspaceEvents, setWorkspaceEvents] = useState<WorkspaceEvent[]>([])
   const [currentSpeed, setCurrentSpeed] = useState(1)
+  const [highlightItemId, setHighlightItemId] = useState<string | null>(null)
 
   useWorkspaceEvents(agents, members, sceneReady)
 
@@ -244,11 +245,19 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       </div>
 
       {/* Lab state panel -- full width */}
-      <LabStatePanel slug={slug} />
+      <LabStatePanel slug={slug} highlightItemId={highlightItemId} />
 
       {/* Below-workspace panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <NarrativePanel events={workspaceEvents} members={members} slug={slug} />
+        <NarrativePanel
+          events={workspaceEvents}
+          members={members}
+          slug={slug}
+          onHighlightItem={(id) => {
+            setHighlightItemId(id)
+            setTimeout(() => setHighlightItemId(null), 2000)
+          }}
+        />
         <HumanDiscussion slug={slug} />
       </div>
     </div>
