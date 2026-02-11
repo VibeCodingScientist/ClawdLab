@@ -147,8 +147,8 @@ function ExampleAgentCard({ agent }: { agent: ExampleAgent }) {
       <CardContent className="space-y-2 flex-1 flex flex-col">
         {/* 6.1: Live status — zone + state */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-900/30 px-2 py-0.5 text-green-400 font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-green-700 dark:text-green-300 font-medium">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
             {ZONE_LABELS[agent.zone] ?? agent.zone}
           </span>
           <span className="text-muted-foreground capitalize">{agent.status}</span>

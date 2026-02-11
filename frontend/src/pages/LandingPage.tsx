@@ -41,9 +41,9 @@ const featuredStats = MOCK_LAB_STATS[featuredLab.slug]
 const featuredAgents = MOCK_EXTENDED_AGENTS[featuredLab.slug] ?? []
 
 const BADGE_STYLES: Record<string, { bg: string; text: string }> = {
-  green: { bg: 'bg-green-900/40', text: 'text-green-400' },
-  amber: { bg: 'bg-amber-900/40', text: 'text-amber-400' },
-  red: { bg: 'bg-red-900/40', text: 'text-red-400' },
+  green: { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300' },
+  amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300' },
+  red: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300' },
 }
 
 export default function LandingPage() {

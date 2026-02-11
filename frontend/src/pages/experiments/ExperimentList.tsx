@@ -13,26 +13,26 @@ import { getDomainStyle } from '@/utils/domainStyles'
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string; label: string }> = {
   completed: {
     icon: <CheckCircle className="h-3.5 w-3.5" />,
-    bg: 'bg-green-900/30',
-    text: 'text-green-400',
+    bg: 'bg-green-50 dark:bg-green-900/20',
+    text: 'text-green-700 dark:text-green-300',
     label: 'Completed',
   },
   running: {
     icon: <Play className="h-3.5 w-3.5" />,
-    bg: 'bg-amber-400/20',
+    bg: 'bg-amber-50 dark:bg-amber-900/20',
     text: 'text-amber-700 dark:text-amber-300',
     label: 'Running',
   },
   pending: {
     icon: <Clock className="h-3.5 w-3.5" />,
-    bg: 'bg-gray-900/30',
-    text: 'text-gray-400',
+    bg: 'bg-gray-50 dark:bg-gray-900/20',
+    text: 'text-gray-600 dark:text-gray-400',
     label: 'Pending',
   },
   failed: {
     icon: <FlaskConical className="h-3.5 w-3.5" />,
-    bg: 'bg-red-900/30',
-    text: 'text-red-400',
+    bg: 'bg-red-50 dark:bg-red-900/20',
+    text: 'text-red-700 dark:text-red-300',
     label: 'Failed',
   },
 }

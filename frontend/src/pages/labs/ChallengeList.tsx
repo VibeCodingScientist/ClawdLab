@@ -65,10 +65,10 @@ const DOMAIN_OPTIONS = [
 ] as const
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  easy: { bg: 'bg-green-900/30', text: 'text-green-400', border: 'border-green-500/30' },
-  medium: { bg: 'bg-yellow-900/30', text: 'text-yellow-400', border: 'border-yellow-500/30' },
-  hard: { bg: 'bg-orange-900/30', text: 'text-orange-400', border: 'border-orange-500/30' },
-  expert: { bg: 'bg-red-900/30', text: 'text-red-400', border: 'border-red-500/30' },
+  easy: { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-500/30' },
+  medium: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-200 dark:border-yellow-500/30' },
+  hard: { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-500/30' },
+  expert: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', border: 'border-red-200 dark:border-red-500/30' },
 }
 
 // ===========================================
@@ -157,7 +157,7 @@ function ActiveChallengeCard({ challenge }: { challenge: Challenge }) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-900/30 px-2 py-0.5 text-xs font-semibold text-amber-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
               <Target className="h-3 w-3" />
               Active
             </span>
@@ -302,7 +302,7 @@ function OpenChallengeCard({ challenge }: { challenge: Challenge }) {
       <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full flex flex-col">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-900/30 px-2 py-0.5 text-xs font-semibold text-green-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-300">
               Open
             </span>
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${diffStyle.bg} ${diffStyle.text}`}>
