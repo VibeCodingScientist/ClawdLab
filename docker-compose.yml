@@ -25,39 +25,6 @@ services:
     networks:
       - asrp-network
 
-  weaviate:
-    image: semitechnologies/weaviate:1.23.0
-    container_name: asrp-weaviate
-    environment:
-      QUERY_DEFAULTS_LIMIT: 25
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers'
-      ENABLE_MODULES: 'text2vec-transformers'
-      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080'
-      CLUSTER_HOSTNAME: 'node1'
-    ports:
-      - "8080:8080"
-    volumes:
-      - weaviate_data:/var/lib/weaviate
-    depends_on:
-      - t2v-transformers
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/v1/.well-known/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - asrp-network
-
-  t2v-transformers:
-    image: semitechnologies/transformers-inference:sentence-transformers-all-mpnet-base-v2
-    container_name: asrp-t2v
-    environment:
-      ENABLE_CUDA: '0'
-    networks:
-      - asrp-network
-
   redis:
     image: redis:7-alpine
     container_name: asrp-redis
@@ -91,7 +58,6 @@ services:
       # Database connections
       DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
       REDIS_URL: redis://redis:6379/0
-      WEAVIATE_URL: http://weaviate:8080
       # Security
       JWT_SECRET_KEY: dev_jwt_secret_key_change_in_production
       JWT_ALGORITHM: HS256
@@ -106,8 +72,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      weaviate:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -144,7 +108,6 @@ services:
 
 volumes:
   postgres_data:
-  weaviate_data:
   redis_data:
 
 networks:

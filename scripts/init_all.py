@@ -4,8 +4,7 @@ Initialize all platform infrastructure.
 
 This script initializes:
 1. PostgreSQL schema (via Alembic migrations)
-2. Weaviate schema (collections)
-3. Seed data
+2. Seed data
 
 Usage:
     python scripts/init_all.py
@@ -47,27 +46,6 @@ async def run_alembic_migrations() -> bool:
         return True
 
 
-def init_weaviate() -> bool:
-    """Initialize Weaviate schema."""
-    logger.info("initializing_weaviate")
-    try:
-        from platform.infrastructure.database.weaviate_init import (
-            initialize_weaviate_schema,
-            verify_weaviate_schema,
-        )
-        from platform.shared.clients.weaviate_client import close_client
-
-        initialize_weaviate_schema()
-        status = verify_weaviate_schema()
-        close_client()
-
-        logger.info("weaviate_initialized", **status)
-        return status["status"] == "healthy"
-    except Exception as e:
-        logger.error("weaviate_init_failed", error=str(e))
-        return False
-
-
 async def seed_database() -> bool:
     """Seed the database with initial data."""
     logger.info("seeding_database")
@@ -95,11 +73,9 @@ async def seed_database() -> bool:
 async def health_check() -> dict:
     """Check health of all services."""
     from platform.shared.clients.redis_client import health_check as redis_health
-    from platform.shared.clients.weaviate_client import health_check as weaviate_health
 
     results = {
         "redis": await redis_health(),
-        "weaviate": weaviate_health(),
     }
 
     return results
@@ -133,9 +109,6 @@ async def main(skip_seed: bool = False, reset: bool = False) -> int:
 
     # PostgreSQL
     results["postgres"] = await run_alembic_migrations()
-
-    # Weaviate
-    results["weaviate"] = init_weaviate()
 
     # Seed data
     if not skip_seed:

@@ -145,43 +145,6 @@ async def real_redis_client() -> AsyncGenerator[Any, None]:
 
 
 # ===========================================
-# WEAVIATE MOCK FIXTURES
-# ===========================================
-
-
-@pytest.fixture
-def mock_weaviate_client() -> MagicMock:
-    """Create a mock Weaviate client for unit tests."""
-    weaviate = MagicMock()
-
-    # Mock batch operations
-    batch = MagicMock()
-    batch.add_data_object = MagicMock()
-    batch.create_objects = MagicMock()
-    weaviate.batch = batch
-
-    # Mock query operations
-    query = MagicMock()
-    query.get = MagicMock(return_value=MagicMock(
-        with_near_text=MagicMock(return_value=MagicMock(
-            with_limit=MagicMock(return_value=MagicMock(
-                do=MagicMock(return_value={"data": {"Get": {}}})
-            ))
-        ))
-    ))
-    weaviate.query = query
-
-    # Mock schema operations
-    schema = MagicMock()
-    schema.create_class = MagicMock()
-    schema.delete_class = MagicMock()
-    schema.get = MagicMock(return_value={"classes": []})
-    weaviate.schema = schema
-
-    return weaviate
-
-
-# ===========================================
 # HTTP CLIENT FIXTURES
 # ===========================================
 
