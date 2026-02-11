@@ -97,52 +97,6 @@ services:
       - asrp-network
 
   # ===========================================
-  # MESSAGE BROKER
-  # ===========================================
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: asrp-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data
-      - zookeeper_logs:/var/lib/zookeeper/log
-    networks:
-      - asrp-network
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: asrp-kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    networks:
-      - asrp-network
-
-  # ===========================================
   # APPLICATION SERVICES
   # ===========================================
 
@@ -163,7 +117,6 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: neo4j_dev_password
       WEAVIATE_URL: http://weaviate:8080
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       # Security
       JWT_SECRET_KEY: dev_jwt_secret_key_change_in_production
       JWT_ALGORITHM: HS256
@@ -183,8 +136,6 @@ services:
         condition: service_healthy
       weaviate:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -202,7 +153,7 @@ services:
       dockerfile: Dockerfile
       target: development
     container_name: asrp-celery-worker
-    command: celery -A platform.infrastructure.celery.app worker --loglevel=info
+    command: celery -A platform.infrastructure.celery.app worker --beat --loglevel=info
     environment:
       DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
       REDIS_URL: redis://redis:6379/0
@@ -217,26 +168,6 @@ services:
       - asrp-network
     restart: unless-stopped
 
-  # Celery beat for scheduled tasks
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: asrp-celery-beat
-    command: celery -A platform.infrastructure.celery.app beat --loglevel=info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-    volumes:
-      - ./platform:/app/platform:cached
-    depends_on:
-      - celery-worker
-    networks:
-      - asrp-network
-    restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -244,9 +175,6 @@ volumes:
   neo4j_logs:
   weaviate_data:
   redis_data:
-  zookeeper_data:
-  zookeeper_logs:
-  kafka_data:
 
 networks:
   asrp-network:

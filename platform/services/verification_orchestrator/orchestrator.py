@@ -14,7 +14,7 @@ from platform.infrastructure.celery.tasks import (
     verify_ml_claim,
 )
 from platform.services.verification_orchestrator.config import get_settings
-from platform.shared.clients.kafka_client import KafkaConsumer, KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.clients.redis_client import RedisCache
 from platform.shared.schemas.base import Domain
 from platform.shared.utils.logging import get_logger
@@ -68,7 +68,6 @@ class VerificationOrchestrator:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.cache = RedisCache("verification")
-        self.producer = KafkaProducer()
 
     async def dispatch_verification(
         self,
@@ -328,10 +327,7 @@ class VerificationOrchestrator:
                 event_payload["impact_score"] = result.get("impact_score")
                 event_payload["verification_score"] = result.get("verification_score")
 
-        await self.producer.send(
-            topic="verification.results",
-            value=event_payload,
-        )
+        emit_platform_event("verification.results", event_payload)
 
         # Update claim in database
         await self._update_claim_verification_status(claim_id, status, result, error)
@@ -516,88 +512,3 @@ class VerificationOrchestrator:
         await self.session.commit()
 
 
-class ClaimEventConsumer:
-    """
-    Kafka consumer for claim events.
-
-    Listens to claim.submitted events and dispatches verification.
-    """
-
-    def __init__(self, session: AsyncSession):
-        self.session = session
-        self.orchestrator = VerificationOrchestrator(session)
-        self.consumer = KafkaConsumer(
-            topics=["claims"],
-            group_id="verification-orchestrator",
-        )
-
-    async def start(self) -> None:
-        """Start consuming claim events."""
-        logger.info("starting_claim_event_consumer")
-
-        async for message in self.consumer.consume():
-            try:
-                await self._handle_message(message)
-            except Exception as e:
-                logger.exception("claim_event_handling_error", error=str(e))
-
-    async def _handle_message(self, message: dict[str, Any]) -> None:
-        """Handle a claim event message."""
-        event_type = message.get("event_type")
-
-        if event_type == "claim.submitted":
-            await self._handle_claim_submitted(message)
-        elif event_type == "claim.retracted":
-            await self._handle_claim_retracted(message)
-
-    async def _handle_claim_submitted(self, message: dict[str, Any]) -> None:
-        """Handle claim submission - dispatch verification."""
-        claim_id = message.get("claim_id")
-        domain = message.get("domain")
-        claim_type = message.get("claim_type")
-
-        if not all([claim_id, domain, claim_type]):
-            logger.error("invalid_claim_event", message=message)
-            return
-
-        # Get full claim payload from database
-        from platform.infrastructure.database.models import Claim
-        from sqlalchemy import select
-
-        result = await self.session.execute(
-            select(Claim).where(Claim.id == claim_id)
-        )
-        claim = result.scalar_one_or_none()
-
-        if not claim:
-            logger.error("claim_not_found", claim_id=claim_id)
-            return
-
-        # Dispatch verification
-        await self.orchestrator.dispatch_verification(
-            claim_id=claim_id,
-            domain=domain,
-            claim_type=claim_type,
-            payload=claim.payload,
-        )
-
-    async def _handle_claim_retracted(self, message: dict[str, Any]) -> None:
-        """Handle claim retraction - cancel pending verification."""
-        claim_id = message.get("claim_id")
-
-        # Get verification job
-        link = await self.orchestrator.cache.get(f"claim_verification:{claim_id}")
-        if link and link.get("status") in ("queued", "dispatched", "running"):
-            # Cancel the job
-            job_id = link.get("job_id")
-            if job_id:
-                job_data = await self.orchestrator.cache.get(f"verification_job:{job_id}")
-                if job_data and job_data.get("celery_task_id"):
-                    from platform.infrastructure.celery.app import celery_app
-                    celery_app.control.revoke(job_data["celery_task_id"], terminate=True)
-
-                    logger.info(
-                        "verification_cancelled",
-                        job_id=job_id,
-                        claim_id=claim_id,
-                    )

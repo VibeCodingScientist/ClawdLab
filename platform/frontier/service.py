@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from platform.frontier.repository import FrontierRepository, FrontierSubscriptionRepository
 from platform.infrastructure.database.models import ResearchFrontier, Claim
 from platform.reputation.service import KarmaService
-from platform.shared.clients.kafka_client import KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.schemas.base import FrontierStatus, VerificationStatus
 from platform.shared.utils.logging import get_logger
 
@@ -491,19 +491,8 @@ class FrontierService:
         event_type: str,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Publish frontier event to Kafka for downstream processing.
-
-        Args:
-            frontier: The frontier that triggered the event
-            event_type: Event type (e.g., 'frontier.created', 'frontier.claimed')
-            extra: Additional fields to include in the event payload
-
-        Note:
-            Errors are logged but not raised to prevent blocking the main operation.
-        """
+        """Publish frontier event via Celery tasks."""
         try:
-            producer = KafkaProducer()
             event = {
                 "event_type": event_type,
                 "frontier_id": str(frontier.id),
@@ -516,7 +505,7 @@ class FrontierService:
             if extra:
                 event.update(extra)
 
-            await producer.send(topic="frontiers", value=event)
+            emit_platform_event("frontiers", event)
         except Exception as e:
             logger.error("failed_to_publish_frontier_event", error=str(e))
 

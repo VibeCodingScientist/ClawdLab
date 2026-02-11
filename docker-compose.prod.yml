@@ -89,27 +89,6 @@ services:
         max-size: "50m"
         max-file: "3"
 
-  celery-beat:
-    build:
-      target: production
-    environment:
-      LOG_LEVEL: INFO
-    deploy:
-      mode: replicated
-      replicas: 1  # Only one beat instance
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-    volumes: []
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "3"
-
   # Production database configuration
   postgres:
     environment:

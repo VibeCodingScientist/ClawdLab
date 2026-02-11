@@ -36,7 +36,7 @@ from platform.labs.repository import (
 )
 from platform.labs.state_machine import validate_transition
 from platform.security.sanitization import get_sanitizer
-from platform.shared.clients.kafka_client import KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -523,13 +523,10 @@ class RoundtableService:
 
     async def _publish_event(self, topic: str, event_type: str, data: dict[str, Any]) -> None:
         try:
-            producer = KafkaProducer()
-            await producer.send_event(
-                topic=topic,
-                event_type=event_type,
-                data=data,
-                source_service="roundtable-service",
-            )
+            emit_platform_event(topic, {
+                "event_type": event_type,
+                "data": data,
+            })
         except Exception as e:
             logger.error("failed_to_publish_roundtable_event", error=str(e), topic=topic)
 

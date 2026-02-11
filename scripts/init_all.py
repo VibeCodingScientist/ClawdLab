@@ -6,8 +6,7 @@ This script initializes:
 1. PostgreSQL schema (via Alembic migrations)
 2. Neo4j schema (constraints and indexes)
 3. Weaviate schema (collections)
-4. Kafka topics
-5. Seed data
+4. Seed data
 
 Usage:
     python scripts/init_all.py
@@ -91,20 +90,6 @@ def init_weaviate() -> bool:
         return False
 
 
-async def init_kafka() -> bool:
-    """Initialize Kafka topics."""
-    logger.info("initializing_kafka")
-    try:
-        from platform.shared.clients.kafka_client import initialize_topics
-
-        await initialize_topics()
-        logger.info("kafka_topics_initialized")
-        return True
-    except Exception as e:
-        logger.error("kafka_init_failed", error=str(e))
-        return False
-
-
 async def seed_database() -> bool:
     """Seed the database with initial data."""
     logger.info("seeding_database")
@@ -134,13 +119,11 @@ async def health_check() -> dict:
     from platform.shared.clients.redis_client import health_check as redis_health
     from platform.shared.clients.neo4j_client import health_check as neo4j_health
     from platform.shared.clients.weaviate_client import health_check as weaviate_health
-    from platform.shared.clients.kafka_client import health_check as kafka_health
 
     results = {
         "redis": await redis_health(),
         "neo4j": await neo4j_health(),
         "weaviate": weaviate_health(),
-        "kafka": await kafka_health(),
     }
 
     return results
@@ -180,9 +163,6 @@ async def main(skip_seed: bool = False, reset: bool = False) -> int:
 
     # Weaviate
     results["weaviate"] = init_weaviate()
-
-    # Kafka
-    results["kafka"] = await init_kafka()
 
     # Seed data
     if not skip_seed:

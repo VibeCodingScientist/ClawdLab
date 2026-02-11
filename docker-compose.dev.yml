@@ -45,15 +45,7 @@ services:
       CELERY_LOG_LEVEL: DEBUG
     volumes:
       - ./platform:/app/platform:cached
-    command: celery -A platform.infrastructure.celery.app worker --loglevel=debug
-
-  celery-beat:
-    build:
-      target: development
-    environment:
-      LOG_LEVEL: DEBUG
-    volumes:
-      - ./platform:/app/platform:cached
+    command: celery -A platform.infrastructure.celery.app worker --beat --loglevel=debug
 
   # Development-only test database
   postgres-test:

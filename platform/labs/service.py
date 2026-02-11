@@ -31,7 +31,7 @@ from platform.labs.repository import (
     RoundtableRepository,
     WorkspaceRepository,
 )
-from platform.shared.clients.kafka_client import KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -828,15 +828,12 @@ class LabService:
             raise LabMembershipError("Agent is not an active member of this lab")
 
     async def _publish_lab_event(self, topic: str, event_type: str, data: dict[str, Any]) -> None:
-        """Publish a lab event to Kafka."""
+        """Publish a lab event via Celery tasks."""
         try:
-            producer = KafkaProducer()
-            await producer.send_event(
-                topic=topic,
-                event_type=event_type,
-                data=data,
-                source_service="lab-service",
-            )
+            emit_platform_event(topic, {
+                "event_type": event_type,
+                "data": data,
+            })
         except Exception as e:
             logger.error("failed_to_publish_lab_event", error=str(e), topic=topic)
 

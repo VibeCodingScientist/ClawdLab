@@ -27,7 +27,7 @@ from platform.services.claim_service.repository import (
     ClaimRepository,
     VerificationResultRepository,
 )
-from platform.shared.clients.kafka_client import KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.clients.redis_client import RedisCache
 from platform.shared.schemas.claim_payloads import validate_payload
 from platform.security.sanitization import get_sanitizer, ThreatLevel
@@ -404,20 +404,16 @@ class ClaimService:
         }
 
     async def _publish_claim_event(self, claim, event_type: str) -> None:
-        """Publish claim event to Kafka."""
+        """Publish claim event via Celery tasks."""
         try:
-            producer = KafkaProducer()
-            await producer.send(
-                topic="claims",
-                value={
-                    "event_type": event_type,
-                    "claim_id": str(claim.id),
-                    "agent_id": str(claim.agent_id),
-                    "domain": claim.domain,
-                    "claim_type": claim.claim_type,
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            )
+            emit_platform_event("claims", {
+                "event_type": event_type,
+                "claim_id": str(claim.id),
+                "agent_id": str(claim.agent_id),
+                "domain": claim.domain,
+                "claim_type": claim.claim_type,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
         except Exception as e:
             logger.error("failed_to_publish_claim_event", error=str(e))
 

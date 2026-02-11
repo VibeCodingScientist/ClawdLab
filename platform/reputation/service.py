@@ -19,7 +19,7 @@ from platform.infrastructure.database.models import (
     KarmaTransaction,
 )
 from platform.reputation.calculator import KarmaCalculator, KarmaResult
-from platform.shared.clients.kafka_client import KafkaProducer
+from platform.infrastructure.celery.event_tasks import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -583,21 +583,17 @@ class KarmaService:
         domain: str | None,
         source_id: UUID | None,
     ) -> None:
-        """Publish karma event to Kafka."""
+        """Publish karma event via Celery tasks."""
         try:
-            producer = KafkaProducer()
-            await producer.send(
-                topic="reputation.transactions",
-                value={
-                    "event_type": "reputation.transaction",
-                    "agent_id": str(agent_id),
-                    "karma_delta": amount,
-                    "transaction_type": transaction_type,
-                    "domain": domain,
-                    "source_id": str(source_id) if source_id else None,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            )
+            emit_platform_event("reputation.transactions", {
+                "event_type": "reputation.transaction",
+                "agent_id": str(agent_id),
+                "karma_delta": amount,
+                "transaction_type": transaction_type,
+                "domain": domain,
+                "source_id": str(source_id) if source_id else None,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
         except Exception as e:
             logger.error("failed_to_publish_karma_event", error=str(e))
 

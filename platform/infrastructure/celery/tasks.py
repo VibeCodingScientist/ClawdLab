@@ -682,25 +682,18 @@ def verification_callback(
 
     Called after a verification task completes.
     """
-    from platform.shared.clients.kafka_client import KafkaProducer
     from datetime import datetime
-    import asyncio
 
-    async def send_result():
-        producer = KafkaProducer()
-        await producer.send(
-            topic="verification.results",
-            value={
-                "event_type": "verification.completed",
-                "job_id": job_id,
-                "claim_id": claim_id,
-                "status": "verified" if result.get("verified") else "refuted",
-                "result": result,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
-        )
+    from platform.infrastructure.celery.event_tasks import emit_platform_event
 
-    asyncio.run(send_result())
+    emit_platform_event("verification.results", {
+        "event_type": "verification.completed",
+        "job_id": job_id,
+        "claim_id": claim_id,
+        "status": "verified" if result.get("verified") else "refuted",
+        "result": result,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
 
 
 @shared_task(name="verification.cleanup")
