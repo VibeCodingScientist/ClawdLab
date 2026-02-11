@@ -135,22 +135,6 @@ def update_leaderboards(self):
 
 
 # ===========================================
-# KNOWLEDGE GRAPH TASKS (Stubs)
-# ===========================================
-
-
-@celery_app.task(bind=True, base=BaseTask, name="knowledge.sync_from_postgres")
-def sync_knowledge_from_postgres(self):
-    """Sync knowledge graph from PostgreSQL."""
-    from platform.shared.utils.logging import get_logger
-
-    logger = get_logger(__name__)
-    logger.info("syncing_knowledge_graph")
-    # TODO: Implement PostgreSQL to Neo4j sync
-    return {"synced": 0}
-
-
-# ===========================================
 # CLEANUP TASKS (Stubs)
 # ===========================================
 

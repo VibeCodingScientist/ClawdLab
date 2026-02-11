@@ -1,7 +1,7 @@
 """Global pytest fixtures for the Autonomous Scientific Research Platform.
 
 This module provides shared fixtures for testing including:
-- Database sessions (PostgreSQL, Redis, Neo4j)
+- Database sessions (PostgreSQL, Redis)
 - Mock clients for unit tests
 - Test data factories
 - Async test utilities
@@ -142,37 +142,6 @@ async def real_redis_client() -> AsyncGenerator[Any, None]:
     # Clean up test data
     await client.flushdb()
     await client.close()
-
-
-# ===========================================
-# NEO4J MOCK FIXTURES
-# ===========================================
-
-
-@pytest.fixture
-def mock_neo4j_client() -> MagicMock:
-    """Create a mock Neo4j client for unit tests."""
-    neo4j = MagicMock()
-
-    # Mock session
-    session = MagicMock()
-    session.run = MagicMock(return_value=MagicMock(data=lambda: []))
-    session.close = MagicMock()
-    session.__enter__ = MagicMock(return_value=session)
-    session.__exit__ = MagicMock(return_value=None)
-
-    # Mock async session
-    async_session = AsyncMock()
-    async_session.run = AsyncMock(return_value=MagicMock(data=lambda: []))
-    async_session.close = AsyncMock()
-    async_session.__aenter__ = AsyncMock(return_value=async_session)
-    async_session.__aexit__ = AsyncMock(return_value=None)
-
-    neo4j.session = MagicMock(return_value=session)
-    neo4j.async_session = AsyncMock(return_value=async_session)
-    neo4j.close = MagicMock()
-
-    return neo4j
 
 
 # ===========================================

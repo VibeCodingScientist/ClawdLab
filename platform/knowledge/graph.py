@@ -65,16 +65,9 @@ class KnowledgeGraphService:
     for the knowledge base.
     """
 
-    def __init__(self, mcp_tool_provider: Any | None = None):
-        """
-        Initialize knowledge graph service.
-
-        Args:
-            mcp_tool_provider: Optional MCP tool provider for Neo4j operations
-        """
+    def __init__(self):
+        """Initialize knowledge graph service."""
         self._repository = get_knowledge_repository()
-        self._mcp_provider = mcp_tool_provider
-        self._use_neo4j = settings.use_neo4j
 
     async def create_relationship(
         self,
@@ -680,11 +673,9 @@ class KnowledgeGraphService:
 _graph_service_instance: KnowledgeGraphService | None = None
 
 
-def get_graph_service(
-    mcp_tool_provider: Any | None = None,
-) -> KnowledgeGraphService:
+def get_graph_service() -> KnowledgeGraphService:
     """Get singleton KnowledgeGraphService instance."""
     global _graph_service_instance
     if _graph_service_instance is None:
-        _graph_service_instance = KnowledgeGraphService(mcp_tool_provider)
+        _graph_service_instance = KnowledgeGraphService()
     return _graph_service_instance

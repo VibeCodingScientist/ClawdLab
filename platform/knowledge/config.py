@@ -56,24 +56,6 @@ class KnowledgeSettings(BaseSettings):
         description="Maximum search results to return",
     )
 
-    # Graph Database Settings
-    neo4j_url: str = Field(
-        default="bolt://localhost:7687",
-        description="Neo4j connection URL",
-    )
-    neo4j_user: str = Field(
-        default="neo4j",
-        description="Neo4j username",
-    )
-    neo4j_password: str = Field(
-        default="",
-        description="Neo4j password",
-    )
-    use_neo4j: bool = Field(
-        default=False,
-        description="Use Neo4j for knowledge graph (vs PostgreSQL)",
-    )
-
     # Caching Settings
     redis_url: str = Field(
         default="redis://localhost:6379/1",

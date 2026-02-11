@@ -135,24 +135,9 @@ services:
       --tcp-keepalive 300
       --timeout 0
 
-  neo4j:
-    environment:
-      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
-      NEO4J_dbms_memory_heap_initial__size: 2G
-      NEO4J_dbms_memory_heap_max__size: 4G
-      NEO4J_dbms_memory_pagecache_size: 2G
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
-
 # Production volumes with backup labels
 volumes:
   postgres_data:
-    labels:
-      - "backup=daily"
-  neo4j_data:
     labels:
       - "backup=daily"
   redis_data:

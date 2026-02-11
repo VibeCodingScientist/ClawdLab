@@ -4,9 +4,8 @@ Initialize all platform infrastructure.
 
 This script initializes:
 1. PostgreSQL schema (via Alembic migrations)
-2. Neo4j schema (constraints and indexes)
-3. Weaviate schema (collections)
-4. Seed data
+2. Weaviate schema (collections)
+3. Seed data
 
 Usage:
     python scripts/init_all.py
@@ -46,27 +45,6 @@ async def run_alembic_migrations() -> bool:
     except FileNotFoundError:
         logger.warning("alembic_not_found_skipping")
         return True
-
-
-async def init_neo4j() -> bool:
-    """Initialize Neo4j schema."""
-    logger.info("initializing_neo4j")
-    try:
-        from platform.infrastructure.database.neo4j_init import (
-            initialize_neo4j_schema,
-            verify_neo4j_schema,
-        )
-        from platform.shared.clients.neo4j_client import close_driver
-
-        await initialize_neo4j_schema()
-        status = await verify_neo4j_schema()
-        await close_driver()
-
-        logger.info("neo4j_initialized", **status)
-        return status["status"] == "healthy"
-    except Exception as e:
-        logger.error("neo4j_init_failed", error=str(e))
-        return False
 
 
 def init_weaviate() -> bool:
@@ -117,12 +95,10 @@ async def seed_database() -> bool:
 async def health_check() -> dict:
     """Check health of all services."""
     from platform.shared.clients.redis_client import health_check as redis_health
-    from platform.shared.clients.neo4j_client import health_check as neo4j_health
     from platform.shared.clients.weaviate_client import health_check as weaviate_health
 
     results = {
         "redis": await redis_health(),
-        "neo4j": await neo4j_health(),
         "weaviate": weaviate_health(),
     }
 
@@ -157,9 +133,6 @@ async def main(skip_seed: bool = False, reset: bool = False) -> int:
 
     # PostgreSQL
     results["postgres"] = await run_alembic_migrations()
-
-    # Neo4j
-    results["neo4j"] = await init_neo4j()
 
     # Weaviate
     results["weaviate"] = init_weaviate()

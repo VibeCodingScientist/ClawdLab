@@ -1,4 +1,4 @@
-"""Knowledge repository for PostgreSQL and Neo4j operations.
+"""Knowledge repository for PostgreSQL operations.
 
 Provides data access for KnowledgeEntry, Citation, Relationship,
 and Provenance entities.
@@ -137,11 +137,7 @@ class CitationModel(Base):
 
 
 class RelationshipModel(Base):
-    """Knowledge relationship ORM model for PostgreSQL storage.
-
-    Note: For graph-heavy operations, consider using Neo4j directly.
-    This model provides PostgreSQL-based relationship storage.
-    """
+    """Knowledge relationship ORM model for PostgreSQL storage."""
 
     __tablename__ = "knowledge_relationships"
 
@@ -732,10 +728,7 @@ class CitationRepository(BaseRepository[CitationModel]):
 
 
 class RelationshipRepository(BaseRepository[RelationshipModel]):
-    """Repository for Relationship database operations.
-
-    For complex graph operations, consider using Neo4j directly.
-    """
+    """Repository for Relationship database operations."""
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize the relationship repository.
