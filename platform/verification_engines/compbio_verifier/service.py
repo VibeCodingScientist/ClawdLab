@@ -73,7 +73,7 @@ class CompBioVerificationService:
         """
         Verify a computational biology claim.
 
-        This is the main entry point called by the Celery task.
+        This is the main entry point called by the verification dispatcher.
 
         Args:
             claim_id: ID of the claim being verified

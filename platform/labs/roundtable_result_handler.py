@@ -4,7 +4,7 @@ Routes claim verification results back into the roundtable pipeline:
 - Verified → transition to verified, distribute karma
 - Failed → route back to under_debate with evidence entry
 
-Called by the ``events.handle_roundtable_result`` Celery task.
+Called by the ``events.handle_roundtable_result`` async handler.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ async def process_verification_for_roundtable(
         session: Active async database session (caller must commit/rollback).
         event_data: Event payload with claim_id, status, badge, etc.
     """
-    from platform.infrastructure.celery.event_tasks import emit_platform_event
+    from platform.infrastructure.events import emit_platform_event
 
     data = event_data.get("data", event_data)
     claim_id = data.get("claim_id")

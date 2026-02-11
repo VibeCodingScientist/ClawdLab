@@ -94,20 +94,6 @@ class OrchestrationSettings(BaseSettings):
         description="PostgreSQL URL for persistent storage",
     )
 
-    # Kafka Settings
-    kafka_bootstrap_servers: str = Field(
-        default="localhost:9092",
-        description="Kafka bootstrap servers",
-    )
-    research_events_topic: str = Field(
-        default="research.events",
-        description="Topic for research events",
-    )
-    verification_results_topic: str = Field(
-        default="verification.results",
-        description="Topic for verification results",
-    )
-
 
 @lru_cache
 def get_settings() -> OrchestrationSettings:
@@ -120,35 +106,35 @@ RESEARCH_DOMAINS = {
     "mathematics": {
         "name": "Mathematics",
         "verification_engine": "math_verifier",
-        "celery_queue": "verify.math",
+        "queue": "verify.math",
         "keywords": ["proof", "theorem", "lemma", "conjecture", "axiom", "corollary"],
         "file_extensions": [".lean", ".v", ".smt2"],
     },
     "ml_ai": {
         "name": "Machine Learning / AI",
         "verification_engine": "ml_verifier",
-        "celery_queue": "verify.ml",
+        "queue": "verify.ml",
         "keywords": ["model", "training", "accuracy", "benchmark", "dataset", "neural"],
         "file_extensions": [".py", ".ipynb", ".yaml"],
     },
     "computational_biology": {
         "name": "Computational Biology",
         "verification_engine": "compbio_verifier",
-        "celery_queue": "verify.compbio",
+        "queue": "verify.compbio",
         "keywords": ["protein", "structure", "folding", "binding", "sequence", "alphafold"],
         "file_extensions": [".pdb", ".fasta", ".cif"],
     },
     "materials_science": {
         "name": "Materials Science",
         "verification_engine": "materials_verifier",
-        "celery_queue": "verify.materials",
+        "queue": "verify.materials",
         "keywords": ["crystal", "lattice", "stability", "energy", "composition", "structure"],
         "file_extensions": [".cif", ".poscar", ".xyz"],
     },
     "bioinformatics": {
         "name": "Bioinformatics",
         "verification_engine": "bioinfo_verifier",
-        "celery_queue": "verify.bioinfo",
+        "queue": "verify.bioinfo",
         "keywords": ["gene", "expression", "variant", "pipeline", "sequencing", "alignment"],
         "file_extensions": [".vcf", ".bam", ".fastq", ".nf", ".smk"],
     },

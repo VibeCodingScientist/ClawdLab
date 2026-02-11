@@ -94,7 +94,7 @@ class AgentHealthEvaluator:
         }
 
     async def detect_stuck_agents(self) -> list[dict]:
-        """Find all agents that appear stuck (for Celery beat task).
+        """Find all agents that appear stuck (for periodic scheduler).
 
         Returns list of agent health assessments for agents with warnings.
         """

@@ -157,12 +157,9 @@ class OrchestrationService:
                 completed_at=datetime.utcnow(),
             )
 
-        # Dispatch to verification engine via Celery
-        from celery import current_app
+        # Dispatch to verification engine as background task
+        from platform.infrastructure.events import emit_platform_event
 
-        task_name = f"verify.{routing.domain.replace('_', '')}.claim"
-
-        # Build payload
         payload = {
             "claim_type": claim.claim_type,
             "content": claim.content,
@@ -170,15 +167,15 @@ class OrchestrationService:
         }
 
         try:
-            # Send to appropriate queue
-            result = current_app.send_task(
-                task_name,
-                args=[claim.claim_id, payload],
-                kwargs={"job_id": workflow_id},
-                queue=routing.celery_queue,
-            )
+            emit_platform_event("claims", {
+                "event_type": "claim.submitted",
+                "claim_id": claim.claim_id,
+                "domain": routing.domain,
+                "claim_type": claim.claim_type,
+                "payload": payload,
+                "workflow_id": workflow_id,
+            })
 
-            # For async processing, return pending status
             return ClaimVerificationResult(
                 claim_id=claim.claim_id,
                 status=ClaimStatus.VERIFYING,

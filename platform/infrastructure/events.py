@@ -1,11 +1,7 @@
-"""Celery event tasks — replaces Kafka workers.
+"""Platform event dispatch — replaces Celery event_tasks.
 
-Each task processes a platform event through the appropriate handler(s).
-The ``emit_platform_event()`` function replaces ``KafkaProducer.send()`` /
-``send_event()`` and fans out events to the relevant Celery tasks.
-
-Replaces ~2,400 lines across 6 Kafka worker files with ~200 lines of
-direct Celery dispatch.
+All handlers are plain async functions. ``emit_platform_event()`` fans
+out to them via ``asyncio.create_task()`` so callers don't block.
 """
 
 from __future__ import annotations
@@ -13,63 +9,62 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from celery import shared_task
-
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 # ============================================================
-# Fan-out router — replaces KafkaProducer
+# Fan-out router
 # ============================================================
 
 
 def emit_platform_event(topic: str, event_data: dict[str, Any]) -> None:
-    """Route a platform event to appropriate Celery handler tasks.
+    """Route a platform event to appropriate async handler tasks.
 
     This is a synchronous function safe to call from async code.
-    It replaces ``KafkaProducer.send()`` / ``send_event()``.
+    Handlers run as fire-and-forget background tasks on the running loop.
 
     Args:
         topic: Logical topic (e.g. "claims", "verification.results").
         event_data: The event payload dict.
     """
+    loop = asyncio.get_running_loop()
     event_type = event_data.get("event_type", "")
 
     if topic == "claims":
         if event_type == "claim.submitted":
-            dispatch_claim_verification.delay(event_data)
-        handle_karma_event.delay(event_data)
-        handle_xp_event.delay(event_data)
-        handle_notification_event.delay(event_data)
+            loop.create_task(_dispatch_claim_verification(event_data))
+        loop.create_task(_handle_karma_event(event_data))
+        loop.create_task(_handle_xp_event(event_data))
+        loop.create_task(_handle_notification_event(event_data))
 
     elif topic in ("verification.results", "verification.completed"):
-        process_verification_result.delay(event_data)
-        handle_karma_event.delay(event_data)
-        handle_xp_event.delay(event_data)
-        handle_notification_event.delay(event_data)
-        handle_roundtable_result.delay(event_data)
+        loop.create_task(_process_verification_result(event_data))
+        loop.create_task(_handle_karma_event(event_data))
+        loop.create_task(_handle_xp_event(event_data))
+        loop.create_task(_handle_notification_event(event_data))
+        loop.create_task(_handle_roundtable_result(event_data))
 
     elif topic == "frontiers":
-        handle_karma_event.delay(event_data)
-        handle_xp_event.delay(event_data)
-        handle_notification_event.delay(event_data)
+        loop.create_task(_handle_karma_event(event_data))
+        loop.create_task(_handle_xp_event(event_data))
+        loop.create_task(_handle_notification_event(event_data))
 
     elif topic.startswith("labs."):
-        handle_lab_event.delay(event_data)
-        handle_notification_event.delay(event_data)
+        loop.create_task(_handle_lab_event(event_data))
+        loop.create_task(_handle_notification_event(event_data))
         if topic == "labs.roundtable":
-            handle_xp_event.delay(event_data)
+            loop.create_task(_handle_xp_event(event_data))
 
     elif topic.startswith("challenge"):
-        handle_challenge_event.delay(event_data)
-        handle_karma_event.delay(event_data)
-        handle_notification_event.delay(event_data)
+        loop.create_task(_handle_challenge_event(event_data))
+        loop.create_task(_handle_karma_event(event_data))
+        loop.create_task(_handle_notification_event(event_data))
 
     elif topic == "claims.verification.completed":
-        handle_roundtable_result.delay(event_data)
-        handle_notification_event.delay(event_data)
+        loop.create_task(_handle_roundtable_result(event_data))
+        loop.create_task(_handle_notification_event(event_data))
 
     elif topic == "reputation.transactions":
         logger.info("reputation_event", event_type=event_type)
@@ -81,12 +76,6 @@ def emit_platform_event(topic: str, event_data: dict[str, Any]) -> None:
 # ============================================================
 # Claim verification dispatch
 # ============================================================
-
-
-@shared_task(name="events.dispatch_claim_verification", ignore_result=True)
-def dispatch_claim_verification(event_data: dict[str, Any]) -> None:
-    """Dispatch a newly submitted claim to the verification orchestrator."""
-    asyncio.run(_dispatch_claim_verification(event_data))
 
 
 async def _dispatch_claim_verification(event_data: dict[str, Any]) -> None:
@@ -128,12 +117,6 @@ async def _dispatch_claim_verification(event_data: dict[str, Any]) -> None:
 # ============================================================
 
 
-@shared_task(name="events.process_verification_result", ignore_result=True)
-def process_verification_result(event_data: dict[str, Any]) -> None:
-    """Process a verification result — update DB, cache, and badges."""
-    asyncio.run(_process_verification_result(event_data))
-
-
 async def _process_verification_result(event_data: dict[str, Any]) -> None:
     from platform.infrastructure.database.session import get_async_session
     from platform.services.verification_orchestrator.orchestrator import (
@@ -162,12 +145,6 @@ async def _process_verification_result(event_data: dict[str, Any]) -> None:
 # ============================================================
 
 
-@shared_task(name="events.handle_karma", ignore_result=True)
-def handle_karma_event(event_data: dict[str, Any]) -> None:
-    """Route event through the karma handler."""
-    asyncio.run(_handle_karma_event(event_data))
-
-
 async def _handle_karma_event(event_data: dict[str, Any]) -> None:
     from platform.infrastructure.database.session import get_async_session
     from platform.reputation.handlers import KarmaEventHandler
@@ -185,12 +162,6 @@ async def _handle_karma_event(event_data: dict[str, Any]) -> None:
 # ============================================================
 # XP handler
 # ============================================================
-
-
-@shared_task(name="events.handle_xp", ignore_result=True)
-def handle_xp_event(event_data: dict[str, Any]) -> None:
-    """Route event through the XP handler."""
-    asyncio.run(_handle_xp_event(event_data))
 
 
 async def _handle_xp_event(event_data: dict[str, Any]) -> None:
@@ -213,12 +184,6 @@ async def _handle_xp_event(event_data: dict[str, Any]) -> None:
 # ============================================================
 
 
-@shared_task(name="events.handle_notification", ignore_result=True)
-def handle_notification_event(event_data: dict[str, Any]) -> None:
-    """Route event through the notification handler."""
-    asyncio.run(_handle_notification_event(event_data))
-
-
 async def _handle_notification_event(event_data: dict[str, Any]) -> None:
     from platform.infrastructure.database.session import get_async_session
     from platform.notifications.producers import NotificationProducer
@@ -235,13 +200,11 @@ async def _handle_notification_event(event_data: dict[str, Any]) -> None:
 
 
 # ============================================================
-# Lab event handler (logging + index updates)
+# Lab event handler
 # ============================================================
 
 
-@shared_task(name="events.handle_lab", ignore_result=True)
-def handle_lab_event(event_data: dict[str, Any]) -> None:
-    """Process lab event — logging and index updates."""
+async def _handle_lab_event(event_data: dict[str, Any]) -> None:
     event_type = event_data.get("event_type", "")
     data = event_data.get("data", {})
     logger.info(
@@ -254,12 +217,6 @@ def handle_lab_event(event_data: dict[str, Any]) -> None:
 # ============================================================
 # Challenge event handler
 # ============================================================
-
-
-@shared_task(name="events.handle_challenge", ignore_result=True)
-def handle_challenge_event(event_data: dict[str, Any]) -> None:
-    """Process challenge lifecycle event."""
-    asyncio.run(_handle_challenge_event(event_data))
 
 
 async def _handle_challenge_event(event_data: dict[str, Any]) -> None:
@@ -313,12 +270,6 @@ async def _handle_challenge_event(event_data: dict[str, Any]) -> None:
 # ============================================================
 # Roundtable result handler
 # ============================================================
-
-
-@shared_task(name="events.handle_roundtable_result", ignore_result=True)
-def handle_roundtable_result(event_data: dict[str, Any]) -> None:
-    """Process verification result for roundtable research items."""
-    asyncio.run(_handle_roundtable_result(event_data))
 
 
 async def _handle_roundtable_result(event_data: dict[str, Any]) -> None:

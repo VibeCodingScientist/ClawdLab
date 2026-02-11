@@ -90,10 +90,10 @@ app = FastAPI(
     ## Architecture
 
     ```
-    Claim Event -> Orchestrator -> Celery Queue -> Domain Verifier -> Result
+    Claim Event -> Orchestrator -> Async Dispatch -> Domain Verifier -> Result
     ```
 
-    Each domain has dedicated Celery workers with appropriate resources
+    Each domain has dedicated verification services with appropriate resources
     (GPU for ML, high memory for compbio, etc.)
     """,
     version=settings.service_version,

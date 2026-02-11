@@ -27,7 +27,7 @@ from platform.services.claim_service.repository import (
     ClaimRepository,
     VerificationResultRepository,
 )
-from platform.infrastructure.celery.event_tasks import emit_platform_event
+from platform.infrastructure.events import emit_platform_event
 from platform.shared.clients.redis_client import RedisCache
 from platform.shared.schemas.claim_payloads import validate_payload
 from platform.security.sanitization import get_sanitizer, ThreatLevel
@@ -404,7 +404,7 @@ class ClaimService:
         }
 
     async def _publish_claim_event(self, claim, event_type: str) -> None:
-        """Publish claim event via Celery tasks."""
+        """Publish claim event via async background tasks."""
         try:
             emit_platform_event("claims", {
                 "event_type": event_type,

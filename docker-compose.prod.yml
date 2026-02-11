@@ -62,33 +62,6 @@ services:
       - "traefik.http.routers.api.rule=Host(`api.asrp.example.com`)"
       - "traefik.http.services.api.loadbalancer.server.port=8000"
 
-  celery-worker:
-    build:
-      target: production
-    environment:
-      LOG_LEVEL: INFO
-      CELERY_LOG_LEVEL: INFO
-    deploy:
-      mode: replicated
-      replicas: 2
-      resources:
-        limits:
-          cpus: '1'
-          memory: 2G
-        reservations:
-          cpus: '0.25'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    volumes: []
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "3"
-
   # Production database configuration
   postgres:
     environment:

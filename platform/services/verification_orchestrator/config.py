@@ -23,13 +23,6 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Kafka
-    kafka_bootstrap_servers: str = "localhost:9092"
-
-    # Celery
-    celery_broker_url: str = "redis://localhost:6379/1"
-    celery_result_backend: str = "redis://localhost:6379/2"
-
     # Verification timeouts (seconds)
     math_verification_timeout: int = 600  # 10 minutes
     ml_verification_timeout: int = 7200  # 2 hours

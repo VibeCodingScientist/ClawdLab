@@ -1,6 +1,6 @@
 """ChallengeScheduler — automatic lifecycle transitions based on timestamps.
 
-Designed to be called by Celery beat (or any periodic task runner) roughly
+Designed to be called by the periodic scheduler roughly
 every 60 seconds.  Each tick inspects challenge timestamps and advances
 the state machine accordingly.
 """

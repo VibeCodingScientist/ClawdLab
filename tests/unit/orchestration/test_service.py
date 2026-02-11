@@ -76,7 +76,7 @@ class TestOrchestrationService:
         mock.route_claim.return_value = MagicMock(
             domain="ml_ai",
             verification_engine="ml_verifier",
-            celery_queue="verification.ml",
+            queue="verification.ml",
             confidence=0.95,
         )
         mock.extract_claims.return_value = [
@@ -223,10 +223,7 @@ class TestOrchestrationService:
             claim_type="empirical",
         )
 
-        # Mock Celery
-        with patch("platform.orchestration.service.current_app") as mock_celery:
-            mock_celery.send_task.return_value = MagicMock(id="task-123")
-
+        with patch("platform.orchestration.service.emit_platform_event"):
             result = await service.process_claim(claim, workflow_id="workflow-123")
 
             assert result is not None
@@ -266,8 +263,8 @@ class TestOrchestrationService:
         """Test claim processing with dispatch error."""
         claim = Claim(claim_id="claim-123", content="Test claim")
 
-        with patch("platform.orchestration.service.current_app") as mock_celery:
-            mock_celery.send_task.side_effect = Exception("Celery error")
+        with patch("platform.orchestration.service.emit_platform_event") as mock_emit:
+            mock_emit.side_effect = Exception("Event dispatch error")
 
             result = await service.process_claim(claim)
 
@@ -291,9 +288,7 @@ class TestOrchestrationService:
         )
         mock_workflow_engine.get_workflow.return_value = workflow
 
-        with patch("platform.orchestration.service.current_app") as mock_celery:
-            mock_celery.send_task.return_value = MagicMock(id="task-123")
-
+        with patch("platform.orchestration.service.emit_platform_event"):
             results = await service.process_workflow_claims("workflow-123")
 
             assert len(results) == 2

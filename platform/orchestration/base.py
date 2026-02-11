@@ -387,7 +387,7 @@ class RoutingDecision:
     claim_id: str
     domain: str
     verification_engine: str
-    celery_queue: str
+    queue: str
     confidence: float
     reasoning: str = ""
     alternative_domains: list[str] = field(default_factory=list)
@@ -397,7 +397,7 @@ class RoutingDecision:
             "claim_id": self.claim_id,
             "domain": self.domain,
             "verification_engine": self.verification_engine,
-            "celery_queue": self.celery_queue,
+            "queue": self.queue,
             "confidence": self.confidence,
             "reasoning": self.reasoning,
             "alternative_domains": self.alternative_domains,

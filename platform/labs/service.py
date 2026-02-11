@@ -31,7 +31,7 @@ from platform.labs.repository import (
     RoundtableRepository,
     WorkspaceRepository,
 )
-from platform.infrastructure.celery.event_tasks import emit_platform_event
+from platform.infrastructure.events import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -828,7 +828,7 @@ class LabService:
             raise LabMembershipError("Agent is not an active member of this lab")
 
     async def _publish_lab_event(self, topic: str, event_type: str, data: dict[str, Any]) -> None:
-        """Publish a lab event via Celery tasks."""
+        """Publish a lab event via async background tasks."""
         try:
             emit_platform_event(topic, {
                 "event_type": event_type,

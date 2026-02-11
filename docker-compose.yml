@@ -83,28 +83,6 @@ services:
       - asrp-network
     restart: unless-stopped
 
-  # Celery worker for background tasks
-  celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: asrp-celery-worker
-    command: celery -A platform.infrastructure.celery.app worker --beat --loglevel=info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-    volumes:
-      - ./platform:/app/platform:cached
-    depends_on:
-      - api
-      - redis
-    networks:
-      - asrp-network
-    restart: unless-stopped
-
 
 volumes:
   postgres_data:

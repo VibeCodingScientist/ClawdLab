@@ -268,7 +268,7 @@ async def get_verification_stats(
 
     Returns aggregate statistics for all verification queues.
     """
-    # Placeholder - would query Celery and Redis for real stats
+    # Placeholder - would query Redis for real stats
     queues = []
     for domain in Domain:
         queues.append(

@@ -384,7 +384,7 @@ class TaskScheduler:
         # Check if task type maps to a domain
         for domain, config in RESEARCH_DOMAINS.items():
             if task.task_type in config.get("keywords", []):
-                return config["celery_queue"]
+                return config["queue"]
 
         # Use priority-based default queue
         if task.priority.value <= 2:

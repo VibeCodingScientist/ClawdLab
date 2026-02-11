@@ -224,12 +224,20 @@ async def lifespan(app: FastAPI):
         details={"version": APP_VERSION},
     )
 
+    # Start periodic scheduler (replaces Celery Beat)
+    from platform.infrastructure.scheduler import PeriodicScheduler
+    scheduler = PeriodicScheduler()
+    _register_periodic_tasks(scheduler)
+    await scheduler.start()
+
     logger.info("%s started successfully", APP_TITLE)
 
     yield
 
     # Shutdown
     logger.info("Shutting down %s", APP_TITLE)
+
+    await scheduler.stop()
 
     # Record shutdown metric
     await monitoring.record_metric(
@@ -239,6 +247,37 @@ async def lifespan(app: FastAPI):
     )
 
     logger.info("%s shutdown complete", APP_TITLE)
+
+
+def _register_periodic_tasks(scheduler: "PeriodicScheduler") -> None:
+    """Register all periodic background tasks."""
+    from platform.infrastructure.periodic_tasks import (
+        check_frontier_expirations,
+        check_stale_verifications,
+        cleanup_expired_tokens,
+        cleanup_old_compute_jobs,
+        detect_stuck_agents,
+        generate_daily_stats,
+        sprint_auto_transition,
+        system_health_check,
+        update_experience_leaderboards,
+        update_leaderboards,
+        update_reputation_aggregates,
+        challenge_scheduler_tick,
+    )
+
+    scheduler.register("system_health_check", 60, system_health_check)
+    scheduler.register("update_reputation_aggregates", 300, update_reputation_aggregates)
+    scheduler.register("update_leaderboards", 900, update_leaderboards)
+    scheduler.register("update_experience_leaderboards", 300, update_experience_leaderboards)
+    scheduler.register("check_stale_verifications", 1800, check_stale_verifications)
+    scheduler.register("cleanup_expired_tokens", 3600, cleanup_expired_tokens)
+    scheduler.register("check_frontier_expirations", 3600, check_frontier_expirations)
+    scheduler.register("cleanup_old_compute_jobs", 21600, cleanup_old_compute_jobs)
+    scheduler.register("generate_daily_stats", 86400, generate_daily_stats)
+    scheduler.register("detect_stuck_agents", 300, detect_stuck_agents)
+    scheduler.register("sprint_auto_transition", 600, sprint_auto_transition)
+    scheduler.register("challenge_scheduler_tick", 60, challenge_scheduler_tick)
 
 
 # ===========================================

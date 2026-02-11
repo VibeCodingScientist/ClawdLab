@@ -37,16 +37,6 @@ services:
         fi
       "
 
-  celery-worker:
-    build:
-      target: development
-    environment:
-      LOG_LEVEL: DEBUG
-      CELERY_LOG_LEVEL: DEBUG
-    volumes:
-      - ./platform:/app/platform:cached
-    command: celery -A platform.infrastructure.celery.app worker --beat --loglevel=debug
-
   # Development-only test database
   postgres-test:
     image: postgres:16-alpine

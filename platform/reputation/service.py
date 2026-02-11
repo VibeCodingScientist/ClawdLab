@@ -19,7 +19,7 @@ from platform.infrastructure.database.models import (
     KarmaTransaction,
 )
 from platform.reputation.calculator import KarmaCalculator, KarmaResult
-from platform.infrastructure.celery.event_tasks import emit_platform_event
+from platform.infrastructure.events import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -583,7 +583,7 @@ class KarmaService:
         domain: str | None,
         source_id: UUID | None,
     ) -> None:
-        """Publish karma event via Celery tasks."""
+        """Publish karma event via async background tasks."""
         try:
             emit_platform_event("reputation.transactions", {
                 "event_type": "reputation.transaction",

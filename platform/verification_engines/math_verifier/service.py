@@ -53,7 +53,7 @@ class MathVerificationService:
         """
         Verify a mathematical claim.
 
-        This is the main entry point called by the Celery task.
+        This is the main entry point called by the verification dispatcher.
 
         Args:
             claim_id: ID of the claim being verified
@@ -277,7 +277,7 @@ class MathVerificationService:
         ]
 
 
-# Singleton instance for use in Celery tasks
+# Singleton instance for use by verification dispatcher
 _service_instance: MathVerificationService | None = None
 
 

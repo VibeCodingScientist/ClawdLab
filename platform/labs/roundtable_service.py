@@ -36,7 +36,7 @@ from platform.labs.repository import (
 )
 from platform.labs.state_machine import validate_transition
 from platform.security.sanitization import get_sanitizer
-from platform.infrastructure.celery.event_tasks import emit_platform_event
+from platform.infrastructure.events import emit_platform_event
 from platform.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)

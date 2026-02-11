@@ -1,20 +1,14 @@
 """Verification Orchestrator - dispatches claims to domain verifiers."""
 
+import asyncio
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from platform.infrastructure.celery.tasks import (
-    verify_bioinformatics_claim,
-    verify_compbio_claim,
-    verify_materials_claim,
-    verify_math_claim,
-    verify_ml_claim,
-)
 from platform.services.verification_orchestrator.config import get_settings
-from platform.infrastructure.celery.event_tasks import emit_platform_event
+from platform.infrastructure.events import emit_platform_event
 from platform.shared.clients.redis_client import RedisCache
 from platform.shared.schemas.base import Domain
 from platform.shared.utils.logging import get_logger
@@ -23,31 +17,21 @@ logger = get_logger(__name__)
 settings = get_settings()
 
 
-# Map domains to Celery tasks and queues
+# Map domains to verification service factories and timeouts
 DOMAIN_VERIFIERS = {
     Domain.MATHEMATICS.value: {
-        "task": verify_math_claim,
-        "queue": "verify.math",
         "timeout": settings.math_verification_timeout,
     },
     Domain.ML_AI.value: {
-        "task": verify_ml_claim,
-        "queue": "verify.ml",
         "timeout": settings.ml_verification_timeout,
     },
     Domain.COMPUTATIONAL_BIOLOGY.value: {
-        "task": verify_compbio_claim,
-        "queue": "verify.compbio",
         "timeout": settings.compbio_verification_timeout,
     },
     Domain.MATERIALS_SCIENCE.value: {
-        "task": verify_materials_claim,
-        "queue": "verify.materials",
         "timeout": settings.materials_verification_timeout,
     },
     Domain.BIOINFORMATICS.value: {
-        "task": verify_bioinfo_claim,
-        "queue": "verify.bioinfo",
         "timeout": settings.bioinfo_verification_timeout,
     },
 }
@@ -112,19 +96,11 @@ class VerificationOrchestrator:
             job_data,
         )
 
-        # Dispatch to Celery
-        task = verifier_config["task"]
-        result = task.apply_async(
-            args=[claim_id, payload],
-            kwargs={"job_id": job_id},
-            queue=verifier_config["queue"],
-            priority=priority,
-            time_limit=verifier_config["timeout"],
-            soft_time_limit=verifier_config["timeout"] - 30,
+        # Dispatch as async background task
+        asyncio.create_task(
+            self._run_verification(job_id, claim_id, domain, payload)
         )
 
-        # Update job with task ID
-        job_data["celery_task_id"] = result.id
         job_data["status"] = "dispatched"
         await self.cache.setex(
             f"verification_job:{job_id}",
@@ -439,6 +415,70 @@ class VerificationOrchestrator:
             )
 
         return new_job_id
+
+    async def _run_verification(
+        self,
+        job_id: str,
+        claim_id: str,
+        domain: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Run verification in-process and handle the result."""
+        try:
+            result = await self._call_verifier(claim_id, domain, payload, job_id)
+            verified = result.get("verified", False)
+            await self.handle_verification_result(
+                job_id=job_id,
+                status="verified" if verified else "refuted",
+                result=result,
+            )
+        except Exception as e:
+            logger.exception("verification_error", job_id=job_id, claim_id=claim_id)
+            await self.handle_verification_result(
+                job_id=job_id,
+                status="error",
+                error=str(e),
+            )
+
+    async def _call_verifier(
+        self,
+        claim_id: str,
+        domain: str,
+        payload: dict[str, Any],
+        job_id: str,
+    ) -> dict[str, Any]:
+        """Call the appropriate domain verification service."""
+        if domain == Domain.MATHEMATICS.value:
+            from platform.verification_engines.math_verifier.service import get_math_verification_service
+            service = get_math_verification_service()
+            return await service.verify_claim(claim_id, payload)
+
+        elif domain == Domain.ML_AI.value:
+            from platform.verification_engines.ml_verifier.service import get_ml_verification_service
+            service = get_ml_verification_service()
+            return await service.verify_claim(claim_id, payload)
+
+        elif domain == Domain.COMPUTATIONAL_BIOLOGY.value:
+            from platform.verification_engines.compbio_verifier.service import get_compbio_verification_service
+            service = get_compbio_verification_service()
+            return await service.verify_claim(claim_id, payload)
+
+        elif domain == Domain.MATERIALS_SCIENCE.value:
+            from platform.verification_engines.materials_verifier.service import MaterialsVerificationService
+            service = MaterialsVerificationService()
+            claim = {"claim_id": claim_id, **payload}
+            result = await service.verify_claim(claim)
+            return result.to_dict()
+
+        elif domain == Domain.BIOINFORMATICS.value:
+            from platform.verification_engines.bioinfo_verifier.service import get_bioinfo_verification_service
+            service = get_bioinfo_verification_service()
+            claim = {"claim_id": claim_id, **payload}
+            result = await service.verify_claim(claim)
+            return result.to_dict()
+
+        else:
+            raise ValueError(f"Unknown domain: {domain}")
 
     async def _update_claim_verification_status(
         self,

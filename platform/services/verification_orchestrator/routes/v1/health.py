@@ -63,15 +63,6 @@ async def readiness_check():
     # Check Redis
     checks["redis"] = await redis_health()
 
-    # Check Celery workers (simplified)
-    try:
-        from platform.infrastructure.celery.app import celery_app
-        inspect = celery_app.control.inspect()
-        active = inspect.active()
-        checks["celery_workers"] = active is not None and len(active) > 0
-    except Exception:
-        checks["celery_workers"] = False
-
     all_ready = all(checks.values())
 
     if not all_ready:

@@ -191,7 +191,7 @@ class SprintService:
     async def auto_wrap_up(self) -> list[UUID]:
         """Auto-transition sprints to wrapping_up at 90% time elapsed.
 
-        Called periodically by Celery beat task.
+        Called periodically by the scheduler.
         """
         from platform.infrastructure.database.models import ResearchSprint
 
