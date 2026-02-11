@@ -168,39 +168,6 @@ services:
           cpus: '4'
           memory: 8G
 
-  # Disable development tools in production
-  kafka-ui:
-    profiles:
-      - never  # Never run in production
-
-  # Production monitoring enhancements
-  prometheus:
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 2G
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
-      - '--storage.tsdb.retention.size=10GB'
-      - '--web.enable-lifecycle'
-      - '--web.enable-admin-api'
-
-  grafana:
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-      GF_USERS_ALLOW_SIGN_UP: 'false'
-      GF_SERVER_ROOT_URL: https://grafana.asrp.example.com
-      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY}
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-
 # Production volumes with backup labels
 volumes:
   postgres_data:

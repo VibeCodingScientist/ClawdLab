@@ -55,10 +55,6 @@ services:
     volumes:
       - ./platform:/app/platform:cached
 
-  # Enable Kafka UI in development
-  kafka-ui:
-    profiles: [""]  # Always run in dev
-
   # Development-only test database
   postgres-test:
     image: postgres:16-alpine

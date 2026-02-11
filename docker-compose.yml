@@ -142,80 +142,6 @@ services:
     networks:
       - asrp-network
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: asrp-kafka-ui
-    depends_on:
-      - kafka
-    ports:
-      - "8081:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-    networks:
-      - asrp-network
-
-  # ===========================================
-  # OBJECT STORAGE
-  # ===========================================
-
-  minio:
-    image: minio/minio:latest
-    container_name: asrp-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minio_admin
-      MINIO_ROOT_PASSWORD: minio_dev_password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - asrp-network
-
-  # ===========================================
-  # MONITORING
-  # ===========================================
-
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    container_name: asrp-prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./platform/infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks:
-      - asrp-network
-
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: asrp-grafana
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin_dev_password
-      GF_USERS_ALLOW_SIGN_UP: 'false'
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./platform/infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
-    depends_on:
-      - prometheus
-    networks:
-      - asrp-network
-
   # ===========================================
   # APPLICATION SERVICES
   # ===========================================
@@ -238,9 +164,6 @@ services:
       NEO4J_PASSWORD: neo4j_dev_password
       WEAVIATE_URL: http://weaviate:8080
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minio_admin
-      MINIO_SECRET_KEY: minio_dev_password
       # Security
       JWT_SECRET_KEY: dev_jwt_secret_key_change_in_production
       JWT_ALGORITHM: HS256
@@ -324,9 +247,6 @@ volumes:
   zookeeper_data:
   zookeeper_logs:
   kafka_data:
-  minio_data:
-  prometheus_data:
-  grafana_data:
 
 networks:
   asrp-network:
