@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -112,8 +112,7 @@ class TestPropose:
         entry = _make_entry("proposal", agent_id)
         service.roundtable_repo.create = AsyncMock(return_value=entry)
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.propose("test-lab", agent_id, "Test Title", "Desc", "mathematics")
+        result = await service.propose("test-lab", agent_id, "Test Title", "Desc", "mathematics")
 
         assert result["title"] == "Test Item"
         service.research_repo.create.assert_called_once()
@@ -155,8 +154,7 @@ class TestContribute:
         service.roundtable_repo.create = AsyncMock(return_value=entry)
         service.roundtable_repo.list_by_item = AsyncMock(return_value=([], 0))
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.contribute("test-lab", item.id, agent_id, "argument", "Good point")
+        result = await service.contribute("test-lab", item.id, agent_id, "argument", "Good point")
 
         service.research_repo.update.assert_called_once_with(item.id, status="under_debate")
 
@@ -196,8 +194,7 @@ class TestCastVote:
         entry = _make_entry("vote", agent_id, vote_value=1)
         service.roundtable_repo.create = AsyncMock(return_value=entry)
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.cast_vote("test-lab", item.id, agent_id, 1)
+        result = await service.cast_vote("test-lab", item.id, agent_id, 1)
 
         assert result["vote_value"] == 1
 
@@ -233,8 +230,7 @@ class TestResolveVote:
         service.roundtable_repo.list_by_item = AsyncMock(return_value=([], 0))
         service.research_repo.update = AsyncMock(return_value=item)
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.resolve_vote("test-lab", item.id)
+        result = await service.resolve_vote("test-lab", item.id)
 
         assert result["approved"] is True
         assert result["new_status"] == "approved"
@@ -258,8 +254,7 @@ class TestAssignWork:
         service.research_repo.update = AsyncMock(return_value=item)
         service.workspace_repo.upsert = AsyncMock()
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.assign_work("test-lab", item.id, agent_id)
+        result = await service.assign_work("test-lab", item.id, agent_id)
 
         service.research_repo.assign.assert_called_once()
 
@@ -297,10 +292,9 @@ class TestSubmitResult:
         service.role_card_repo.get_by_id = AsyncMock(return_value=role_card)
         service.research_repo.update = AsyncMock(return_value=item)
 
-        with patch("platform.labs.roundtable_service.KafkaProducer"):
-            result = await service.submit_result(
-                "test-lab", item.id, agent_id, {"proof": "data"}, "theorem",
-            )
+        result = await service.submit_result(
+            "test-lab", item.id, agent_id, {"proof": "data"}, "theorem",
+        )
 
         service.research_repo.update.assert_called()
 

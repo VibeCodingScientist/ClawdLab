@@ -14,15 +14,11 @@ class AgentCommunicationSettings(BaseSettings):
     # Message Broker Settings
     broker_type: str = Field(
         default="memory",
-        description="Message broker type (memory, redis, kafka)",
+        description="Message broker type (memory, redis)",
     )
     redis_url: str = Field(
         default="redis://localhost:6379/2",
         description="Redis URL for message broker",
-    )
-    kafka_bootstrap_servers: str = Field(
-        default="localhost:9092",
-        description="Kafka bootstrap servers",
     )
 
     # Queue Settings

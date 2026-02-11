@@ -23,9 +23,6 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Kafka
-    kafka_bootstrap_servers: str = "localhost:9092"
-
     # Agent Registry Service URL (for auth validation)
     agent_registry_url: str = "http://localhost:8001"
 

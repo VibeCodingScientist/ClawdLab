@@ -41,7 +41,6 @@ class TestHandleMessage:
 
         with patch("platform.labs.roundtable_result_handler.ResearchItemRepository") as MockRepo, \
              patch("platform.labs.roundtable_result_handler.RoundtableRepository"), \
-             patch("platform.labs.roundtable_result_handler.KafkaProducer"), \
              patch("platform.labs.roundtable_result_handler.RoundtableService") as MockService:
             mock_repo = MockRepo.return_value
             mock_repo.update = AsyncMock(return_value=item)
@@ -81,8 +80,7 @@ class TestHandleMessage:
         }
 
         with patch("platform.labs.roundtable_result_handler.ResearchItemRepository") as MockRepo, \
-             patch("platform.labs.roundtable_result_handler.RoundtableRepository") as MockRtRepo, \
-             patch("platform.labs.roundtable_result_handler.KafkaProducer"):
+             patch("platform.labs.roundtable_result_handler.RoundtableRepository") as MockRtRepo:
             mock_repo = MockRepo.return_value
             mock_repo.update = AsyncMock(return_value=item)
             mock_rt_repo = MockRtRepo.return_value

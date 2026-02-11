@@ -191,7 +191,6 @@ class MessagingService:
         self.session.add(message)
         await self.session.commit()
 
-        # Notifications would be published to Kafka here
         if not requires_approval:
             await self._notify_recipient(message)
         else:
@@ -552,8 +551,6 @@ class MessagingService:
 
     async def _notify_recipient(self, message: AgentMessage) -> None:
         """Send notification for new message."""
-        # This would publish to Kafka for the notification worker
-        # For now, just log
         logger.debug(
             "notification_message_received",
             to_agent=str(message.to_agent_id),
@@ -566,7 +563,6 @@ class MessagingService:
         from_agent_id: UUID,
     ) -> None:
         """Send notification for approval request."""
-        # This would publish to Kafka for the notification worker
         logger.debug(
             "notification_approval_request",
             owner_agent=str(owner_agent_id),

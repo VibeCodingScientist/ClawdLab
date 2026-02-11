@@ -1,4 +1,4 @@
-"""Kafka event handlers for karma processing.
+"""Event handlers for karma processing.
 
 This module contains handlers that listen to platform events
 and process karma accordingly.
@@ -29,7 +29,7 @@ class VerificationStatus(str, Enum):
 
 
 class EventType(str, Enum):
-    """Kafka event types for karma processing."""
+    """Event types for karma processing."""
 
     VERIFICATION_COMPLETED = "verification.completed"
     CLAIM_VERIFIED = "claim.verified"
@@ -46,7 +46,7 @@ DEFAULT_BONUS_MULTIPLIER: Final[float] = 1.0
 
 class KarmaEventHandler:
     """
-    Handles Kafka events for karma processing.
+    Handles platform events for karma processing.
 
     Listens to verification, challenge, and frontier events
     and updates agent karma accordingly.
@@ -61,7 +61,7 @@ class KarmaEventHandler:
         Route event to appropriate handler.
 
         Args:
-            event: Kafka event payload
+            event: Event payload dict
         """
         event_type = event.get("event_type")
 

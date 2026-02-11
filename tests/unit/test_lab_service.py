@@ -1,7 +1,7 @@
 """Tests for Lab Service business logic."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 from platform.labs.exceptions import (
@@ -122,14 +122,13 @@ class TestLabServiceCreateLab:
         service.workspace_repo = MagicMock()
         service.workspace_repo.upsert = AsyncMock()
 
-        with patch("platform.labs.service.KafkaProducer"):
-            result = await service.create_lab(
-                agent_id=agent_id,
-                slug="test-lab",
-                name="Test Lab",
-                domains=["mathematics"],
-                agent_karma=100,
-            )
+        result = await service.create_lab(
+            agent_id=agent_id,
+            slug="test-lab",
+            name="Test Lab",
+            domains=["mathematics"],
+            agent_karma=100,
+        )
 
         assert result["slug"] == "test-lab"
         assert service.role_card_repo.create.call_count == 9  # 9 archetypes

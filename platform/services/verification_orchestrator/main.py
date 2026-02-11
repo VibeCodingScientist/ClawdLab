@@ -1,6 +1,5 @@
 """Verification Orchestrator Service - FastAPI Application."""
 
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,15 +15,9 @@ from platform.shared.utils.logging import configure_logging, get_logger
 settings = get_settings()
 logger = get_logger(__name__)
 
-# Background task for event consumer
-consumer_task = None
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global consumer_task
-
     # Startup
     configure_logging(
         level=settings.log_level,
@@ -42,22 +35,10 @@ async def lifespan(app: FastAPI):
     await get_redis_client()
     logger.info("connections_initialized")
 
-    # Start event consumer in background
-    # Note: In production, this would be a separate process
-    # consumer_task = asyncio.create_task(start_event_consumer())
-
     yield
 
     # Shutdown
     logger.info("service_stopping")
-
-    # Cancel consumer task
-    if consumer_task:
-        consumer_task.cancel()
-        try:
-            await consumer_task
-        except asyncio.CancelledError:
-            pass
 
     await close_db()
     await close_redis_client()
@@ -135,16 +116,6 @@ async def root():
             "bioinformatics",
         ],
     }
-
-
-async def start_event_consumer():
-    """Start the Kafka event consumer."""
-    from platform.infrastructure.database.session import get_db_session
-    from platform.services.verification_orchestrator.orchestrator import ClaimEventConsumer
-
-    async with get_db_session() as session:
-        consumer = ClaimEventConsumer(session)
-        await consumer.start()
 
 
 if __name__ == "__main__":

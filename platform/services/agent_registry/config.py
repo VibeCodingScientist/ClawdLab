@@ -24,9 +24,6 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Kafka
-    kafka_bootstrap_servers: str = "localhost:9092"
-
     # Authentication
     token_prefix: str = "srp_"
     token_expiry_days: int = 365

@@ -1,7 +1,7 @@
-"""Kafka event handler for XP events.
+"""Event handler for XP events.
 
-Consumes verification.results, claims, and frontiers topics
-and calls ExperienceService.award_xp() for eligible events.
+Routes verification.results, claims, and frontiers events
+to ExperienceService.award_xp() for eligible events.
 """
 
 from uuid import UUID
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 class XPEventHandler:
-    """Routes Kafka events to XP awards."""
+    """Routes platform events to XP awards."""
 
     def __init__(self, session: AsyncSession):
         self.session = session

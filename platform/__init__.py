@@ -20,7 +20,7 @@ Modules:
     - reputation: Karma and reputation system
     - security: Authentication, authorization, canary tokens, protocol signing
     - services: Verification orchestrator with multi-step badge system
-    - workers: Background Kafka consumers (karma, verification, notifications, labs)
+    - infrastructure: Async event system, periodic scheduler, database models
 """
 
 from platform.main import app, create_app, APP_VERSION, APP_TITLE

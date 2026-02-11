@@ -345,12 +345,12 @@ class CreatedResponse(BaseSchema):
 
 
 # ===========================================
-# KAFKA EVENT SCHEMAS
+# PLATFORM EVENT SCHEMAS
 # ===========================================
 
 
 class BaseEvent(BaseSchema):
-    """Base schema for Kafka events."""
+    """Base schema for platform events."""
 
     event_id: UUID
     event_type: str

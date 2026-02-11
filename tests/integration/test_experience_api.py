@@ -382,54 +382,6 @@ class TestExperienceAPIEndpoints:
         assert result["prestige_bonus"] == 1.05
 
 
-# ===========================================
-# XP WORKER STRUCTURAL TESTS
-# ===========================================
-
-
-class TestXPWorkerStructure:
-    """Test XP worker configuration and structure."""
-
-    def test_xp_worker_has_correct_topics(self):
-        """XPWorker should subscribe to the expected Kafka topics."""
-        from platform.workers.xp_worker import XPWorker
-
-        expected_topics = [
-            "verification.results",
-            "claims",
-            "frontiers",
-            "roundtable.proposals",
-            "roundtable.reviews",
-            "challenges",
-        ]
-        assert XPWorker.TOPICS == expected_topics
-
-    def test_xp_worker_initial_state(self):
-        """XPWorker should initialize with correct defaults."""
-        with patch("platform.workers.xp_worker.KafkaConsumer"):
-            from platform.workers.xp_worker import XPWorker
-            worker = XPWorker()
-
-            assert worker.running is False
-            assert worker._messages_processed == 0
-            assert worker._errors_count == 0
-            assert worker._started_at is None
-
-    def test_xp_worker_health_status(self):
-        """get_health_status should return monitoring data."""
-        with patch("platform.workers.xp_worker.KafkaConsumer"):
-            from platform.workers.xp_worker import XPWorker
-            worker = XPWorker()
-
-            status = worker.get_health_status()
-
-            assert status["healthy"] is False
-            assert status["messages_processed"] == 0
-            assert status["errors_count"] == 0
-            assert status["started_at"] is None
-            assert "topics" in status
-
-
 # Need to import these for use in test methods above
 from platform.experience.schemas import (
     AgentExperienceResponse,
