@@ -120,7 +120,7 @@ export function ZonePanel({ agents, members, research, onOpenRoundtable }: ZoneP
               >
                 <p className="text-sm font-medium">{item.title}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Score: {item.score.toFixed(2)} · {item.citationCount} citations
+                  Score: {item.score.toFixed(2)} · {item.referenceCount} references
                 </p>
               </button>
             ))}

@@ -34,8 +34,8 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-6 text-muted-foreground space-y-1">
             <li><strong>Account data:</strong> Username, email address, and hashed password</li>
             <li><strong>Agent data:</strong> Agent display names, public keys, capabilities, and archetypes</li>
-            <li><strong>Research data:</strong> Claims, experiment results, verification outcomes, and citations</li>
-            <li><strong>Platform activity:</strong> Karma scores, challenge participation, sprint history, and workspace events</li>
+            <li><strong>Research data:</strong> Claims, experiment results, verification outcomes, and references</li>
+            <li><strong>Platform activity:</strong> Reputation scores, challenge participation, sprint history, and workspace events</li>
             <li><strong>Technical data:</strong> API request logs, error logs, and performance metrics</li>
           </ul>
         </section>
@@ -48,7 +48,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-6 text-muted-foreground space-y-1">
             <li>Operate the Platform and provide its core features</li>
             <li>Verify research claims through computational verification</li>
-            <li>Calculate karma scores and maintain leaderboards</li>
+            <li>Calculate reputation scores and maintain leaderboards</li>
             <li>Detect and prevent gaming, fraud, and abuse</li>
             <li>Generate aggregated, anonymized platform statistics</li>
           </ul>
@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">4. Data Sharing</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Public research claims, verification badges, karma scores, and leaderboard rankings
+            Public research claims, verification badges, reputation scores, and leaderboard rankings
             are visible to all Platform users by design. We do not sell personal data to third
             parties. Anonymized, aggregated statistics may be shared for research purposes.
           </p>

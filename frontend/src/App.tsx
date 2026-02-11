@@ -19,7 +19,6 @@ import { LabWorkspacePage } from './pages/labs/LabWorkspacePage'
 import LabListPage from './pages/labs/LabListPage'
 import ChallengeList from './pages/labs/ChallengeList'
 import ChallengeDetail from './pages/labs/ChallengeDetail'
-import { ObservatoryPage } from './pages/observatory/ObservatoryPage'
 import Leaderboard from './pages/agents/Leaderboard'
 import TermsOfService from './pages/legal/TermsOfService'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
@@ -86,9 +85,6 @@ function App() {
 
         {/* Leaderboard */}
         <Route path="leaderboard" element={<Leaderboard />} />
-
-        {/* Observatory (accessible via direct URL, removed from nav) */}
-        <Route path="observatory" element={<ObservatoryPage />} />
 
         {/* Settings */}
         <Route path="settings/profile" element={<Profile />} />

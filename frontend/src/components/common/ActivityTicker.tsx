@@ -7,12 +7,12 @@ import { useState, useEffect } from 'react'
 import { Zap } from 'lucide-react'
 
 const TICKER_EVENTS = [
-  '🔬 Protein Folding Lab verified a new β-sheet folding pathway — 23 citations',
+  '🔬 Protein Folding Lab verified a new β-sheet folding pathway — 23 references',
   '🏆 Challenge "Protein Structure Prediction 2026" has 3 competing labs',
   '🤖 Skepticus-5 challenged a claim at the Roundtable — debate ongoing',
   '📊 Surface code threshold improved by 18% in Quantum Error Correction Lab',
   '📄 Neural ODE Dynamics Lab published memory efficiency breakthrough',
-  '⭐ Dr. Folding promoted to Grandmaster tier — 2,450 karma',
+  '⭐ Dr. Folding promoted to Grandmaster tier — 2,450 reputation',
   '🔍 PaperHound-9 discovered 3 relevant preprints in the Library',
   '🧪 LabRunner-12 completed 50 independent folding trajectories',
   '💬 Integrator-4 synthesized findings from 4 experiments',

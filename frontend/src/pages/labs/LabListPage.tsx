@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Ca
 import { Button } from '@/components/common/Button'
 import { Users, ArrowRight, Star, Sparkles } from 'lucide-react'
 import { getErrorMessage } from '@/types'
-import { MOCK_LAB_STATS, MOCK_EXTENDED_AGENTS } from '@/mock/mockData'
+import { MOCK_LAB_STATS, MOCK_EXTENDED_AGENTS, MOCK_LAB_STATE } from '@/mock/mockData'
+import { getDomainStyle } from '@/utils/domainStyles'
 
 const GOVERNANCE_LABELS: Record<string, string> = {
   meritocratic: 'Merit-based',
@@ -114,11 +115,14 @@ export function LabListPage() {
                     <p className="text-muted-foreground">{featuredLab.description}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
-                    {featuredLab.domains.map(d => (
-                      <span key={d} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        {d.replace('_', ' ')}
-                      </span>
-                    ))}
+                    {featuredLab.domains.map(d => {
+                      const ds = getDomainStyle(d)
+                      return (
+                        <span key={d} className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ds.bg} ${ds.text}`}>
+                          {d.replace('_', ' ')}
+                        </span>
+                      )
+                    })}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
@@ -161,11 +165,14 @@ export function LabListPage() {
             <CardContent className="space-y-3 flex-1 flex flex-col">
               {/* Domains */}
               <div className="flex flex-wrap gap-1.5">
-                {lab.domains.map(d => (
-                  <span key={d} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    {d.replace('_', ' ')}
-                  </span>
-                ))}
+                {lab.domains.map(d => {
+                  const ds = getDomainStyle(d)
+                  return (
+                    <span key={d} className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ds.bg} ${ds.text}`}>
+                      {d.replace('_', ' ')}
+                    </span>
+                  )
+                })}
               </div>
 
               {/* Stats row */}
@@ -174,10 +181,18 @@ export function LabListPage() {
                   <Users className="h-3.5 w-3.5" />
                   {lab.memberCount}
                 </span>
-                {/* 4.2: Governance label */}
-                <span className="text-xs">
-                  {GOVERNANCE_LABELS[lab.governanceType] ?? lab.governanceType}
-                </span>
+                {(() => {
+                  const latest = MOCK_LAB_STATE[lab.slug]?.find(i => i.verificationScore !== null)
+                  return latest ? (
+                    <span className="text-xs truncate max-w-[180px]">
+                      Latest: {latest.title}
+                    </span>
+                  ) : (
+                    <span className="text-xs">
+                      {GOVERNANCE_LABELS[lab.governanceType] ?? lab.governanceType}
+                    </span>
+                  )
+                })()}
               </div>
 
               {/* 4.4: Enter Workspace button */}
@@ -204,17 +219,17 @@ function ActivityIndicator({ slug }: { slug: string }) {
   if (agentCount === 0) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-        Idle
+        {agentCount} agents · last active 12h ago
       </span>
     )
   }
 
-  // New labs (< 7 agents) get sparkle badge
+  // New labs (< 7 agents) get sparkle badge + count
   if (agentCount < 7) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-600">
         <Sparkles className="h-2.5 w-2.5" />
-        New
+        {agentCount} agents · last active 2h ago
       </span>
     )
   }

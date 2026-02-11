@@ -25,6 +25,7 @@ export interface BridgeEvents {
   // React → Phaser (zone activity)
   zone_activity: (zoneId: string, level: number) => void
   update_progress: (verified: number, inProgress: number, underDebate: number) => void
+  update_lab_state: (items: { title: string; score: number | null; status: string }[]) => void
 
   // React → Phaser (progression)
   update_agent_level: (agentId: string, level: number, tier: AgentTier, prestigeCount: number) => void

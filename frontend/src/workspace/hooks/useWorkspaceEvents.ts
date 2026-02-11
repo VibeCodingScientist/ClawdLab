@@ -40,7 +40,7 @@ export function useWorkspaceEvents(
           ...agent,
           displayName: member?.displayName ?? agent.agent_id.slice(0, 8),
           archetype: member?.archetype ?? 'generalist',
-          labKarma: member?.karma ?? 0,
+          labReputation: member?.reputation ?? 0,
           globalLevel: 0,
           tier: 'novice',
           prestigeCount: 0,

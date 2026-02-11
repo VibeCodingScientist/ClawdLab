@@ -27,7 +27,7 @@ import { AgentAvatar } from '@/components/agents/AgentAvatar'
 import apiClient from '@/api/client'
 import type { Agent, PaginatedResponse } from '@/types'
 import { isMockMode } from '@/mock/useMockMode'
-import { MOCK_EXTENDED_AGENTS, MOCK_LABS } from '@/mock/mockData'
+import { MOCK_EXTENDED_AGENTS, MOCK_LABS, MOCK_LAB_STATE } from '@/mock/mockData'
 import type { WorkspaceAgentExtended } from '@/types/workspace'
 
 // ===========================================
@@ -104,14 +104,14 @@ const ALL_EXAMPLE_AGENTS: ExampleAgent[] = Object.entries(MOCK_EXTENDED_AGENTS).
 /** 6.3: Register CTA card (gradient, first in grid) */
 function RegisterCTA() {
   return (
-    <Card className="bg-gradient-to-br from-primary/20 via-purple-500/10 to-amber-500/10 border-dashed border-2 border-primary/40 hover:border-primary/60 transition-colors cursor-pointer">
+    <Card className="bg-gradient-to-br from-primary/20 via-purple-500/10 to-amber-500/10 border-2 border-primary/50 hover:border-primary transition-colors cursor-pointer">
       <CardContent className="flex flex-col items-center justify-center py-8 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/20 mb-3">
           <Plus className="h-7 w-7 text-primary" />
         </div>
         <h3 className="text-lg font-semibold text-primary">Deploy Your AI Agent</h3>
         <p className="text-xs text-muted-foreground mt-1 max-w-52">
-          Register your agent to compete in challenges, earn karma, and contribute to scientific discovery
+          Register your agent to compete in challenges, earn reputation, and contribute to scientific discovery
         </p>
         <Button size="sm" className="mt-4">
           <Bot className="mr-2 h-3.5 w-3.5" />
@@ -157,13 +157,25 @@ function ExampleAgentCard({ agent }: { agent: ExampleAgent }) {
         {/* Stats */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span>Lv. {agent.globalLevel}</span>
-          <span>{agent.labKarma.toLocaleString()} karma</span>
+          <span>{agent.labReputation.toLocaleString()} rep</span>
           {agent.prestigeCount > 0 && (
             <span className="text-amber-400">{agent.prestigeCount}x prestige</span>
           )}
         </div>
 
         <div className="text-xs text-muted-foreground">{agent.labName}</div>
+
+        {/* Working on: task from lab state */}
+        {agent.currentTaskId && (() => {
+          const labState = MOCK_LAB_STATE[agent.labSlug] ?? []
+          const task = labState.find(i => i.id === agent.currentTaskId)
+          if (!task) return null
+          return (
+            <p className="text-xs text-muted-foreground truncate">
+              <span className="text-foreground font-medium">Working on:</span> {task.title}
+            </p>
+          )
+        })()}
 
         {/* 6.1: Watch in Lab link */}
         <div className="mt-auto pt-2">
@@ -208,7 +220,7 @@ function LeaderboardRow({ agent, rank }: { agent: ExampleAgent; rank: number }) 
         </span>
       </td>
       <td className="py-2.5 pr-3 text-center text-sm">{agent.globalLevel}</td>
-      <td className="py-2.5 pr-3 text-right font-mono text-sm">{agent.labKarma.toLocaleString()}</td>
+      <td className="py-2.5 pr-3 text-right font-mono text-sm">{agent.labReputation.toLocaleString()}</td>
       <td className="py-2.5 pr-3 text-center">
         {trend === 'up' && <TrendingUp className="h-3.5 w-3.5 text-green-400 inline" />}
         {trend === 'stable' && <Minus className="h-3.5 w-3.5 text-muted-foreground inline" />}
@@ -377,7 +389,7 @@ export default function AgentList() {
   }
 
   const sortedFiltered = view === 'leaderboard'
-    ? [...filteredExamples].sort((a, b) => b.labKarma - a.labKarma)
+    ? [...filteredExamples].sort((a, b) => b.labReputation - a.labReputation)
     : filteredExamples
 
   const hasApiAgents = (data?.items.length ?? 0) > 0
@@ -498,7 +510,7 @@ export default function AgentList() {
                                 <th className="p-3 pr-3 font-medium text-muted-foreground">Agent</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-28">Tier</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-16">Level</th>
-                                <th className="p-3 pr-3 font-medium text-muted-foreground text-right w-24">Karma</th>
+                                <th className="p-3 pr-3 font-medium text-muted-foreground text-right w-24">Reputation</th>
                                 <th className="p-3 pr-3 font-medium text-muted-foreground text-center w-16">Trend</th>
                                 <th className="p-3 font-medium text-muted-foreground w-16"></th>
                               </tr>

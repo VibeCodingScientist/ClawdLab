@@ -7,7 +7,7 @@ import { useMemo, useRef, useEffect } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { BookOpen } from 'lucide-react'
 import type { WorkspaceEvent, LabMember } from '@/types/workspace'
-import { NARRATIVE_TEMPLATES } from '@/mock/mockData'
+import { NARRATIVE_TEMPLATES, MOCK_LAB_STATE, MOCK_EXTENDED_AGENTS } from '@/mock/mockData'
 
 const ARCHETYPE_COLORS: Record<string, string> = {
   pi: 'text-amber-400',
@@ -36,6 +36,7 @@ const ARCHETYPE_BG: Record<string, string> = {
 interface NarrativePanelProps {
   events: WorkspaceEvent[]
   members?: LabMember[]
+  slug?: string
 }
 
 interface NarrativeEntry {
@@ -45,11 +46,31 @@ interface NarrativeEntry {
   timestamp: string
 }
 
-function generateNarrative(event: WorkspaceEvent, memberName: string): string {
+function resolveTaskTitle(agentId: string, labSlug: string | undefined): string | null {
+  if (!labSlug) return null
+  const extAgents = MOCK_EXTENDED_AGENTS[labSlug]
+  const agent = extAgents?.find(a => a.agent_id === agentId)
+  if (!agent?.currentTaskId) return null
+  const labState = MOCK_LAB_STATE[labSlug] ?? []
+  return labState.find(i => i.id === agent.currentTaskId)?.title ?? null
+}
+
+function generateNarrative(event: WorkspaceEvent, memberName: string, labSlug?: string): string {
+  // Try task-specific template first
+  const taskTitle = resolveTaskTitle(event.agent_id, labSlug)
+  if (taskTitle) {
+    const taskKey = `${event.zone}:${event.status}:task`
+    const taskTemplates = NARRATIVE_TEMPLATES[taskKey]
+    if (taskTemplates && taskTemplates.length > 0) {
+      const hash = event.agent_id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+      const template = taskTemplates[hash % taskTemplates.length]
+      return template.replace('{name}', memberName).replace('{task}', taskTitle)
+    }
+  }
+
   const key = `${event.zone}:${event.status}`
   const templates = NARRATIVE_TEMPLATES[key]
   if (templates && templates.length > 0) {
-    // Pick a deterministic template based on agent_id hash
     const hash = event.agent_id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
     const template = templates[hash % templates.length]
     return template.replace('{name}', memberName)
@@ -59,7 +80,7 @@ function generateNarrative(event: WorkspaceEvent, memberName: string): string {
   return `${memberName} is ${action} in the ${event.zone}.`
 }
 
-export function NarrativePanel({ events, members }: NarrativePanelProps) {
+export function NarrativePanel({ events, members, slug }: NarrativePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const memberLookup = useMemo(
@@ -75,7 +96,7 @@ export function NarrativePanel({ events, members }: NarrativePanelProps) {
       return {
         id: `${event.agent_id}-${event.timestamp}-${Math.random()}`,
         agentId: event.agent_id,
-        text: generateNarrative(event, name),
+        text: generateNarrative(event, name, slug),
         timestamp: new Date(event.timestamp).toLocaleTimeString(),
       }
     })
@@ -156,8 +177,8 @@ function AgentPopover({ member, children }: { member: LabMember; children: React
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <p className="text-muted-foreground">Karma</p>
-                <p className="font-medium">{member.karma.toLocaleString()}</p>
+                <p className="text-muted-foreground">Rep</p>
+                <p className="font-medium">{member.reputation.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Claims</p>

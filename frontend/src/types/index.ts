@@ -77,12 +77,12 @@ export type CapabilityLevel = 'basic' | 'intermediate' | 'advanced' | 'expert'
 
 export interface AgentReputation {
   agentId: string
-  totalKarma: number
-  verificationKarma: number
-  citationKarma: number
-  challengeKarma: number
-  serviceKarma: number
-  domainKarma: Record<string, number>
+  totalReputation: number
+  verificationReputation: number
+  referenceReputation: number
+  challengeReputation: number
+  serviceReputation: number
+  domainReputation: Record<string, number>
   claimsSubmitted: number
   claimsVerified: number
   claimsFailed: number

@@ -4,12 +4,14 @@
  */
 import { useEffect, useState } from 'react'
 import { GameBridge } from '../game/GameBridge'
-import type { LabMember } from '@/types/workspace'
+import type { LabMember, WorkspaceAgentExtended } from '@/types/workspace'
 import { ARCHETYPE_CONFIGS } from '../game/config/archetypes'
 import type { RoleArchetype } from '../game/config/archetypes'
+import { MOCK_LAB_STATE, MOCK_EXTENDED_AGENTS } from '@/mock/mockData'
 
 interface AgentTooltipProps {
   members: LabMember[] | undefined
+  slug?: string
 }
 
 interface TooltipState {
@@ -19,7 +21,7 @@ interface TooltipState {
   screenY: number
 }
 
-export function AgentTooltip({ members }: AgentTooltipProps) {
+export function AgentTooltip({ members, slug }: AgentTooltipProps) {
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false,
     agentId: '',
@@ -81,13 +83,26 @@ export function AgentTooltip({ members }: AgentTooltipProps) {
             </span>
           </div>
           <div className="flex justify-between">
-            <span>Karma</span>
-            <span className="font-medium text-foreground">{member.karma.toLocaleString()}</span>
+            <span>Rep</span>
+            <span className="font-medium text-foreground">{member.reputation.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Claims</span>
             <span className="font-medium text-foreground">{member.claimsCount}</span>
           </div>
+          {slug && (() => {
+            const extAgent = MOCK_EXTENDED_AGENTS[slug]?.find((a: WorkspaceAgentExtended) => a.agent_id === member.agentId)
+            if (!extAgent?.currentTaskId) return null
+            const labState = MOCK_LAB_STATE[slug] ?? []
+            const task = labState.find(i => i.id === extAgent.currentTaskId)
+            if (!task) return null
+            return (
+              <div className="flex justify-between">
+                <span>Working on</span>
+                <span className="font-medium text-foreground truncate max-w-[120px]">{task.title}</span>
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>

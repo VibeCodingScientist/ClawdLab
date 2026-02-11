@@ -12,11 +12,13 @@ import { RoundtablePanel } from './overlays/RoundtablePanel'
 import { SpeedControls } from './overlays/SpeedControls'
 import { DemoModeBanner } from './overlays/DemoModeBanner'
 import { NarrativePanel } from './overlays/NarrativePanel'
-import { HumanComments } from './overlays/HumanComments'
+import { HumanDiscussion } from './overlays/HumanDiscussion'
+import { LabStatePanel } from './overlays/LabStatePanel'
 import { SuggestToLab } from './overlays/SuggestToLab'
 import { GameBridge } from './game/GameBridge'
 import { isMockMode } from '@/mock/useMockMode'
 import type { WorkspaceEvent } from '@/types/workspace'
+import { MOCK_LAB_STATE } from '@/mock/mockData'
 import { ZONE_CONFIGS } from './game/config/zones'
 import { Wifi, WifiOff } from 'lucide-react'
 
@@ -36,14 +38,23 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
 
   useWorkspaceEvents(agents, members, sceneReady)
 
-  // Emit research progress to whiteboard renderer
+  // Emit lab state to whiteboard renderer
   useEffect(() => {
-    if (!research || research.length === 0) return
-    const verified = research.filter(r => r.status === 'verified').length
-    const inProgress = research.filter(r => r.status === 'in_progress').length
-    const underDebate = research.filter(r => r.status === 'under_debate').length
-    GameBridge.getInstance().emit('update_progress', verified, inProgress, underDebate)
-  }, [research])
+    const labState = MOCK_LAB_STATE[slug]
+    if (labState && labState.length > 0) {
+      const items = labState.slice(0, 3).map(i => ({
+        title: i.title,
+        score: i.verificationScore,
+        status: i.status,
+      }))
+      GameBridge.getInstance().emit('update_lab_state', items)
+    } else if (research && research.length > 0) {
+      const verified = research.filter(r => r.status === 'verified').length
+      const inProgress = research.filter(r => r.status === 'in_progress').length
+      const underDebate = research.filter(r => r.status === 'under_debate').length
+      GameBridge.getInstance().emit('update_progress', verified, inProgress, underDebate)
+    }
+  }, [research, slug])
 
   // Wire mock engine events → React state
   useEffect(() => {
@@ -201,7 +212,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
         {/* Overlay layer */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="pointer-events-auto">
-            <AgentTooltip members={members} />
+            <AgentTooltip members={members} slug={slug} />
           </div>
 
           <div className="pointer-events-auto">
@@ -232,10 +243,13 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
         )}
       </div>
 
+      {/* Lab state panel -- full width */}
+      <LabStatePanel slug={slug} />
+
       {/* Below-workspace panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <NarrativePanel events={workspaceEvents} members={members} />
-        <HumanComments slug={slug} />
+        <NarrativePanel events={workspaceEvents} members={members} slug={slug} />
+        <HumanDiscussion slug={slug} />
       </div>
     </div>
   )

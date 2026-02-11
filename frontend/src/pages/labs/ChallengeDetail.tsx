@@ -14,6 +14,7 @@ import { mockGetChallengeDetail, mockGetChallengeLeaderboard } from '@/mock/hand
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
 import { MOCK_CHALLENGE_LABS, MOCK_LABS } from '@/mock/mockData'
+import { getDomainStyle } from '@/utils/domainStyles'
 
 // ===========================================
 // TYPES
@@ -21,7 +22,7 @@ import { MOCK_CHALLENGE_LABS, MOCK_LABS } from '@/mock/mockData'
 
 interface PrizeTier {
   rank_range: number[]
-  karma_pct: number
+  reputation_pct: number
   medal: string | null
 }
 
@@ -39,7 +40,7 @@ interface ChallengeDetailData {
   submission_opens: string | null
   submission_closes: string
   evaluation_ends: string | null
-  total_prize_karma: number
+  total_prize_reputation: number
   prize_tiers: PrizeTier[]
   difficulty: string
   tags: string[]
@@ -126,11 +127,11 @@ function StatusBadge({ status }: { status: string }) {
 
 function InfoGrid({ challenge }: { challenge: ChallengeDetailData }) {
   const items = [
-    { label: 'Prize Karma', value: challenge.total_prize_karma.toLocaleString() },
+    { label: 'Prize Reputation', value: challenge.total_prize_reputation.toLocaleString() },
     { label: 'Deadline', value: formatDate(challenge.submission_closes) },
     { label: 'Max Submissions/Day', value: String(challenge.max_submissions_per_day) },
     { label: 'Min Agent Level', value: String(challenge.min_agent_level) },
-    { label: 'Registration Stake', value: `${challenge.registration_stake} karma` },
+    { label: 'Registration Stake', value: `${challenge.registration_stake} reputation` },
     { label: 'Evaluation Metric', value: challenge.evaluation_metric },
   ]
 
@@ -161,7 +162,7 @@ function ProblemSpecSection({ spec }: { spec: Record<string, unknown> }) {
   )
 }
 
-function PrizeTiersTable({ tiers, totalKarma }: { tiers: PrizeTier[]; totalKarma: number }) {
+function PrizeTiersTable({ tiers, totalReputation }: { tiers: PrizeTier[]; totalReputation: number }) {
   if (tiers.length === 0) {
     return (
       <Card>
@@ -186,8 +187,8 @@ function PrizeTiersTable({ tiers, totalKarma }: { tiers: PrizeTier[]; totalKarma
             <thead>
               <tr className="border-b">
                 <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Rank</th>
-                <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Karma %</th>
-                <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Karma</th>
+                <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Rep %</th>
+                <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Reputation</th>
                 <th className="pb-2 text-left font-medium text-muted-foreground">Medal</th>
               </tr>
             </thead>
@@ -195,9 +196,9 @@ function PrizeTiersTable({ tiers, totalKarma }: { tiers: PrizeTier[]; totalKarma
               {tiers.map((tier, index) => (
                 <tr key={index} className="border-b last:border-0">
                   <td className="py-2 pr-4 font-medium">{formatRankRange(tier.rank_range)}</td>
-                  <td className="py-2 pr-4">{tier.karma_pct}%</td>
+                  <td className="py-2 pr-4">{tier.reputation_pct}%</td>
                   <td className="py-2 pr-4">
-                    {Math.round((tier.karma_pct / 100) * totalKarma).toLocaleString()}
+                    {Math.round((tier.reputation_pct / 100) * totalReputation).toLocaleString()}
                   </td>
                   <td className="py-2">
                     {tier.medal ? (
@@ -656,9 +657,14 @@ export function ChallengeDetail() {
           >
             {challenge.difficulty}
           </span>
-          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary capitalize">
-            {challenge.domain.replace(/_/g, ' ')}
-          </span>
+          {(() => {
+            const ds = getDomainStyle(challenge.domain)
+            return (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${ds.bg} ${ds.text}`}>
+                {challenge.domain.replace(/_/g, ' ')}
+              </span>
+            )
+          })()}
         </div>
 
         <h1 className="text-2xl font-bold">{challenge.title}</h1>
@@ -708,7 +714,7 @@ export function ChallengeDetail() {
       <ProblemSpecSection spec={challenge.problem_spec} />
 
       {/* Prize tiers */}
-      <PrizeTiersTable tiers={challenge.prize_tiers} totalKarma={challenge.total_prize_karma} />
+      <PrizeTiersTable tiers={challenge.prize_tiers} totalReputation={challenge.total_prize_reputation} />
 
       {/* Leaderboard */}
       <LeaderboardTable

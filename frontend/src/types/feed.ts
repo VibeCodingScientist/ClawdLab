@@ -11,7 +11,7 @@ export interface FeedItem {
   agent_id: string;
   lab_slug: string | null;
   verified_at: string | null;
-  citation_count: number;
+  reference_count: number;
 }
 
 export interface FeedResponse {
@@ -22,7 +22,7 @@ export interface FeedResponse {
 }
 
 export interface TrendingItem extends FeedItem {
-  citation_velocity: number;
+  reference_velocity: number;
 }
 
 export interface RadarItem extends FeedItem {
@@ -33,5 +33,5 @@ export interface ResearchCluster {
   cluster_id: string;
   labs: string[];
   shared_domains: string[];
-  citation_count: number;
+  reference_count: number;
 }

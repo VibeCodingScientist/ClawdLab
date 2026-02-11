@@ -66,7 +66,7 @@ export class MockEventEngine {
     this.agents = (MOCK_EXTENDED_AGENTS[slug] ?? []).map(a => ({ ...a }))
   }
 
-  start(baseMoveMs = 5000, baseBubbleMs = 12000): void {
+  start(baseMoveMs = 5000, baseBubbleMs = 6000): void {
     this.baseMoveMs = baseMoveMs
     this.baseBubbleMs = baseBubbleMs
 

@@ -2,11 +2,13 @@
  * Experiment list page -- Shows example experiment cards from mock data.
  */
 
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FlaskConical, Plus, Clock, CheckCircle, Play, ArrowRight } from 'lucide-react'
+import { FlaskConical, Plus, Clock, CheckCircle, Play, ArrowRight, X } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/common/Card'
 import { MOCK_EXPERIMENTS } from '@/mock/mockData'
+import { getDomainStyle } from '@/utils/domainStyles'
 
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string; label: string }> = {
   completed: {
@@ -17,8 +19,8 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: s
   },
   running: {
     icon: <Play className="h-3.5 w-3.5" />,
-    bg: 'bg-amber-900/30',
-    text: 'text-amber-400',
+    bg: 'bg-amber-400/20',
+    text: 'text-amber-700 dark:text-amber-300',
     label: 'Running',
   },
   pending: {
@@ -35,7 +37,18 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: s
   },
 }
 
+function isExplainerDismissed(): boolean {
+  try { return localStorage.getItem('clawdlab:experiments-explainer-dismissed') === '1' } catch { return false }
+}
+
 export default function ExperimentList() {
+  const [explainerVisible, setExplainerVisible] = useState(!isExplainerDismissed())
+
+  const dismissExplainer = () => {
+    setExplainerVisible(false)
+    try { localStorage.setItem('clawdlab:experiments-explainer-dismissed', '1') } catch { /* noop */ }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -53,22 +66,27 @@ export default function ExperimentList() {
         </Link>
       </div>
 
-      {/* Explainer */}
-      <Card className="bg-muted/30 border-dashed">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <FlaskConical className="h-5 w-5 text-primary mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">What are Experiments?</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Experiments are structured computational tasks that lab agents design and execute to test hypotheses.
-                Each experiment has defined parameters, metrics, and reproducibility requirements.
-                Results are automatically verified and feed back into the lab's research pipeline.
-              </p>
+      {/* Explainer (dismissable) */}
+      {explainerVisible && (
+        <Card className="bg-muted/30 border-dashed">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <FlaskConical className="h-5 w-5 text-primary mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">What are Experiments?</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Experiments are structured computational tasks that lab agents design and execute to test hypotheses.
+                  Each experiment has defined parameters, metrics, and reproducibility requirements.
+                  Results are automatically verified and feed back into the lab's research pipeline.
+                </p>
+              </div>
+              <button onClick={dismissExplainer} className="p-1 rounded hover:bg-muted flex-shrink-0">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Experiment cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -94,9 +112,14 @@ export default function ExperimentList() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    {exp.domain.replace('_', ' ')}
-                  </span>
+                  {(() => {
+                    const ds = getDomainStyle(exp.domain)
+                    return (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ds.bg} ${ds.text}`}>
+                        {exp.domain.replace('_', ' ')}
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <Link to={`/labs/${exp.labSlug}/workspace`} className="hover:text-primary transition-colors">
@@ -112,6 +135,19 @@ export default function ExperimentList() {
                     </span>
                   ))}
                 </div>
+
+                {/* Progress for running experiments */}
+                {exp.status === 'running' && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-medium">67%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: '67%' }} />
+                    </div>
+                  </div>
+                )}
 
                 {/* 7.2: View in Workspace link */}
                 <Link to={`/labs/${exp.labSlug}/workspace`}>

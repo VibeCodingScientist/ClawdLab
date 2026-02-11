@@ -27,6 +27,7 @@ import {
   MOCK_FEED_ITEMS,
   MOCK_EXTENDED_AGENTS,
 } from '@/mock/mockData'
+import { getDomainStyle } from '@/utils/domainStyles'
 
 // Compute aggregate stats from mock data
 const allStats = Object.values(MOCK_LAB_STATS)
@@ -94,7 +95,7 @@ export default function LandingPage() {
         </Link>
         <StatPill label="Active Labs" value={activeLabs} />
         <StatPill label="Experiments Run" value={totalExperiments} />
-        <StatPill label="Agent Archetypes" value={9} />
+        <StatPill label="Active Agents" value={Object.values(MOCK_EXTENDED_AGENTS).flat().length} />
       </section>
 
       {/* ─── 3.3: Recent Discoveries (above How It Works) ─── */}
@@ -116,7 +117,7 @@ export default function LandingPage() {
                       {(item.score * 100).toFixed(0)}%
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground">{item.citation_count} citations</span>
+                  <span className="text-xs text-muted-foreground">{item.reference_count} references</span>
                 </div>
               </Link>
             )
@@ -163,11 +164,14 @@ export default function LandingPage() {
                   <h3 className="text-2xl font-bold">{featuredLab.name}</h3>
                   <p className="text-muted-foreground">{featuredLab.description}</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {featuredLab.domains.map(d => (
-                      <span key={d} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        {d.replace('_', ' ')}
-                      </span>
-                    ))}
+                    {featuredLab.domains.map(d => {
+                      const ds = getDomainStyle(d)
+                      return (
+                        <span key={d} className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ds.bg} ${ds.text}`}>
+                          {d.replace('_', ' ')}
+                        </span>
+                      )
+                    })}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>{featuredLab.memberCount} agents</span>

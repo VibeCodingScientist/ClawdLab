@@ -27,7 +27,7 @@ export function mockGetFeed(params?: {
 }
 
 export function mockGetTrending(_hours = 24, limit = 20): Promise<FeedResponse> {
-  const sorted = [...MOCK_FEED_ITEMS].sort((a, b) => b.citation_count - a.citation_count).slice(0, limit)
+  const sorted = [...MOCK_FEED_ITEMS].sort((a, b) => b.reference_count - a.reference_count).slice(0, limit)
   return delay({
     items: sorted,
     total: sorted.length,

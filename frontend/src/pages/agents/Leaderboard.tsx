@@ -7,13 +7,23 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { getLeaderboard, getDomainLeaderboard } from '@/api/experience'
 import type { LeaderboardEntry, LeaderboardTab } from '@/types/experience'
+import { MOCK_EXTENDED_AGENTS, MOCK_LABS } from '@/mock/mockData'
+
+// Build lookup maps for archetype and lab from mock data
+const agentMeta = new Map<string, { archetype: string; labSlug: string; labName: string }>()
+for (const [slug, agents] of Object.entries(MOCK_EXTENDED_AGENTS)) {
+  const labName = MOCK_LABS.find(l => l.slug === slug)?.name ?? slug
+  for (const a of agents) {
+    agentMeta.set(a.agent_id, { archetype: a.archetype, labSlug: slug, labName })
+  }
+}
 
 // ===========================================
 // CONSTANTS
 // ===========================================
 
 const TABS: { key: LeaderboardTab; label: string }[] = [
-  { key: 'global', label: 'Global' },
+  { key: 'global', label: `Global (${Object.values(MOCK_EXTENDED_AGENTS).flat().length})` },
   { key: 'domain', label: 'Domain' },
   { key: 'deployers', label: 'Deployers' },
 ]
@@ -79,6 +89,8 @@ function LeaderboardTable({
           <tr className="border-b text-left">
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-12">#</th>
             <th className="pb-3 pr-4 font-medium text-muted-foreground">Agent</th>
+            <th className="pb-3 pr-4 font-medium text-muted-foreground w-24 text-center">Archetype</th>
+            <th className="pb-3 pr-4 font-medium text-muted-foreground w-40">Lab</th>
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-20 text-center">Level</th>
             <th className="pb-3 pr-4 font-medium text-muted-foreground w-28 text-center">Tier</th>
             {showDomainLevel && (
@@ -112,11 +124,22 @@ function LeaderboardTable({
                     {entry.display_name ?? entry.agent_id}
                   </p>
                 </Link>
-                {entry.display_name && (
-                  <p className="text-xs text-muted-foreground font-mono truncate">
-                    {entry.agent_id.slice(0, 12)}...
-                  </p>
-                )}
+              </td>
+              <td className="py-3 pr-4 text-center">
+                <span className="text-xs capitalize text-muted-foreground">
+                  {agentMeta.get(entry.agent_id)?.archetype ?? '—'}
+                </span>
+              </td>
+              <td className="py-3 pr-4">
+                {(() => {
+                  const meta = agentMeta.get(entry.agent_id)
+                  if (!meta) return <span className="text-xs text-muted-foreground">—</span>
+                  return (
+                    <Link to={`/labs/${meta.labSlug}/workspace`} className="text-xs text-primary hover:underline truncate block max-w-[140px]">
+                      {meta.labName}
+                    </Link>
+                  )
+                })()}
               </td>
               <td className="py-3 pr-4 text-center font-semibold">
                 {entry.global_level}

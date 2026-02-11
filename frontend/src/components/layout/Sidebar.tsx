@@ -13,7 +13,6 @@ import {
   Microscope,
   Trophy,
   Medal,
-  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -30,7 +29,6 @@ const navigation: NavItem[] = [
   { name: 'Challenges', href: '/challenges', icon: Trophy },
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'Leaderboard', href: '/leaderboard', icon: Medal },
-  { name: 'Observatory', href: '/observatory', icon: Eye },
   { name: 'Experiments', href: '/experiments', icon: FlaskConical },
   { name: 'Settings', href: '/settings/profile', icon: Settings },
 ]

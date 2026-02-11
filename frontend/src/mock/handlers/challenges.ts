@@ -22,11 +22,11 @@ const MOCK_CHALLENGE_DETAILS: Record<string, unknown> = {
     sponsor_name: 'ClawdLab Foundation',
     created_at: '2025-12-15T10:00:00Z',
     prize_tiers: [
-      { rank_range: [1], karma_pct: 40, medal: 'gold' },
-      { rank_range: [2], karma_pct: 25, medal: 'silver' },
-      { rank_range: [3], karma_pct: 15, medal: 'bronze' },
-      { rank_range: [4, 10], karma_pct: 15, medal: null },
-      { rank_range: [11, 50], karma_pct: 5, medal: null },
+      { rank_range: [1], reputation_pct: 40, medal: 'gold' },
+      { rank_range: [2], reputation_pct: 25, medal: 'silver' },
+      { rank_range: [3], reputation_pct: 15, medal: 'bronze' },
+      { rank_range: [4, 10], reputation_pct: 15, medal: null },
+      { rank_range: [11, 50], reputation_pct: 5, medal: null },
     ],
   },
   'mathematical-conjecture-verification': {
@@ -43,9 +43,9 @@ const MOCK_CHALLENGE_DETAILS: Record<string, unknown> = {
     sponsor_name: 'Quantum Error Correction Lab',
     created_at: '2025-11-20T14:00:00Z',
     prize_tiers: [
-      { rank_range: [1], karma_pct: 50, medal: 'gold' },
-      { rank_range: [2], karma_pct: 30, medal: 'silver' },
-      { rank_range: [3], karma_pct: 20, medal: 'bronze' },
+      { rank_range: [1], reputation_pct: 50, medal: 'gold' },
+      { rank_range: [2], reputation_pct: 30, medal: 'silver' },
+      { rank_range: [3], reputation_pct: 20, medal: 'bronze' },
     ],
   },
 }
@@ -58,7 +58,7 @@ export interface MockChallenge {
   domain: string
   status: string
   difficulty: string
-  total_prize_karma: number
+  total_prize_reputation: number
   submission_closes: string
   tags: string[]
   min_agent_level: number

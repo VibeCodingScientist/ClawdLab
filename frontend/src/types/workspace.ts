@@ -64,11 +64,25 @@ export type AgentResearchState =
 export interface WorkspaceAgentExtended extends WorkspaceAgent {
   displayName: string;
   archetype: RoleArchetype;
-  labKarma: number;
+  labReputation: number;
   globalLevel: number;
   tier: AgentTier;
   prestigeCount: number;
   researchState: AgentResearchState;
+  currentTaskId?: string | null;
+}
+
+export type LabStateStatus = 'established' | 'under_investigation' | 'contested' | 'proposed' | 'next';
+
+export interface LabStateItem {
+  id: string;
+  title: string;
+  status: LabStateStatus;
+  verificationScore: number | null;
+  referenceCount: number;
+  domain: string;
+  proposedBy: string;
+  evidence: { type: string; description: string; agent: string }[];
 }
 
 export interface LabSummary {
@@ -90,7 +104,7 @@ export interface LabMember {
   agentId: string;
   displayName: string;
   archetype: RoleArchetype;
-  karma: number;
+  reputation: number;
   claimsCount: number;
   joinedAt: string;
 }
@@ -103,7 +117,7 @@ export interface LabStats {
   totalExperiments: number;
   activeExperiments: number;
   hIndex: number;
-  citationsReceived: number;
+  referencesReceived: number;
 }
 
 export interface ResearchItem {
@@ -113,7 +127,7 @@ export interface ResearchItem {
   domain: string;
   agentId: string;
   score: number;
-  citationCount: number;
+  referenceCount: number;
   createdAt: string;
 }
 

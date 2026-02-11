@@ -1,7 +1,7 @@
 /**
  * ChallengeList -- Enhanced challenge discovery page with bounty-style cards,
  * progress sections for active challenges, celebration banners for completed,
- * prominent karma display, and "Propose a Challenge" dialog.
+ * prominent reputation display, and "Propose a Challenge" dialog.
  * Depends on: react-router-dom, apiClient, Card components, lucide-react, mockData
  */
 
@@ -38,7 +38,7 @@ interface Challenge {
   domain: string
   status: string
   difficulty: string
-  total_prize_karma: number
+  total_prize_reputation: number
   submission_closes: string
   tags: string[]
   min_agent_level: number
@@ -132,7 +132,7 @@ function ProposeDialog({ open, onClose }: { open: boolean; onClose: () => void }
             <textarea className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" rows={3} placeholder="Describe the challenge objective..." />
           </div>
           <div>
-            <label className="text-sm font-medium">Prize Karma</label>
+            <label className="text-sm font-medium">Prize Reputation</label>
             <input type="number" className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="10000" />
           </div>
         </div>
@@ -174,14 +174,14 @@ function ActiveChallengeCard({ challenge }: { challenge: Challenge }) {
         <p className="text-sm text-muted-foreground line-clamp-2">{challenge.description}</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* 5.1: Prominent karma */}
+        {/* 5.1: Prominent reputation */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-400" />
             <span className="text-2xl font-bold text-amber-400">
-              {challenge.total_prize_karma.toLocaleString()}
+              {challenge.total_prize_reputation.toLocaleString()}
             </span>
-            <span className="text-sm text-muted-foreground">karma</span>
+            <span className="text-sm text-muted-foreground">reputation</span>
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
@@ -234,9 +234,9 @@ function CompletedChallengeCard({ challenge }: { challenge: Challenge }) {
   const winner = MOCK_CHALLENGE_LEADERBOARD[0]
 
   return (
-    <Card className="border hover:border-primary/50 transition-colors overflow-hidden">
+    <Card className="border hover:border-primary/50 transition-colors overflow-hidden bg-card border-l-4 border-l-amber-400">
       {/* Celebration banner */}
-      <div className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 px-4 py-2 flex items-center gap-2">
+      <div className="px-4 py-2 flex items-center gap-2 border-b">
         <Award className="h-4 w-4 text-amber-400" />
         <span className="text-xs font-semibold text-amber-400">Challenge Complete</span>
         <Sparkles className="h-3 w-3 text-amber-400" />
@@ -251,13 +251,13 @@ function CompletedChallengeCard({ challenge }: { challenge: Challenge }) {
         <p className="text-sm text-muted-foreground line-clamp-2">{challenge.description}</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Karma distributed */}
+        {/* Reputation distributed */}
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-amber-400" />
           <span className="text-2xl font-bold text-amber-400">
-            {challenge.total_prize_karma.toLocaleString()}
+            {challenge.total_prize_reputation.toLocaleString()}
           </span>
-          <span className="text-sm text-muted-foreground">karma distributed</span>
+          <span className="text-sm text-muted-foreground">rep distributed</span>
         </div>
 
         {/* Winner summary */}
@@ -316,9 +316,9 @@ function OpenChallengeCard({ challenge }: { challenge: Challenge }) {
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-400" />
             <span className="text-2xl font-bold text-amber-400">
-              {challenge.total_prize_karma.toLocaleString()}
+              {challenge.total_prize_reputation.toLocaleString()}
             </span>
-            <span className="text-sm text-muted-foreground">karma</span>
+            <span className="text-sm text-muted-foreground">reputation</span>
           </div>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -365,7 +365,7 @@ function FilterPills({
             onClick={() => onStatusChange(f.value)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               statusFilter === f.value
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-primary/10 text-primary'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
@@ -380,7 +380,7 @@ function FilterPills({
             onClick={() => onDomainChange(f.value)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               domainFilter === f.value
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-primary/10 text-primary'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >

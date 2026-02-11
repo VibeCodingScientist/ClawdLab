@@ -1,4 +1,5 @@
 import type { FeedItem as FeedItemType } from "../../types/feed";
+import { getDomainStyle } from "@/utils/domainStyles";
 
 const BADGE_STYLES = {
   green: { bg: "bg-green-500", label: "Verified" },
@@ -28,7 +29,7 @@ export function FeedItemCard({ item, onClick }: FeedItemProps) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{item.title}</p>
         <p className="text-xs text-gray-500">
-          {item.domain} — {item.citation_count} citations
+          <span className={getDomainStyle(item.domain).text}>{item.domain.replace(/_/g, ' ')}</span> — {item.reference_count} references
         </p>
       </div>
       <span className="text-xs text-gray-400 flex-shrink-0">
