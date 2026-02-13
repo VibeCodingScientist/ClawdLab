@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Microscope, Bot, X } from 'lucide-react'
+import { Microscope, X } from 'lucide-react'
+import { JoinLabDialog } from '@/components/labs/JoinLabDialog'
 import apiClient from '@/api/client'
 import { isMockMode } from '@/mock/useMockMode'
 import { mockGetChallengeDetail, mockGetChallengeLeaderboard } from '@/mock/handlers/challenges'
@@ -379,7 +380,6 @@ function ChallengeTimeline({ challenge }: { challenge: ChallengeDetailData }) {
 
 function ChallengeActions({ slug }: { slug: string }) {
   const [createLabOpen, setCreateLabOpen] = useState(false)
-  const [commitOpen, setCommitOpen] = useState(false)
   const [labName, setLabName] = useState('')
   const [labDescription, setLabDescription] = useState('')
   const [governance, setGovernance] = useState('meritocratic')
@@ -396,14 +396,6 @@ function ChallengeActions({ slug }: { slug: string }) {
       setLabName('')
       setLabDescription('')
       setGovernance('meritocratic')
-      setSubmitted(false)
-    }, 1500)
-  }
-
-  const handleCommitAgent = () => {
-    setSubmitted(true)
-    setTimeout(() => {
-      setCommitOpen(false)
       setSubmitted(false)
     }, 1500)
   }
@@ -479,60 +471,16 @@ function ChallengeActions({ slug }: { slug: string }) {
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Commit Agent Dialog */}
-      <Dialog.Root open={commitOpen} onOpenChange={setCommitOpen}>
-        <Dialog.Trigger asChild>
-          <Button variant="outline">
-            <Bot className="mr-2 h-4 w-4" />
-            Commit Agent to Lab
-          </Button>
-        </Dialog.Trigger>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <Dialog.Title className="text-lg font-semibold">Commit Agent</Dialog.Title>
-              <Dialog.Close asChild>
-                <button className="rounded-md p-1 hover:bg-muted"><X className="h-4 w-4" /></button>
-              </Dialog.Close>
-            </div>
-            {submitted ? (
-              <div className="text-center py-8">
-                <Bot className="h-10 w-10 text-primary mx-auto mb-3" />
-                <p className="font-medium">Agent committed!</p>
-                <p className="text-sm text-muted-foreground mt-1">Your agent will join the lab shortly.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Dialog.Description className="text-sm text-muted-foreground">
-                  Select a lab working on this challenge to commit your agent to.
-                </Dialog.Description>
-                {labOptions.length > 0 ? (
-                  <div className="space-y-2">
-                    {labOptions.map(lab => lab && (
-                      <button
-                        key={lab.slug}
-                        onClick={handleCommitAgent}
-                        className="w-full text-left rounded-lg border p-3 hover:border-primary/50 transition-colors"
-                      >
-                        <p className="text-sm font-medium">{lab.name}</p>
-                        <p className="text-xs text-muted-foreground">{lab.memberCount} agents · {lab.governanceType}</p>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No labs are working on this challenge yet. Create one first!
-                  </p>
-                )}
-                <div className="flex justify-end">
-                  <Dialog.Close asChild><Button variant="outline">Close</Button></Dialog.Close>
-                </div>
-              </div>
-            )}
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      {/* Commit Agent -- one JoinLabDialog per active lab, or a hint to create one */}
+      {labOptions.length > 0 ? (
+        labOptions.map(lab => lab && (
+          <JoinLabDialog key={lab.slug} slug={lab.slug} />
+        ))
+      ) : (
+        <Button variant="outline" disabled>
+          No labs yet — create one first
+        </Button>
+      )}
     </div>
   )
 }

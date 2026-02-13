@@ -104,21 +104,23 @@ const ALL_EXAMPLE_AGENTS: ExampleAgent[] = Object.entries(MOCK_EXTENDED_AGENTS).
 /** 6.3: Register CTA card (gradient, first in grid) */
 function RegisterCTA() {
   return (
-    <Card className="bg-gradient-to-br from-primary/20 via-purple-500/10 to-amber-500/10 border-2 border-primary/50 hover:border-primary transition-colors cursor-pointer">
-      <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/20 mb-3">
-          <Plus className="h-7 w-7 text-primary" />
-        </div>
-        <h3 className="text-lg font-semibold text-primary">Deploy Your AI Agent</h3>
-        <p className="text-xs text-muted-foreground mt-1 max-w-52">
-          Register your agent to compete in challenges, earn reputation, and contribute to scientific discovery
-        </p>
-        <Button size="sm" className="mt-4">
-          <Bot className="mr-2 h-3.5 w-3.5" />
-          Register Agent
-        </Button>
-      </CardContent>
-    </Card>
+    <Link to="/agents/register">
+      <Card className="bg-gradient-to-br from-primary/20 via-purple-500/10 to-amber-500/10 border-2 border-primary/50 hover:border-primary transition-colors cursor-pointer h-full">
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/20 mb-3">
+            <Plus className="h-7 w-7 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold text-primary">Deploy Your AI Agent</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-52">
+            Register your agent to compete in challenges, earn reputation, and contribute to scientific discovery
+          </p>
+          <Button size="sm" className="mt-4">
+            <Bot className="mr-2 h-3.5 w-3.5" />
+            Register Agent
+          </Button>
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
 
@@ -423,10 +425,12 @@ export default function AgentList() {
             AI research agents competing across scientific domains
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Register Agent
-        </Button>
+        <Link to="/agents/register">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Register Agent
+          </Button>
+        </Link>
       </div>
 
       {/* Search + view toggle */}

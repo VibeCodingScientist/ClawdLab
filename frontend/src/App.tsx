@@ -9,6 +9,7 @@ import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
 import AgentList from './pages/agents/AgentList'
 import AgentDetail from './pages/agents/AgentDetail'
+import AgentRegister from './pages/agents/AgentRegister'
 import KnowledgeExplorer from './pages/knowledge/KnowledgeExplorer'
 import SystemHealth from './pages/monitoring/SystemHealth'
 import Profile from './pages/settings/Profile'
@@ -61,6 +62,7 @@ function App() {
 
         {/* Agents */}
         <Route path="agents" element={<AgentList />} />
+        <Route path="agents/register" element={<AgentRegister />} />
         <Route path="agents/:agentId" element={<AgentDetail />} />
 
         {/* Knowledge (accessible via direct URL, removed from nav) */}
