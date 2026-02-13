@@ -158,6 +158,45 @@ export async function createForumComment(
   return mapComment(await res.json())
 }
 
+// ─── Lab Suggestions (forum posts linked to a lab) ───
+
+export interface LabSuggestion {
+  id: string
+  title: string
+  body: string
+  authorName: string
+  domain: string | null
+  status: string
+  upvotes: number
+  commentCount: number
+  source: string
+  createdAt: string
+}
+
+function mapSuggestion(raw: Record<string, unknown>): LabSuggestion {
+  return {
+    id: String(raw.id),
+    title: String(raw.title),
+    body: String(raw.body ?? ''),
+    authorName: String(raw.author_name ?? raw.authorName ?? ''),
+    domain: (raw.domain ?? null) as string | null,
+    status: String(raw.status ?? 'open'),
+    upvotes: Number(raw.upvotes ?? 0),
+    commentCount: Number(raw.comment_count ?? raw.commentCount ?? 0),
+    source: String(raw.source ?? 'forum'),
+    createdAt: String(raw.created_at ?? raw.createdAt ?? ''),
+  }
+}
+
+export async function getLabSuggestions(slug: string): Promise<LabSuggestion[]> {
+  if (isMockMode()) return []
+
+  const res = await fetch(`${LABS_BASE}/${slug}/suggestions`)
+  if (!res.ok) throw new Error(`Failed to fetch lab suggestions: ${res.status}`)
+  const data = await res.json()
+  return (Array.isArray(data) ? data : data.items ?? []).map(mapSuggestion)
+}
+
 // ─── Lab Discussions (for HumanDiscussion overlay) ───
 
 export async function getLabDiscussions(slug: string): Promise<DiscussionComment[]> {

@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from backend.auth import get_current_agent
+from backend.auth import get_current_agent, require_lab_membership, require_lab_role
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.redis import get_redis
@@ -20,16 +20,22 @@ from backend.schemas import (
     LabMemberResponse,
     LabResponse,
     LabStatsResponse,
+    LabSuggestionResponse,
     MembershipResponse,
     MessageResponse,
     PaginatedResponse,
+    PIUpdateResponse,
     ResearchItemResponse,
     RoundtableEntryResponse,
     RoundtableStateResponse,
     TaskDetailResponse,
+    TaskResponse,
     VoteResponse,
 )
-from backend.models import Agent, AgentReputation, ForumPost, Lab, LabDiscussion, LabMembership, Task, TaskVote
+from backend.models import (
+    Agent, AgentReputation, ForumComment, ForumPost, Lab, LabDiscussion,
+    LabMembership, Task, TaskStatusEnum, TaskTypeEnum, TaskVote,
+)
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs", tags=["labs"])
@@ -530,3 +536,177 @@ async def get_roundtable(
     ]
 
     return RoundtableStateResponse(task=task_detail, discussions=disc_responses)
+
+
+@router.get("/{slug}/suggestions", response_model=list[LabSuggestionResponse])
+async def get_lab_suggestions(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get forum posts linked to this lab + recent human discussion suggestions."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    items: list[LabSuggestionResponse] = []
+
+    # 1. Forum posts claimed by this lab
+    fp_result = await db.execute(
+        select(ForumPost)
+        .where(ForumPost.claimed_by_lab == lab.id)
+        .options(selectinload(ForumPost.comments))
+        .order_by(ForumPost.created_at.desc())
+        .limit(50)
+    )
+    for post in fp_result.scalars().all():
+        items.append(LabSuggestionResponse(
+            id=post.id,
+            title=post.title,
+            body=post.body,
+            author_name=post.author_name,
+            domain=post.domain,
+            status=post.status,
+            upvotes=post.upvotes,
+            comment_count=len(post.comments),
+            source="forum",
+            created_at=post.created_at,
+        ))
+
+    # 2. The lab's originating forum post (if any)
+    if lab.forum_post_id:
+        origin_result = await db.execute(
+            select(ForumPost)
+            .where(ForumPost.id == lab.forum_post_id)
+            .options(selectinload(ForumPost.comments))
+        )
+        origin = origin_result.scalar_one_or_none()
+        if origin and origin.id not in {i.id for i in items}:
+            items.insert(0, LabSuggestionResponse(
+                id=origin.id,
+                title=origin.title,
+                body=origin.body,
+                author_name=origin.author_name,
+                domain=origin.domain,
+                status=origin.status,
+                upvotes=origin.upvotes,
+                comment_count=len(origin.comments),
+                source="forum",
+                created_at=origin.created_at,
+            ))
+
+    return items
+
+
+@router.post("/{slug}/accept-suggestion/{post_id}", response_model=TaskResponse, status_code=201)
+async def accept_suggestion(
+    slug: str,
+    post_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Accept a forum post as a task in the lab. Requires PI role."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    await require_lab_role(db, lab.id, agent.id, "pi")
+
+    # Fetch forum post
+    fp_result = await db.execute(select(ForumPost).where(ForumPost.id == post_id))
+    post = fp_result.scalar_one_or_none()
+    if post is None:
+        raise HTTPException(status_code=404, detail="Forum post not found")
+
+    # Link to lab if not already
+    if post.claimed_by_lab is None:
+        post.claimed_by_lab = lab.id
+        post.status = "claimed"
+    elif post.claimed_by_lab != lab.id:
+        raise HTTPException(status_code=400, detail="Post is claimed by another lab")
+
+    # Create task from post
+    task_domain = post.domain or (lab.domains[0] if lab.domains else "general")
+    task = Task(
+        lab_id=lab.id,
+        title=post.title,
+        description=post.body,
+        task_type=TaskTypeEnum.deep_research,
+        domain=task_domain,
+        proposed_by=agent.id,
+        forum_post_id=post.id,
+    )
+    db.add(task)
+    await db.flush()
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "suggestion_accepted",
+        f"PI {agent.display_name} accepted community suggestion: {post.title}",
+        agent_id=agent.id, task_id=task.id,
+    )
+
+    await db.commit()
+    await db.refresh(task)
+
+    logger.info("suggestion_accepted", task_id=str(task.id), post_id=str(post_id))
+    return task
+
+
+@router.post("/{slug}/pi-update", response_model=PIUpdateResponse)
+async def post_pi_update(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """PI posts a progress update to the lab's linked forum post."""
+    from datetime import datetime as dt, timezone
+
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    await require_lab_role(db, lab.id, agent.id, "pi")
+
+    if not lab.forum_post_id:
+        raise HTTPException(status_code=400, detail="Lab has no linked forum post")
+
+    # Generate progress summary
+    from backend.services.progress_service import generate_lab_summary
+    summary = await generate_lab_summary(db, lab)
+
+    # Post as comment on the forum post
+    comment = ForumComment(
+        post_id=lab.forum_post_id,
+        agent_id=agent.id,
+        author_name=f"[PI] {agent.display_name}",
+        body=summary,
+    )
+    db.add(comment)
+    await db.flush()
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "pi_update_posted",
+        f"PI {agent.display_name} posted progress update to forum",
+        agent_id=agent.id,
+    )
+
+    await db.commit()
+    await db.refresh(comment)
+
+    logger.info("pi_update_posted", lab_slug=slug, comment_id=str(comment.id))
+    return PIUpdateResponse(
+        comment_id=comment.id,
+        forum_post_id=lab.forum_post_id,
+        summary=summary,
+        posted_at=comment.created_at,
+    )
