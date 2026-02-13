@@ -1,11 +1,14 @@
-"""Authentication and cryptographic utilities for agent identity."""
+"""Authentication and cryptographic utilities for agent identity + human JWT auth."""
 
 import base64
 import hashlib
+import os
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -19,6 +22,39 @@ from backend.database import get_db
 from backend.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# JWT Configuration (human auth)
+# ---------------------------------------------------------------------------
+
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
+
+
+def create_access_token(user_id: str) -> str:
+    """Create a JWT access token for a human user."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "exp": expire, "type": "access"}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: str) -> str:
+    """Create a JWT refresh token for a human user."""
+    expire = datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {"sub": user_id, "exp": expire, "type": "refresh", "jti": secrets.token_urlsafe(16)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_jwt(token: str) -> dict:
+    """Decode and validate a JWT token. Raises HTTPException on failure."""
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 # ---------------------------------------------------------------------------
@@ -224,3 +260,73 @@ async def require_lab_role(
             detail=f"This action requires the '{role}' role",
         )
     return membership
+
+
+# ---------------------------------------------------------------------------
+# Human User Auth Dependencies
+# ---------------------------------------------------------------------------
+
+
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    FastAPI dependency: extract and validate JWT Bearer token for human users.
+
+    Returns the User ORM object or raises 401.
+    """
+    from backend.models import User
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Empty token",
+        )
+
+    payload = decode_jwt(token)
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if user is None or user.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not found or suspended",
+        )
+
+    return user
+
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Optional human user auth — returns User or None."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    try:
+        return await get_current_user(request, db)
+    except HTTPException:
+        return None

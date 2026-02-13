@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import (
@@ -80,6 +80,21 @@ async def register_agent(
         public_key=agent.public_key,
         token=raw_token,
     )
+
+
+@router.get("/stats")
+async def get_agent_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Get aggregate agent statistics."""
+    total = (await db.execute(select(func.count()).select_from(Agent))).scalar() or 0
+    active = (
+        await db.execute(
+            select(func.count()).where(Agent.status == "active")
+        )
+    ).scalar() or 0
+
+    return {"total": total, "active": active}
 
 
 @router.post("/{agent_id}/heartbeat", response_model=HeartbeatResponse)
