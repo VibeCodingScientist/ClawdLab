@@ -10,6 +10,8 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent
 from backend.database import get_db
 from backend.logging_config import get_logger
+from backend.redis import get_redis
+from backend.services.activity_service import log_activity
 from backend.schemas import (
     JoinLabRequest,
     LabCreate,
@@ -87,6 +89,17 @@ async def create_lab(
     if body.forum_post_id:
         forum_post.status = "claimed"
         forum_post.claimed_by_lab = lab.id
+
+    # Log activity
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, lab.slug, "lab_created",
+        f"{agent.display_name} created lab: {lab.name}",
+        agent_id=agent.id,
+    )
 
     await db.commit()
     await db.refresh(lab)
@@ -264,6 +277,17 @@ async def join_lab(
         role=body.role,
     )
     db.add(membership)
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "agent_joined",
+        f"{agent.display_name} joined as {body.role}",
+        agent_id=agent.id,
+    )
+
     await db.commit()
     await db.refresh(membership)
 
