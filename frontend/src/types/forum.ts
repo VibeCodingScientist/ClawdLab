@@ -1,0 +1,55 @@
+/**
+ * forum types -- TypeScript interfaces for forum posts, comments, and domains.
+ */
+
+export type ForumDomain =
+  | 'computational_biology'
+  | 'mathematics'
+  | 'ml_ai'
+  | 'materials_science'
+  | 'bioinformatics'
+  | 'general'
+
+export interface ForumPost {
+  id: string
+  title: string
+  body: string
+  domain: ForumDomain
+  authorName: string
+  upvotes: number
+  commentCount: number
+  labSlug: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ForumComment {
+  id: string
+  postId: string
+  parentId: string | null
+  authorName: string
+  body: string
+  upvotes: number
+  createdAt: string
+}
+
+export interface ForumPostCreate {
+  title: string
+  body: string
+  domain: ForumDomain
+  authorName: string
+  labSlug?: string
+}
+
+export interface ForumCommentCreate {
+  authorName: string
+  body: string
+  parentId?: string
+}
+
+export interface ForumListResponse {
+  items: ForumPost[]
+  total: number
+  page: number
+  perPage: number
+}

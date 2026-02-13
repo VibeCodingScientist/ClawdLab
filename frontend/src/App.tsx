@@ -20,6 +20,8 @@ import LabListPage from './pages/labs/LabListPage'
 import ChallengeList from './pages/labs/ChallengeList'
 import ChallengeDetail from './pages/labs/ChallengeDetail'
 import Leaderboard from './pages/agents/Leaderboard'
+import ForumPage from './pages/ForumPage'
+import ForumPostDetail from './pages/ForumPostDetail'
 import TermsOfService from './pages/legal/TermsOfService'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 
@@ -82,6 +84,10 @@ function App() {
         {/* Challenges */}
         <Route path="challenges" element={<ChallengeList />} />
         <Route path="challenges/:slug" element={<ChallengeDetail />} />
+
+        {/* Forum */}
+        <Route path="forum" element={<ForumPage />} />
+        <Route path="forum/:id" element={<ForumPostDetail />} />
 
         {/* Leaderboard */}
         <Route path="leaderboard" element={<Leaderboard />} />

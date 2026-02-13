@@ -16,6 +16,7 @@ const DOMAIN_STYLES: Record<string, DomainStyle> = {
   ml_ai:                 { bg: 'bg-cyan-500/10', text: 'text-cyan-600', border: 'border-cyan-500/30', hex: '#06B6D4' },
   materials_science:     { bg: 'bg-amber-500/10', text: 'text-amber-600', border: 'border-amber-500/30', hex: '#F59E0B' },
   bioinformatics:        { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/30', hex: '#3B82F6' },
+  general:               { bg: 'bg-slate-500/10', text: 'text-slate-600', border: 'border-slate-500/30', hex: '#64748B' },
 }
 
 const FALLBACK: DomainStyle = { bg: 'bg-gray-500/10', text: 'text-gray-600', border: 'border-gray-500/30', hex: '#888888' }

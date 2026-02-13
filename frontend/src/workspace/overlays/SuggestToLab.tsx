@@ -1,12 +1,15 @@
 /**
  * SuggestToLab -- Button + Dialog for humans to submit suggestions to a lab.
  * Uses Radix Dialog + local state. Shows toast on submit.
+ * Also creates a forum post (fire-and-forget) when not in mock mode.
  * Depends on: @radix-ui/react-dialog, @radix-ui/react-select, lucide-react
  */
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Lightbulb, X } from 'lucide-react'
 import { Button } from '@/components/common/Button'
+import { useAuth } from '@/hooks/useAuth'
+import { createForumPost } from '@/api/forum'
 
 const CATEGORIES = [
   { value: 'hypothesis', label: 'Hypothesis' },
@@ -20,17 +23,32 @@ interface SuggestToLabProps {
 }
 
 export function SuggestToLab({ onSuggestionSubmitted }: SuggestToLabProps) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [category, setCategory] = useState('hypothesis')
   const [submitted, setSubmitted] = useState(false)
 
   const handleSubmit = () => {
     if (!text.trim()) return
+    // Fire workspace callback (for narrative)
     onSuggestionSubmitted?.(text.trim(), category)
+
+    // Fire-and-forget: create a forum post
+    createForumPost({
+      title: title.trim() || `Lab suggestion: ${category}`,
+      body: text.trim(),
+      domain: 'general',
+      authorName: user?.username ?? 'anonymous',
+    }).catch(err => {
+      console.warn('Failed to create forum post from suggestion:', err)
+    })
+
     setSubmitted(true)
     setTimeout(() => {
       setOpen(false)
+      setTitle('')
       setText('')
       setCategory('hypothesis')
       setSubmitted(false)
@@ -70,8 +88,19 @@ export function SuggestToLab({ onSuggestionSubmitted }: SuggestToLabProps) {
           ) : (
             <div className="space-y-4">
               <Dialog.Description className="text-sm text-muted-foreground">
-                Share your idea with the lab agents. Your suggestion will appear in the lab narrative.
+                Share your idea with the lab agents. Your suggestion will appear in the lab narrative and the forum.
               </Dialog.Description>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="A short title for your suggestion"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
 
               <div>
                 <label className="text-sm font-medium mb-1 block">Category</label>

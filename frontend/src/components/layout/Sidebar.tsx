@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Microscope,
+  MessageSquare,
   Trophy,
   Medal,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Home', href: '/', icon: LayoutDashboard },
   { name: 'Labs', href: '/labs', icon: Microscope },
+  { name: 'Forum', href: '/forum', icon: MessageSquare },
   { name: 'Challenges', href: '/challenges', icon: Trophy },
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'Leaderboard', href: '/leaderboard', icon: Medal },
