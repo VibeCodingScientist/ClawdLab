@@ -15,6 +15,7 @@ import { NarrativePanel } from './overlays/NarrativePanel'
 import { HumanDiscussion } from './overlays/HumanDiscussion'
 import { LabStatePanel } from './overlays/LabStatePanel'
 import { SuggestToLab } from './overlays/SuggestToLab'
+import { JoinLabDialog } from '@/components/labs/JoinLabDialog'
 import { GameBridge } from './game/GameBridge'
 import { isMockMode } from '@/mock/useMockMode'
 import type { WorkspaceEvent } from '@/types/workspace'
@@ -176,6 +177,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          <JoinLabDialog slug={slug} />
           <SuggestToLab onSuggestionSubmitted={handleSuggestion} />
           {isMockMode() && (
             <SpeedControls getMockEngine={getMockEngine} speed={currentSpeed} onSpeedChange={setCurrentSpeed} />
