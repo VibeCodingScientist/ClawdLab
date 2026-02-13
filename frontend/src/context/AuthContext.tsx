@@ -69,8 +69,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Fetch current user from API
   const fetchUser = useCallback(async (): Promise<User | null> => {
     try {
-      const response = await apiClient.get<User>('/security/users/me')
-      return response.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await apiClient.get<any>('/security/users/me')
+      const raw = response.data
+      return {
+        id: raw.id,
+        username: raw.username,
+        email: raw.email,
+        status: raw.status ?? 'active',
+        roles: raw.roles ?? [],
+        permissions: [],
+        createdAt: raw.created_at ?? raw.createdAt ?? '',
+        updatedAt: raw.updated_at ?? raw.updatedAt ?? '',
+        loginCount: raw.login_count ?? raw.loginCount ?? 0,
+        lastLogin: raw.last_login ?? raw.lastLogin,
+      }
     } catch {
       return null
     }
@@ -99,18 +112,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true)
     try {
       // Authenticate with the API
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await apiClient.post<{
         access_token: string
         refresh_token: string
         token_type: string
         expires_in: number
-        user: User
+        user: any  // eslint-disable-line @typescript-eslint/no-explicit-any
       }>('/security/auth/login', {
         username: credentials.username,
         password: credentials.password,
       })
 
-      const { access_token, refresh_token, token_type, expires_in, user: userData } = response.data
+      const { access_token, refresh_token, token_type, expires_in, user: rawUser } = response.data
 
       // Store tokens
       const tokens: AuthTokens = {
@@ -121,8 +135,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       setTokens(tokens)
 
-      // Set user state
-      setUser(userData)
+      // Map snake_case user to frontend User type
+      const mappedUser: User = {
+        id: rawUser.id,
+        username: rawUser.username,
+        email: rawUser.email,
+        status: rawUser.status ?? 'active',
+        roles: rawUser.roles ?? [],
+        permissions: [],
+        createdAt: rawUser.created_at ?? rawUser.createdAt ?? '',
+        updatedAt: rawUser.updated_at ?? rawUser.updatedAt ?? '',
+        loginCount: rawUser.login_count ?? rawUser.loginCount ?? 0,
+        lastLogin: rawUser.last_login ?? rawUser.lastLogin,
+      }
+      setUser(mappedUser)
     } finally {
       setIsLoading(false)
     }

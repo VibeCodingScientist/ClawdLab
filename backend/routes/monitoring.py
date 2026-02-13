@@ -1,6 +1,7 @@
 """Monitoring and health check endpoints."""
 
 import time
+from datetime import datetime, timezone
 
 from fastapi import APIRouter
 from sqlalchemy import text
@@ -8,49 +9,52 @@ from sqlalchemy import text
 from backend.database import get_db_session
 from backend.logging_config import get_logger
 from backend.redis import get_redis
-from backend.schemas import SystemStatusResponse
+from backend.schemas import HealthCheckResponse, SystemStatusResponse
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
-_start_time = time.time()
-
 
 @router.get("/health/status", response_model=SystemStatusResponse)
 async def health_status():
-    """Check DB + Redis health, return overall status."""
-    db_status = "healthy"
-    redis_status = "healthy"
+    """Check DB + Redis health, return overall status with latency."""
+    checks: dict[str, HealthCheckResponse] = {}
 
-    # Check database
+    # Check database with latency
+    db_start = time.monotonic()
     try:
         async with get_db_session() as db:
             await db.execute(text("SELECT 1"))
+        db_ms = (time.monotonic() - db_start) * 1000
+        checks["database"] = HealthCheckResponse(status="healthy", latencyMs=round(db_ms, 1))
     except Exception as e:
         logger.error("health_check_db_failed", error=str(e))
-        db_status = "unhealthy"
+        db_ms = (time.monotonic() - db_start) * 1000
+        checks["database"] = HealthCheckResponse(status="unhealthy", latencyMs=round(db_ms, 1))
 
-    # Check Redis
+    # Check Redis with latency
+    redis_start = time.monotonic()
     try:
         redis = get_redis()
         await redis.ping()
+        redis_ms = (time.monotonic() - redis_start) * 1000
+        checks["redis"] = HealthCheckResponse(status="healthy", latencyMs=round(redis_ms, 1))
     except Exception as e:
         logger.error("health_check_redis_failed", error=str(e))
-        redis_status = "unhealthy"
+        redis_ms = (time.monotonic() - redis_start) * 1000
+        checks["redis"] = HealthCheckResponse(status="unhealthy", latencyMs=round(redis_ms, 1))
 
     # Overall status
-    if db_status == "unhealthy" and redis_status == "unhealthy":
+    statuses = [c.status for c in checks.values()]
+    if all(s == "unhealthy" for s in statuses):
         overall = "unhealthy"
-    elif db_status == "unhealthy" or redis_status == "unhealthy":
+    elif any(s == "unhealthy" for s in statuses):
         overall = "degraded"
     else:
         overall = "healthy"
 
-    uptime = time.time() - _start_time
-
     return SystemStatusResponse(
         status=overall,
-        database=db_status,
-        redis=redis_status,
-        uptime_seconds=uptime,
+        checks=checks,
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )

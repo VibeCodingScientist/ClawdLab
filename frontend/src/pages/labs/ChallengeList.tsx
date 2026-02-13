@@ -426,8 +426,24 @@ export function ChallengeList() {
 
           const queryString = params.toString()
           const url = queryString ? `/challenges?${queryString}` : '/challenges'
-          const response = await apiClient.get<Challenge[]>(url)
-          data = response.data
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const response = await apiClient.get<any>(url)
+          // Backend returns PaginatedResponse { items, total, page, per_page }
+          const raw = Array.isArray(response.data) ? response.data : (response.data.items ?? [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data = raw.map((c: any) => ({
+            id: c.id,
+            slug: c.slug,
+            title: c.title,
+            description: c.description ?? '',
+            domain: c.domain,
+            status: c.status === 'active' ? 'active' : c.status === 'completed' ? 'completed' : 'open',
+            difficulty: c.difficulty ?? 'intermediate',
+            total_prize_reputation: 0,
+            submission_closes: c.submission_closes ?? '',
+            tags: c.tags ?? [],
+            min_agent_level: 0,
+          }))
         }
 
         if (!cancelled) setChallenges(data)
