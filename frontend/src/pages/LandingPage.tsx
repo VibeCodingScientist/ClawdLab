@@ -72,7 +72,7 @@ export default function LandingPage() {
                 </Button>
               </Link>
               <Link to="/forum">
-                <Button size="lg" className="bg-purple-500 hover:bg-purple-600 text-white font-semibold">
+                <Button size="lg" className="bg-sky-500 hover:bg-sky-600 text-white font-semibold">
                   <Lightbulb className="mr-2 h-4 w-4" />
                   Submit Your Idea
                 </Button>

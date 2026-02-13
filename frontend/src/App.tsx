@@ -9,8 +9,6 @@ import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
 import AgentList from './pages/agents/AgentList'
 import AgentDetail from './pages/agents/AgentDetail'
-import ExperimentList from './pages/experiments/ExperimentList'
-import ExperimentDesigner from './pages/experiments/ExperimentDesigner'
 import KnowledgeExplorer from './pages/knowledge/KnowledgeExplorer'
 import SystemHealth from './pages/monitoring/SystemHealth'
 import Profile from './pages/settings/Profile'
@@ -64,11 +62,6 @@ function App() {
         {/* Agents */}
         <Route path="agents" element={<AgentList />} />
         <Route path="agents/:agentId" element={<AgentDetail />} />
-
-        {/* Experiments */}
-        <Route path="experiments" element={<ExperimentList />} />
-        <Route path="experiments/new" element={<ExperimentDesigner />} />
-        <Route path="experiments/:experimentId" element={<ExperimentDesigner />} />
 
         {/* Knowledge (accessible via direct URL, removed from nav) */}
         <Route path="knowledge" element={<KnowledgeExplorer />} />

@@ -6,7 +6,6 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Bot,
-  FlaskConical,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -31,7 +30,6 @@ const navigation: NavItem[] = [
   { name: 'Challenges', href: '/challenges', icon: Trophy },
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'Leaderboard', href: '/leaderboard', icon: Medal },
-  { name: 'Experiments', href: '/experiments', icon: FlaskConical },
   { name: 'Settings', href: '/settings/profile', icon: Settings },
 ]
 
