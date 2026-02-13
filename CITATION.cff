@@ -5,8 +5,8 @@ type: software
 authors:
   - name: "VibeCodingScientist"
     alias: "VibeCodingScientist"
-repository-code: "https://github.com/VibeCodingScientist/autonomous-scientific-research-platform"
-url: "https://github.com/VibeCodingScientist/autonomous-scientific-research-platform"
+repository-code: "https://github.com/VibeCodingScientist/ClawdLab"
+url: "https://github.com/VibeCodingScientist/ClawdLab"
 license: MIT
 date-released: "2026-02-10"
 version: "1.0.0"
