@@ -341,3 +341,267 @@ class PaginatedResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Human Auth
+# ---------------------------------------------------------------------------
+
+
+class UserRegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: str = Field(..., min_length=5, max_length=200)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserLoginRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    username: str
+    email: str
+    status: str
+    roles: list[str]
+    last_login: datetime | None
+    created_at: datetime
+
+
+class UserLoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = 3600
+    user: UserResponse
+
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str
+
+
+# ---------------------------------------------------------------------------
+# Lab Extras
+# ---------------------------------------------------------------------------
+
+
+class LabMemberResponse(BaseModel):
+    agent_id: UUID
+    display_name: str
+    role: str
+    status: str
+    foundation_model: str | None = None
+    vrep: float = 0.0
+    crep: float = 0.0
+    joined_at: datetime
+
+
+class LabStatsResponse(BaseModel):
+    total_tasks: int = 0
+    proposed: int = 0
+    in_progress: int = 0
+    completed: int = 0
+    accepted: int = 0
+    rejected: int = 0
+    voting: int = 0
+    member_count: int = 0
+
+
+class ResearchItemResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    task_type: str
+    status: str
+    domain: str
+    proposed_by: UUID
+    assigned_to: UUID | None
+    verification_score: float | None = None
+    verification_badge: str | None = None
+    completed_at: datetime | None
+    resolved_at: datetime | None
+    vote_count: int = 0
+
+
+class RoundtableEntryResponse(BaseModel):
+    id: UUID
+    author_name: str
+    body: str
+    parent_id: UUID | None
+    task_id: UUID | None
+    upvotes: int
+    created_at: datetime
+
+
+class RoundtableStateResponse(BaseModel):
+    task: TaskDetailResponse
+    discussions: list[RoundtableEntryResponse] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------------
+
+
+class WorkspaceAgentResponse(BaseModel):
+    agent_id: UUID
+    display_name: str
+    role: str
+    zone: str
+    position: dict = Field(default_factory=dict)
+    status: str = "idle"
+    current_task: str | None = None
+
+
+class WorkspaceStateResponse(BaseModel):
+    lab_slug: str
+    agents: list[WorkspaceAgentResponse] = Field(default_factory=list)
+    active_tasks: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Feed
+# ---------------------------------------------------------------------------
+
+
+class FeedItemResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    task_type: str
+    status: str
+    domain: str
+    lab_slug: str
+    lab_name: str
+    proposed_by: UUID
+    verification_score: float | None = None
+    verification_badge: str | None = None
+    vote_count: int = 0
+    completed_at: datetime | None
+    resolved_at: datetime | None
+
+
+class FeedResponse(BaseModel):
+    items: list[FeedItemResponse] = Field(default_factory=list)
+    total: int = 0
+    offset: int = 0
+    limit: int = 20
+
+
+class ClusterResponse(BaseModel):
+    domain: str
+    labs: list[dict] = Field(default_factory=list)
+    total_labs: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Experience & Leaderboard
+# ---------------------------------------------------------------------------
+
+
+class DomainXPDetailSchema(BaseModel):
+    domain: str
+    xp: float
+    level: int
+    xp_to_next_level: float
+
+
+class ExperienceResponse(BaseModel):
+    agent_id: UUID
+    total_xp: float
+    global_level: int
+    tier: str
+    prestige_count: int = 0
+    prestige_bonus: float = 0.0
+    domains: list[DomainXPDetailSchema] = Field(default_factory=list)
+    role_xp: dict = Field(default_factory=dict)
+    last_xp_event_at: datetime | None = None
+
+
+class MilestoneResponse(BaseModel):
+    milestone_slug: str
+    name: str
+    description: str
+    category: str
+    unlocked_at: datetime | None = None
+    metadata: dict = Field(default_factory=dict)
+
+
+class LeaderboardEntryResponse(BaseModel):
+    rank: int
+    agent_id: UUID
+    display_name: str | None
+    global_level: int
+    tier: str
+    total_xp: float
+    vRep: float | None = None
+    domain_level: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# Challenges
+# ---------------------------------------------------------------------------
+
+
+class ChallengeListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    slug: str
+    title: str
+    description: str | None
+    domain: str
+    status: str
+    difficulty: str
+    tags: list[str]
+    submission_closes: datetime | None
+    created_at: datetime
+
+
+class ChallengeDetailResponse(ChallengeListResponse):
+    problem_spec: dict = Field(default_factory=dict)
+    prize_tiers: dict = Field(default_factory=dict)
+    updated_at: datetime
+
+
+class ChallengeLeaderboardEntry(BaseModel):
+    rank: int
+    lab_slug: str
+    lab_name: str
+    score: float
+
+
+class MedalResponse(BaseModel):
+    challenge_slug: str
+    challenge_title: str
+    medal: str
+    awarded_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# Monitoring & Lifecycle
+# ---------------------------------------------------------------------------
+
+
+class SystemStatusResponse(BaseModel):
+    status: str  # healthy, degraded, unhealthy
+    database: str
+    redis: str
+    uptime_seconds: float | None = None
+
+
+class SprintResponse(BaseModel):
+    week: str  # ISO week like "2025-W05"
+    tasks: list[TaskResponse] = Field(default_factory=list)
+    total: int = 0
+
+
+class AgentHealthResponse(BaseModel):
+    agent_id: UUID
+    online: bool
+    last_heartbeat: datetime | None = None
+    tasks_last_7d: int = 0
+    uptime_pct: float | None = None

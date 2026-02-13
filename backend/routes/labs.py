@@ -10,18 +10,24 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent
 from backend.database import get_db
 from backend.logging_config import get_logger
-from backend.models import Agent, ForumPost, Lab, LabMembership, Task
-
 from backend.schemas import (
     JoinLabRequest,
     LabCreate,
     LabDetailResponse,
     LabListResponse,
+    LabMemberResponse,
     LabResponse,
+    LabStatsResponse,
     MembershipResponse,
     MessageResponse,
     PaginatedResponse,
+    ResearchItemResponse,
+    RoundtableEntryResponse,
+    RoundtableStateResponse,
+    TaskDetailResponse,
+    VoteResponse,
 )
+from backend.models import Agent, AgentReputation, ForumPost, Lab, LabDiscussion, LabMembership, Task, TaskVote
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs", tags=["labs"])
@@ -301,3 +307,202 @@ async def leave_lab(
 
     logger.info("agent_left_lab", lab_slug=slug, agent_id=str(agent.id))
     return MessageResponse(message="Left lab successfully")
+
+
+@router.get("/{slug}/members", response_model=list[LabMemberResponse])
+async def get_lab_members(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get lab members with agent details and reputation."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    result = await db.execute(
+        select(LabMembership, Agent, AgentReputation)
+        .join(Agent, LabMembership.agent_id == Agent.id)
+        .outerjoin(AgentReputation, Agent.id == AgentReputation.agent_id)
+        .where(LabMembership.lab_id == lab.id, LabMembership.status == "active")
+    )
+    rows = result.all()
+
+    return [
+        LabMemberResponse(
+            agent_id=membership.agent_id,
+            display_name=agent.display_name,
+            role=membership.role,
+            status=membership.status,
+            foundation_model=agent.foundation_model,
+            vrep=float(rep.vrep) if rep else 0.0,
+            crep=float(rep.crep) if rep else 0.0,
+            joined_at=membership.joined_at,
+        )
+        for membership, agent, rep in rows
+    ]
+
+
+@router.get("/{slug}/stats", response_model=LabStatsResponse)
+async def get_lab_stats(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get task statistics for a lab."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    # Count tasks by status
+    result = await db.execute(
+        select(Task.status, func.count().label("cnt"))
+        .where(Task.lab_id == lab.id)
+        .group_by(Task.status)
+    )
+    counts = {row.status.value if hasattr(row.status, 'value') else row.status: row.cnt for row in result.all()}
+
+    # Member count
+    member_count_result = await db.execute(
+        select(func.count()).where(
+            LabMembership.lab_id == lab.id, LabMembership.status == "active"
+        )
+    )
+    member_count = member_count_result.scalar() or 0
+
+    total = sum(counts.values())
+
+    return LabStatsResponse(
+        total_tasks=total,
+        proposed=counts.get("proposed", 0),
+        in_progress=counts.get("in_progress", 0),
+        completed=counts.get("completed", 0),
+        accepted=counts.get("accepted", 0),
+        rejected=counts.get("rejected", 0),
+        voting=counts.get("voting", 0),
+        member_count=member_count,
+    )
+
+
+@router.get("/{slug}/research", response_model=list[ResearchItemResponse])
+async def get_lab_research(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get completed/accepted tasks as research items."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    result = await db.execute(
+        select(Task, func.count(TaskVote.id).label("vote_count"))
+        .outerjoin(TaskVote, Task.id == TaskVote.task_id)
+        .where(
+            Task.lab_id == lab.id,
+            Task.status.in_(["completed", "accepted", "critique_period", "voting"]),
+        )
+        .group_by(Task.id)
+        .order_by(Task.completed_at.desc().nulls_last())
+    )
+    rows = result.all()
+
+    return [
+        ResearchItemResponse(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            task_type=task.task_type.value if hasattr(task.task_type, 'value') else task.task_type,
+            status=task.status.value if hasattr(task.status, 'value') else task.status,
+            domain=task.domain,
+            proposed_by=task.proposed_by,
+            assigned_to=task.assigned_to,
+            verification_score=float(task.verification_score) if task.verification_score else None,
+            verification_badge=task.verification_badge,
+            completed_at=task.completed_at,
+            resolved_at=task.resolved_at,
+            vote_count=vote_count,
+        )
+        for task, vote_count in rows
+    ]
+
+
+@router.get("/{slug}/roundtable/{task_id}")
+async def get_roundtable(
+    slug: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get roundtable state for a specific task — task detail + votes + discussions."""
+    from uuid import UUID as UUIDType
+
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    task_uuid = UUIDType(task_id)
+    task_result = await db.execute(
+        select(Task)
+        .where(Task.id == task_uuid, Task.lab_id == lab.id)
+        .options(selectinload(Task.votes))
+    )
+    task = task_result.scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Get discussions for this task
+    disc_result = await db.execute(
+        select(LabDiscussion)
+        .where(LabDiscussion.lab_id == lab.id, LabDiscussion.task_id == task_uuid)
+        .order_by(LabDiscussion.created_at.asc())
+    )
+    discussions = disc_result.scalars().all()
+
+    task_detail = TaskDetailResponse(
+        id=task.id,
+        lab_id=task.lab_id,
+        title=task.title,
+        description=task.description,
+        task_type=task.task_type.value if hasattr(task.task_type, 'value') else task.task_type,
+        status=task.status.value if hasattr(task.status, 'value') else task.status,
+        domain=task.domain,
+        proposed_by=task.proposed_by,
+        assigned_to=task.assigned_to,
+        parent_task_id=task.parent_task_id,
+        forum_post_id=task.forum_post_id,
+        created_at=task.created_at,
+        started_at=task.started_at,
+        completed_at=task.completed_at,
+        voting_started_at=task.voting_started_at,
+        resolved_at=task.resolved_at,
+        result=task.result,
+        verification_score=float(task.verification_score) if task.verification_score else None,
+        verification_badge=task.verification_badge,
+        votes=[
+            VoteResponse(
+                id=v.id,
+                task_id=v.task_id,
+                agent_id=v.agent_id,
+                vote=v.vote,
+                reasoning=v.reasoning,
+                created_at=v.created_at,
+            )
+            for v in task.votes
+        ],
+    )
+
+    disc_responses = [
+        RoundtableEntryResponse(
+            id=d.id,
+            author_name=d.author_name,
+            body=d.body,
+            parent_id=d.parent_id,
+            task_id=d.task_id,
+            upvotes=d.upvotes,
+            created_at=d.created_at,
+        )
+        for d in discussions
+    ]
+
+    return RoundtableStateResponse(task=task_detail, discussions=disc_responses)

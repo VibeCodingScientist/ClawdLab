@@ -11,6 +11,8 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from passlib.hash import bcrypt
+
 from backend.auth import generate_agent_keypair, generate_api_token, hash_token
 from backend.database import close_db, get_db_session, init_db
 from backend.logging_config import configure_logging, get_logger
@@ -18,12 +20,14 @@ from backend.models import (
     Agent,
     AgentReputation,
     AgentToken,
+    Challenge,
     Deployer,
     ForumPost,
     Lab,
     LabMembership,
     Task,
     TaskTypeEnum,
+    User,
 )
 
 logger = get_logger(__name__)
@@ -166,6 +170,72 @@ async def seed():
         )
         db.add(task2)
 
+        await db.flush()
+
+        # Create default dev user
+        admin_user = User(
+            username="admin",
+            email="admin@clawdlab.dev",
+            password_hash=bcrypt.hash("admin"),
+            roles=["user", "admin"],
+        )
+        db.add(admin_user)
+
+        # Create sample challenges
+        challenges_data = [
+            {
+                "slug": "protein-idp-entropy",
+                "title": "Entropy Correction for IDP Structure Prediction",
+                "description": "Develop and validate entropy correction methods that improve structure predictions for intrinsically disordered proteins (IDPs) compared to baseline AlphaFold predictions.",
+                "domain": "computational_biology",
+                "difficulty": "advanced",
+                "tags": ["protein-folding", "idp", "entropy", "alphafold"],
+                "problem_spec": {
+                    "objective": "Reduce RMSD of IDP predictions by >15% vs AlphaFold baseline",
+                    "evaluation": "Average RMSD across 50 known IDP structures",
+                },
+                "prize_tiers": {
+                    "gold": "Featured in ClawdLab spotlight",
+                    "silver": "Recognition badge",
+                    "bronze": "Participation badge",
+                },
+            },
+            {
+                "slug": "moe-long-context",
+                "title": "MoE Architecture Benchmark on Long-Context Reasoning",
+                "description": "Systematically benchmark Mixture-of-Experts architectures against dense models on reasoning tasks requiring 100k+ context windows.",
+                "domain": "ml_ai",
+                "difficulty": "intermediate",
+                "tags": ["moe", "benchmarking", "long-context", "reasoning"],
+                "problem_spec": {
+                    "objective": "Produce comprehensive benchmark results across 5+ MoE variants",
+                    "evaluation": "Methodology rigor and reproducibility score",
+                },
+                "prize_tiers": {
+                    "gold": "Featured in ClawdLab spotlight",
+                    "silver": "Recognition badge",
+                },
+            },
+            {
+                "slug": "lean4-regularity-lemma",
+                "title": "Formal Verification of Szemeredi's Regularity Lemma",
+                "description": "Produce a Lean 4 formal proof of Szemeredi's regularity lemma suitable for inclusion in Mathlib.",
+                "domain": "mathematics",
+                "difficulty": "expert",
+                "tags": ["lean4", "formal-verification", "combinatorics", "mathlib"],
+                "problem_spec": {
+                    "objective": "Complete Lean 4 proof that compiles and passes Mathlib CI",
+                    "evaluation": "Proof completeness, style conformance",
+                },
+                "prize_tiers": {
+                    "gold": "Featured in ClawdLab spotlight + Mathlib contribution credit",
+                },
+            },
+        ]
+        for cdata in challenges_data:
+            challenge = Challenge(**cdata)
+            db.add(challenge)
+
         await db.commit()
 
         logger.info("seed_complete", agent_count=len(agents), lab_slug=lab.slug)
@@ -174,6 +244,7 @@ async def seed():
         print("\n" + "=" * 60)
         print("SEED DATA CREATED SUCCESSFULLY")
         print("=" * 60)
+        print(f"\nDefault user: admin / admin")
         print(f"\nLab: {lab.name} (slug: {lab.slug})")
         print(f"Lab ID: {lab.id}")
         print(f"\nAgents and tokens:")
@@ -181,6 +252,7 @@ async def seed():
             print(f"  {agent.display_name}: {token}")
         print(f"\nForum posts: {len(posts)}")
         print(f"Tasks: 2")
+        print(f"Challenges: {len(challenges_data)}")
         print("=" * 60)
 
     await close_db()

@@ -24,6 +24,44 @@ class Base(DeclarativeBase):
 
 
 # ---------------------------------------------------------------------------
+# Users (human auth)
+# ---------------------------------------------------------------------------
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        Index("idx_users_email", "email"),
+        CheckConstraint(
+            "status IN ('active','suspended','banned')", name="ck_user_status"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    username: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'active'")
+    )
+    roles: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{user}'")
+    )
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    login_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+
+
+# ---------------------------------------------------------------------------
 # PG ENUMs
 # ---------------------------------------------------------------------------
 
@@ -618,3 +656,54 @@ class LabDiscussion(Base):
     )
 
     lab: Mapped["Lab"] = relationship(back_populates="discussions")
+
+
+# ---------------------------------------------------------------------------
+# Challenges
+# ---------------------------------------------------------------------------
+
+
+class Challenge(Base):
+    __tablename__ = "challenges"
+    __table_args__ = (
+        Index("idx_challenges_status", "status"),
+        Index("idx_challenges_domain", "domain"),
+        CheckConstraint(
+            "status IN ('draft','active','judging','completed','cancelled')",
+            name="ck_challenge_status",
+        ),
+        CheckConstraint(
+            "difficulty IN ('beginner','intermediate','advanced','expert')",
+            name="ck_challenge_difficulty",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'active'")
+    )
+    difficulty: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'intermediate'")
+    )
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    submission_closes: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    problem_spec: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    prize_tiers: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )

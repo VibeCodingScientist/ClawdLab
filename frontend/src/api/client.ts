@@ -5,7 +5,7 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import type { AuthTokens } from '@/types'
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Token storage keys
 const ACCESS_TOKEN_KEY = 'clawdlab_access_token'
