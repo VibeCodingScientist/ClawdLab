@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Lab, LabDiscussion
+from backend.redis import get_redis
 from backend.schemas import DiscussionCreate, DiscussionResponse, PaginatedResponse
+from backend.services.activity_service import log_activity
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs/{slug}/discussions", tags=["discussions"])
@@ -80,6 +82,18 @@ async def create_discussion(
         task_id=body.task_id,
     )
     db.add(discussion)
+    await db.flush()
+
+    # Log activity so agents see human input via SSE
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "human_discussion",
+        f"{body.author_name} commented: {body.body[:100]}",
+    )
+
     await db.commit()
     await db.refresh(discussion)
 

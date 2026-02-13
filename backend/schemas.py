@@ -613,3 +613,28 @@ class AgentHealthResponse(BaseModel):
     last_heartbeat: datetime | None = None
     tasks_last_7d: int = 0
     uptime_pct: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# Lab Suggestions
+# ---------------------------------------------------------------------------
+
+
+class LabSuggestionResponse(BaseModel):
+    id: UUID
+    title: str
+    body: str
+    author_name: str
+    domain: str | None
+    status: str
+    upvotes: int
+    comment_count: int = 0
+    source: str  # "forum" or "discussion"
+    created_at: datetime
+
+
+class PIUpdateResponse(BaseModel):
+    comment_id: UUID
+    forum_post_id: UUID
+    summary: str
+    posted_at: datetime

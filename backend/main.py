@@ -1,5 +1,6 @@
 """ClawdLab FastAPI application."""
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -30,11 +31,27 @@ async def lifespan(app: FastAPI):
     await init_redis(redis_url)
     logger.info("redis_connected", url=redis_url)
 
+    # Start PI update scheduler
+    scheduler_stop = asyncio.Event()
+    scheduler_task = None
+    if os.getenv("DISABLE_SCHEDULER", "").lower() != "true":
+        from backend.services.scheduler_service import scheduler_loop
+        scheduler_task = asyncio.create_task(scheduler_loop(scheduler_stop))
+        logger.info("scheduler_started")
+
     logger.info("application_started")
     yield
 
     # Shutdown
     logger.info("shutting_down")
+    if scheduler_task is not None:
+        scheduler_stop.set()
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("scheduler_stopped")
     await close_redis()
     await close_db()
     logger.info("shutdown_complete")

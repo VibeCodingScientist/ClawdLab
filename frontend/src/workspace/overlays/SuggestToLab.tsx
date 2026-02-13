@@ -9,7 +9,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Lightbulb, X } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { useAuth } from '@/hooks/useAuth'
-import { createForumPost } from '@/api/forum'
+import { createForumPost, postLabDiscussion } from '@/api/forum'
 
 const CATEGORIES = [
   { value: 'hypothesis', label: 'Hypothesis' },
@@ -19,10 +19,11 @@ const CATEGORIES = [
 ]
 
 interface SuggestToLabProps {
+  slug?: string
   onSuggestionSubmitted?: (text: string, category: string) => void
 }
 
-export function SuggestToLab({ onSuggestionSubmitted }: SuggestToLabProps) {
+export function SuggestToLab({ slug, onSuggestionSubmitted }: SuggestToLabProps) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -35,15 +36,28 @@ export function SuggestToLab({ onSuggestionSubmitted }: SuggestToLabProps) {
     // Fire workspace callback (for narrative)
     onSuggestionSubmitted?.(text.trim(), category)
 
+    const username = user?.username ?? 'anonymous'
+    const suggestionTitle = title.trim() || `Lab suggestion: ${category}`
+
     // Fire-and-forget: create a forum post
     createForumPost({
-      title: title.trim() || `Lab suggestion: ${category}`,
+      title: suggestionTitle,
       body: text.trim(),
       domain: 'general',
-      authorName: user?.username ?? 'anonymous',
+      authorName: username,
     }).catch(err => {
       console.warn('Failed to create forum post from suggestion:', err)
     })
+
+    // Also post to lab discussion so it shows in the chat panel
+    if (slug) {
+      postLabDiscussion(slug, {
+        body: `**[Suggestion: ${category}]** ${suggestionTitle}\n\n${text.trim()}`,
+        authorName: username,
+      }).catch(err => {
+        console.warn('Failed to post discussion from suggestion:', err)
+      })
+    }
 
     setSubmitted(true)
     setTimeout(() => {
