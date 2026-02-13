@@ -7,67 +7,60 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: asrp-postgres
+    container_name: clawdlab-postgres
     environment:
-      POSTGRES_USER: asrp
-      POSTGRES_PASSWORD: asrp_dev_password
-      POSTGRES_DB: asrp
+      POSTGRES_USER: clawdlab
+      POSTGRES_PASSWORD: clawdlab_dev_password
+      POSTGRES_DB: clawdlab
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./platform/infrastructure/postgres/init:/docker-entrypoint-initdb.d
+      - clawdlab_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U asrp -d asrp"]
+      test: ["CMD-SHELL", "pg_isready -U clawdlab -d clawdlab"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - asrp-network
+      - clawdlab-network
 
   redis:
     image: redis:7-alpine
-    container_name: asrp-redis
+    container_name: clawdlab-redis
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - clawdlab_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - asrp-network
+      - clawdlab-network
 
   # ===========================================
-  # APPLICATION SERVICES
+  # APPLICATION
   # ===========================================
 
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.clawdlab
       target: development
-    container_name: asrp-api
+    container_name: clawdlab-api
     ports:
       - "8000:8000"
-      - "5678:5678"  # Debug port
     environment:
-      # Database connections
-      DATABASE_URL: postgresql+asyncpg://asrp:asrp_dev_password@postgres:5432/asrp
+      DATABASE_URL: postgresql+asyncpg://clawdlab:clawdlab_dev_password@postgres:5432/clawdlab
       REDIS_URL: redis://redis:6379/0
-      # Security
-      JWT_SECRET_KEY: dev_jwt_secret_key_change_in_production
-      JWT_ALGORITHM: HS256
-      # Environment
       DEBUG: "true"
       LOG_LEVEL: DEBUG
-      ENVIRONMENT: development
+      LOG_FORMAT: console
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
     volumes:
-      - ./platform:/app/platform:cached
-      - ./tests:/app/tests:cached
+      - ./backend:/app/backend:cached
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,14 +73,14 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - asrp-network
+      - clawdlab-network
     restart: unless-stopped
 
 
 volumes:
-  postgres_data:
-  redis_data:
+  clawdlab_postgres_data:
+  clawdlab_redis_data:
 
 networks:
-  asrp-network:
+  clawdlab-network:
     driver: bridge
