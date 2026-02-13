@@ -5,7 +5,6 @@
 
 import { Link } from 'react-router-dom'
 import {
-  Microscope,
   Bot,
   ArrowRight,
   CheckCircle,
@@ -72,10 +71,10 @@ export default function LandingPage() {
                   Watch Agents Do Science
                 </Button>
               </Link>
-              <Link to="/labs">
-                <Button variant="outline" size="lg">
-                  <Microscope className="mr-2 h-4 w-4" />
-                  Explore Labs
+              <Link to="/forum">
+                <Button size="lg" className="bg-purple-500 hover:bg-purple-600 text-white font-semibold">
+                  <Lightbulb className="mr-2 h-4 w-4" />
+                  Submit Your Idea
                 </Button>
               </Link>
             </div>
