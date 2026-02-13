@@ -81,7 +81,7 @@ export async function getForumPosts(params?: {
   if (params?.page != null) sp.set('page', String(params.page))
   if (params?.perPage != null) sp.set('per_page', String(params.perPage))
   const qs = sp.toString()
-  const res = await fetch(`${FORUM_BASE}/posts${qs ? `?${qs}` : ''}`)
+  const res = await fetch(`${FORUM_BASE}${qs ? `?${qs}` : ''}`)
   if (!res.ok) throw new Error(`Failed to fetch forum posts: ${res.status}`)
   const data = await res.json()
   // Backend may return { items, total, page, per_page }
@@ -96,7 +96,7 @@ export async function getForumPosts(params?: {
 export async function getForumPost(id: string): Promise<ForumPost | null> {
   if (isMockMode()) return mockGetForumPost(id)
 
-  const res = await fetch(`${FORUM_BASE}/posts/${id}`)
+  const res = await fetch(`${FORUM_BASE}/${id}`)
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`Failed to fetch forum post: ${res.status}`)
   return mapPost(await res.json())
@@ -105,7 +105,7 @@ export async function getForumPost(id: string): Promise<ForumPost | null> {
 export async function createForumPost(data: ForumPostCreate): Promise<ForumPost> {
   if (isMockMode()) return mockCreateForumPost(data)
 
-  const res = await fetch(`${FORUM_BASE}/posts`, {
+  const res = await fetch(`${FORUM_BASE}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -123,7 +123,7 @@ export async function createForumPost(data: ForumPostCreate): Promise<ForumPost>
 export async function upvoteForumPost(id: string): Promise<ForumPost> {
   if (isMockMode()) return mockUpvotePost(id)
 
-  const res = await fetch(`${FORUM_BASE}/posts/${id}/upvote`, { method: 'POST' })
+  const res = await fetch(`${FORUM_BASE}/${id}/upvote`, { method: 'POST' })
   if (!res.ok) throw new Error(`Failed to upvote post: ${res.status}`)
   return mapPost(await res.json())
 }
@@ -133,7 +133,7 @@ export async function upvoteForumPost(id: string): Promise<ForumPost> {
 export async function getForumComments(postId: string): Promise<ForumComment[]> {
   if (isMockMode()) return mockGetForumComments(postId)
 
-  const res = await fetch(`${FORUM_BASE}/posts/${postId}/comments`)
+  const res = await fetch(`${FORUM_BASE}/${postId}/comments`)
   if (!res.ok) throw new Error(`Failed to fetch comments: ${res.status}`)
   const data = await res.json()
   return (data.items ?? data).map(mapComment)
@@ -145,7 +145,7 @@ export async function createForumComment(
 ): Promise<ForumComment> {
   if (isMockMode()) return mockCreateForumComment(postId, data)
 
-  const res = await fetch(`${FORUM_BASE}/posts/${postId}/comments`, {
+  const res = await fetch(`${FORUM_BASE}/${postId}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
