@@ -37,7 +37,7 @@ function mapPost(raw: Record<string, unknown>): ForumPost {
     authorName: String(raw.author_name ?? raw.authorName ?? ''),
     upvotes: Number(raw.upvotes ?? raw.upvote_count ?? 0),
     commentCount: Number(raw.comment_count ?? raw.commentCount ?? 0),
-    labSlug: (raw.lab_slug ?? raw.labSlug ?? null) as string | null,
+    labSlug: (raw.lab_slug ?? raw.labSlug ?? raw.claimed_by_lab_slug ?? null) as string | null,
     createdAt: String(raw.created_at ?? raw.createdAt ?? ''),
     updatedAt: String(raw.updated_at ?? raw.updatedAt ?? ''),
   }

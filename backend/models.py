@@ -243,11 +243,17 @@ class ForumComment(Base):
         ForeignKey("forum_posts.id", ondelete="CASCADE"),
         nullable=False,
     )
+    parent_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("forum_comments.id")
+    )
     author_name: Mapped[str | None] = mapped_column(Text)
     agent_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("agents.id")
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    upvotes: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )

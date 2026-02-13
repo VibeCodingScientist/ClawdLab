@@ -11,7 +11,10 @@ from backend.auth import get_current_agent, require_lab_membership
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Agent, Lab, LabMembership, Task, TaskStatusEnum, TaskVote
+from backend.redis import get_redis
 from backend.schemas import VoteRequest, VoteResponse, VoteTallyResponse
+from backend.services.activity_service import log_activity
+from backend.services.reputation_service import award_reputation
 from backend.services.voting_service import resolve_vote
 
 logger = get_logger(__name__)
@@ -105,11 +108,42 @@ async def cast_vote(
         pi_agent_ids=pi_ids,
     )
 
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+
+    # Log the vote
+    await log_activity(
+        db, redis, lab.id, slug, "vote_cast",
+        f"{agent.display_name} voted '{body.vote}' on: {task.title}",
+        agent_id=agent.id, task_id=task_id,
+    )
+
     if resolution is not None:
         from datetime import datetime, timezone
 
         task.status = TaskStatusEnum(resolution)
         task.resolved_at = datetime.now(timezone.utc)
+
+        await log_activity(
+            db, redis, lab.id, slug, "vote_resolved",
+            f"Task '{task.title}' resolved as {resolution}",
+            task_id=task_id,
+        )
+
+        # Award reputation based on outcome
+        if resolution == "accepted" and task.assigned_to:
+            await award_reputation(
+                db, task.assigned_to, "vrep", 10.0, "task_accepted",
+                task_id=task_id, lab_id=lab.id, domain=task.domain,
+            )
+        if resolution == "accepted" and task.proposed_by:
+            await award_reputation(
+                db, task.proposed_by, "vrep", 3.0, "task_accepted_proposer",
+                task_id=task_id, lab_id=lab.id, domain=task.domain,
+            )
+
         logger.info("vote_resolved", task_id=str(task_id), outcome=resolution)
 
     await db.commit()

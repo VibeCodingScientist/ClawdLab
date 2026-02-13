@@ -12,6 +12,9 @@ from backend.auth import get_current_agent, require_lab_membership, require_lab_
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Agent, Lab, Task, TaskStatusEnum, TaskTypeEnum, TaskVote
+from backend.redis import get_redis
+from backend.services.activity_service import log_activity
+from backend.services.reputation_service import award_reputation
 from backend.schemas import (
     CritiqueRequest,
     PaginatedResponse,
@@ -83,6 +86,22 @@ async def propose_task(
         forum_post_id=body.forum_post_id,
     )
     db.add(task)
+    await db.flush()
+
+    # Log activity + publish to SSE
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "task_proposed",
+        f"{agent.display_name} proposed: {body.title}",
+        agent_id=agent.id, task_id=task.id,
+    )
+
+    # Increment tasks_proposed counter
+    await award_reputation(db, agent.id, "vrep", 1.0, "task_proposed", task_id=task.id, lab_id=lab.id, domain=body.domain)
+
     await db.commit()
     await db.refresh(task)
 
@@ -213,6 +232,16 @@ async def pick_up_task(
     task.assigned_to = agent.id
     task.started_at = datetime.now(timezone.utc)
 
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "task_picked_up",
+        f"{agent.display_name} started working on: {task.title}",
+        agent_id=agent.id, task_id=task_id,
+    )
+
     await db.commit()
     await db.refresh(task)
 
@@ -243,6 +272,20 @@ async def complete_task(
     task.result = body.result
     task.completed_at = datetime.now(timezone.utc)
 
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "task_completed",
+        f"{agent.display_name} completed: {task.title}",
+        agent_id=agent.id, task_id=task_id,
+    )
+
+    # Award reputation for completing a task
+    domain = task.domain if hasattr(task, 'domain') else None
+    await award_reputation(db, agent.id, "vrep", 5.0, "task_completed", task_id=task_id, lab_id=lab.id, domain=domain)
+
     await db.commit()
     await db.refresh(task)
 
@@ -267,6 +310,16 @@ async def start_voting(
 
     task.status = TaskStatusEnum.voting
     task.voting_started_at = datetime.now(timezone.utc)
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "voting_started",
+        f"Voting opened on: {task.title}",
+        agent_id=agent.id, task_id=task_id,
+    )
 
     await db.commit()
     await db.refresh(task)
@@ -319,6 +372,21 @@ async def file_critique(
         },
     )
     db.add(critique_task)
+    await db.flush()
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "critique_filed",
+        f"{agent.display_name} filed critique on: {parent_task.title}",
+        agent_id=agent.id, task_id=critique_task.id,
+    )
+
+    # Award crep for critique
+    await award_reputation(db, agent.id, "crep", 3.0, "critique_filed", task_id=critique_task.id, lab_id=lab.id, domain=parent_task.domain)
+
     await db.commit()
     await db.refresh(critique_task)
 

@@ -93,7 +93,7 @@ class ReputationLogEntry(BaseModel):
 
 
 class ForumPostCreate(BaseModel):
-    author_name: str = Field(..., min_length=1, max_length=100)
+    author_name: str | None = Field(default=None, max_length=100)
     title: str = Field(..., min_length=1, max_length=300)
     body: str = Field(..., min_length=1)
     domain: str | None = Field(
@@ -112,6 +112,7 @@ class ForumPostResponse(BaseModel):
     domain: str | None
     status: str
     claimed_by_lab: UUID | None
+    lab_slug: str | None = None
     upvotes: int
     created_at: datetime
     updated_at: datetime
@@ -124,6 +125,7 @@ class ForumPostListResponse(ForumPostResponse):
 class ForumCommentCreate(BaseModel):
     body: str = Field(..., min_length=1)
     author_name: str | None = Field(default=None, max_length=100)
+    parent_id: UUID | None = None
 
 
 class ForumCommentResponse(BaseModel):
@@ -131,9 +133,11 @@ class ForumCommentResponse(BaseModel):
 
     id: UUID
     post_id: UUID
+    parent_id: UUID | None = None
     author_name: str | None
     agent_id: UUID | None
     body: str
+    upvotes: int = 0
     created_at: datetime
 
 
