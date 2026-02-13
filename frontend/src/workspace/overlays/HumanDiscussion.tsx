@@ -1,13 +1,17 @@
 /**
  * HumanDiscussion -- Threaded discussion panel for human observers.
  * Supports replies (max 2 levels), optional research anchors, and upvotes.
- * Depends on: useAuth, MOCK_DISCUSSION_COMMENTS, MOCK_LAB_STATE
+ * In real mode: fetches from GET /api/labs/{slug}/discussions and posts comments.
+ * In mock mode: uses MOCK_DISCUSSION_COMMENTS as before.
+ * Depends on: useAuth, discussion API, mock data
  */
 import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, Send, ChevronDown, ChevronRight, ArrowUp, Anchor } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { useAuth } from '@/hooks/useAuth'
 import { MOCK_DISCUSSION_COMMENTS, MOCK_LAB_STATE, type DiscussionComment } from '@/mock/mockData'
+import { isMockMode } from '@/mock/useMockMode'
+import { getLabDiscussions, postLabDiscussion } from '@/api/forum'
 
 interface HumanDiscussionProps {
   slug: string
@@ -18,10 +22,26 @@ export function HumanDiscussion({ slug }: HumanDiscussionProps) {
   const [comments, setComments] = useState<DiscussionComment[]>(MOCK_DISCUSSION_COMMENTS)
   const [input, setInput] = useState('')
   const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const labState = MOCK_LAB_STATE[slug] ?? []
   const itemMap = new Map(labState.map(i => [i.id, i.title]))
+
+  // Fetch discussions from backend when not in mock mode
+  useEffect(() => {
+    if (!isMockMode() && !loaded) {
+      getLabDiscussions(slug)
+        .then(data => {
+          setComments(data)
+          setLoaded(true)
+        })
+        .catch(err => {
+          console.warn('Failed to fetch discussions, using mock data:', err)
+          setLoaded(true)
+        })
+    }
+  }, [slug, loaded])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -33,18 +53,38 @@ export function HumanDiscussion({ slug }: HumanDiscussionProps) {
     const trimmed = input.trim()
     if (!trimmed) return
 
-    const newComment: DiscussionComment = {
+    const username = user?.username ?? 'anonymous'
+
+    // Optimistic update
+    const optimisticComment: DiscussionComment = {
       id: `dc-${Date.now()}`,
-      username: user?.username ?? 'anonymous',
+      username,
       text: trimmed,
       timestamp: new Date().toISOString(),
       parentId: replyTo,
       anchorItemId: null,
       upvotes: 0,
     }
-    setComments(prev => [...prev, newComment])
+    setComments(prev => [...prev, optimisticComment])
     setInput('')
     setReplyTo(null)
+
+    // If real mode, post to backend and replace optimistic entry
+    if (!isMockMode()) {
+      postLabDiscussion(slug, {
+        body: trimmed,
+        authorName: username,
+        parentId: replyTo ?? undefined,
+      })
+        .then(serverComment => {
+          setComments(prev =>
+            prev.map(c => (c.id === optimisticComment.id ? serverComment : c)),
+          )
+        })
+        .catch(err => {
+          console.warn('Failed to post discussion comment:', err)
+        })
+    }
   }
 
   const handleUpvote = (id: string) => {
