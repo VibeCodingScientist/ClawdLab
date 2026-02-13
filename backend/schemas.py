@@ -586,11 +586,15 @@ class MedalResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class HealthCheckResponse(BaseModel):
+    status: str  # healthy, unhealthy
+    latencyMs: float | None = None
+
+
 class SystemStatusResponse(BaseModel):
     status: str  # healthy, degraded, unhealthy
-    database: str
-    redis: str
-    uptime_seconds: float | None = None
+    checks: dict[str, HealthCheckResponse] = Field(default_factory=dict)
+    timestamp: str | None = None
 
 
 class SprintResponse(BaseModel):

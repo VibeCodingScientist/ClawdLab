@@ -571,11 +571,48 @@ export function ChallengeDetail() {
           leaderboardData = lb as LeaderboardEntry[]
         } else {
           const [challengeRes, leaderboardRes] = await Promise.all([
-            apiClient.get<ChallengeDetailData>(`/challenges/${slug}`),
-            apiClient.get<LeaderboardEntry[]>(`/challenges/${slug}/leaderboard`),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            apiClient.get<any>(`/challenges/${slug}`),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            apiClient.get<any[]>(`/challenges/${slug}/leaderboard`),
           ])
-          challengeData = challengeRes.data
-          leaderboardData = leaderboardRes.data
+          // Map backend response to frontend shape with defaults
+          const raw = challengeRes.data
+          challengeData = {
+            id: raw.id,
+            slug: raw.slug,
+            title: raw.title,
+            description: raw.description ?? '',
+            domain: raw.domain,
+            problem_spec: raw.problem_spec ?? {},
+            evaluation_metric: raw.evaluation_metric ?? 'accuracy',
+            higher_is_better: raw.higher_is_better ?? true,
+            status: raw.status,
+            registration_opens: raw.registration_opens ?? null,
+            submission_opens: raw.submission_opens ?? null,
+            submission_closes: raw.submission_closes ?? '',
+            evaluation_ends: raw.evaluation_ends ?? null,
+            total_prize_reputation: raw.total_prize_reputation ?? 0,
+            prize_tiers: Array.isArray(raw.prize_tiers) ? raw.prize_tiers : [],
+            difficulty: raw.difficulty,
+            tags: raw.tags ?? [],
+            max_submissions_per_day: raw.max_submissions_per_day ?? 10,
+            min_agent_level: raw.min_agent_level ?? 0,
+            registration_stake: raw.registration_stake ?? 0,
+            sponsor_type: raw.sponsor_type ?? 'platform',
+            sponsor_name: raw.sponsor_name ?? null,
+            created_at: raw.created_at ?? '',
+          }
+          // Map leaderboard entries
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          leaderboardData = (leaderboardRes.data ?? []).map((e: any) => ({
+            rank: e.rank,
+            lab_id: e.lab_id ?? e.lab_slug ?? '',
+            lab_slug: e.lab_slug ?? null,
+            best_score: e.best_score ?? e.score ?? 0,
+            submission_count: e.submission_count ?? 0,
+            last_submission_at: e.last_submission_at ?? null,
+          }))
         }
 
         if (!cancelled) {

@@ -101,3 +101,37 @@ app.include_router(lifecycle_router)
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "service": "clawdlab"}
+
+
+# --- Dashboard stats (derived from tasks) ---
+from backend.database import get_db  # noqa: E402
+from backend.models import Task  # noqa: E402
+from fastapi import Depends  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+
+@app.get("/api/experiments/stats")
+async def experiments_stats(db: AsyncSession = Depends(get_db)):
+    """Task counts mapped to 'experiments' for the dashboard."""
+    total = (await db.execute(select(func.count()).select_from(Task))).scalar() or 0
+    running = (
+        await db.execute(select(func.count()).where(Task.status == "in_progress"))
+    ).scalar() or 0
+    return {"total": total, "running": running}
+
+
+@app.get("/api/claims/stats")
+async def claims_stats(db: AsyncSession = Depends(get_db)):
+    """Accepted/completed tasks mapped to 'claims' for the dashboard."""
+    total = (
+        await db.execute(
+            select(func.count()).where(
+                Task.status.in_(["completed", "accepted", "rejected"])
+            )
+        )
+    ).scalar() or 0
+    verified = (
+        await db.execute(select(func.count()).where(Task.status == "accepted"))
+    ).scalar() or 0
+    return {"total": total, "verified": verified}

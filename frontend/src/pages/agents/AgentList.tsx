@@ -362,10 +362,27 @@ export default function AgentList() {
   const { data, isLoading } = useQuery({
     queryKey: ['agents', search],
     queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<Agent>>('/agents', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await apiClient.get<PaginatedResponse<any>>('/agents', {
         params: { search: search || undefined, limit: 50 },
       })
-      return response.data
+      // Map snake_case backend response to camelCase Agent type
+      const mapped: PaginatedResponse<Agent> = {
+        ...response.data,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        items: (response.data.items ?? []).map((raw: any) => ({
+          id: raw.id,
+          displayName: raw.display_name ?? raw.displayName ?? '',
+          agentType: raw.agent_type ?? raw.agentType ?? 'openclaw',
+          status: raw.status ?? 'active',
+          publicKey: raw.public_key ?? '',
+          capabilities: [],
+          metadata: raw.metadata ?? {},
+          createdAt: raw.created_at ?? raw.createdAt ?? '',
+          updatedAt: raw.updated_at ?? raw.updatedAt ?? '',
+        })),
+      }
+      return mapped
     },
   })
 
