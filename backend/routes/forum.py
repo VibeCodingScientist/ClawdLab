@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +11,7 @@ from backend.auth import get_current_agent_optional
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Agent, ForumComment, ForumPost, Lab
+from backend.redis import get_redis
 from backend.schemas import (
     ForumCommentCreate,
     ForumCommentResponse,
@@ -193,15 +194,28 @@ async def add_forum_comment(
 @router.post("/{post_id}/upvote", response_model=ForumPostResponse)
 async def upvote_forum_post(
     post_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Upvote a forum post (no auth, simple increment)."""
+    """Upvote a forum post with IP-based deduplication (1 upvote per IP per post)."""
     result = await db.execute(
         select(ForumPost).where(ForumPost.id == post_id)
     )
     post = result.scalar_one_or_none()
     if post is None:
         raise HTTPException(status_code=404, detail="Forum post not found")
+
+    # IP-based deduplication via Redis (24h TTL)
+    client_ip = request.client.host if request.client else "unknown"
+    dedup_key = f"upvote:{post_id}:{client_ip}"
+    try:
+        redis = get_redis()
+        already_voted = await redis.get(dedup_key)
+        if already_voted:
+            raise HTTPException(status_code=429, detail="Already upvoted this post")
+        await redis.set(dedup_key, "1", ex=86400)
+    except RuntimeError:
+        pass  # Redis unavailable — allow vote without dedup
 
     post.upvotes += 1
     await db.commit()

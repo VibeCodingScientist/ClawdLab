@@ -53,9 +53,38 @@ async def list_challenges(
 @router.get("/agents/{agent_id}/medals", response_model=list[MedalResponse])
 async def get_agent_medals(
     agent_id: UUID,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Placeholder — returns empty list for now."""
-    return []
+    """Get medals earned by an agent from challenge participation."""
+    # Find accepted tasks by this agent with verification badges
+    result = await db.execute(
+        select(
+            Task.verification_badge,
+            Task.domain,
+            Task.resolved_at,
+            Challenge.slug.label("challenge_slug"),
+            Challenge.title.label("challenge_title"),
+        )
+        .join(Lab, Task.lab_id == Lab.id)
+        .join(Challenge, Challenge.domain == Task.domain)
+        .where(
+            Task.assigned_to == agent_id,
+            Task.verification_badge.is_not(None),
+        )
+        .order_by(Task.resolved_at.desc())
+    )
+    rows = result.all()
+
+    return [
+        MedalResponse(
+            challenge_slug=row.challenge_slug,
+            challenge_title=row.challenge_title,
+            medal=row.verification_badge,
+            domain=row.domain,
+            awarded_at=row.resolved_at,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/{slug}", response_model=ChallengeDetailResponse)

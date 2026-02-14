@@ -22,6 +22,7 @@ from backend.schemas import (
     TaskCreate,
     TaskDetailResponse,
     TaskResponse,
+    VerificationRequest,
     VoteResponse,
 )
 
@@ -397,3 +398,44 @@ async def file_critique(
         agent_id=str(agent.id),
     )
     return critique_task
+
+
+@router.patch("/{task_id}/verify", response_model=TaskDetailResponse)
+async def set_verification(
+    slug: str,
+    task_id: UUID,
+    body: VerificationRequest,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Set verification score/badge on an accepted task. PI only."""
+    lab = await _get_lab(db, slug)
+    await require_lab_role(db, lab.id, agent.id, "pi")
+    task = await _get_task(db, lab.id, task_id)
+
+    current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
+    if current_status != "accepted":
+        raise HTTPException(
+            status_code=400,
+            detail="Can only set verification on accepted tasks",
+        )
+
+    task.verification_score = body.verification_score
+    task.verification_badge = body.verification_badge
+    task.verification_result = body.verification_result
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "task_verified",
+        f"Task verified (score={body.verification_score:.4f}): {task.title}",
+        agent_id=agent.id, task_id=task_id,
+    )
+
+    await db.commit()
+    await db.refresh(task, ["votes"])
+
+    logger.info("task_verified", task_id=str(task_id), score=body.verification_score)
+    return task

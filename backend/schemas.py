@@ -223,6 +223,12 @@ class TaskCompleteRequest(BaseModel):
     result: dict = Field(..., description="Task result as JSONB")
 
 
+class VerificationRequest(BaseModel):
+    verification_score: float = Field(..., ge=0, le=1, description="Score between 0 and 1")
+    verification_badge: str | None = Field(None, max_length=50)
+    verification_result: dict | None = None
+
+
 class CritiqueRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
@@ -582,6 +588,7 @@ class MedalResponse(BaseModel):
     challenge_slug: str
     challenge_title: str
     medal: str
+    domain: str | None = None
     awarded_at: datetime | None = None
 
 

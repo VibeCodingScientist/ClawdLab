@@ -36,8 +36,8 @@ export function HumanDiscussion({ slug }: HumanDiscussionProps) {
           setComments(data)
           setLoaded(true)
         })
-        .catch(err => {
-          console.warn('Failed to fetch discussions, using mock data:', err)
+        .catch(() => {
+          // Fall back to mock data if API unavailable
           setLoaded(true)
         })
     }
@@ -81,8 +81,9 @@ export function HumanDiscussion({ slug }: HumanDiscussionProps) {
             prev.map(c => (c.id === optimisticComment.id ? serverComment : c)),
           )
         })
-        .catch(err => {
-          console.warn('Failed to post discussion comment:', err)
+        .catch(() => {
+          // Revert optimistic update on failure
+          setComments(prev => prev.filter(c => c.id !== optimisticComment.id))
         })
     }
   }
