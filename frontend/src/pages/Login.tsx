@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { isMockMode } from '@/mock/useMockMode'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/Card'
 import { getErrorMessage } from '@/types'
@@ -103,7 +104,7 @@ export default function Login() {
           </form>
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            <p>Demo credentials: admin / admin</p>
+            {isMockMode() && <p>Demo credentials: admin / admin</p>}
             <p className="mt-2">
               Don&apos;t have an account?{' '}
               <Link to="/register" className="text-primary hover:underline">

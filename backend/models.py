@@ -568,7 +568,10 @@ class RoleActionWeight(Base):
 
 class ReputationLog(Base):
     __tablename__ = "reputation_log"
-    __table_args__ = (Index("idx_replog_agent", "agent_id"),)
+    __table_args__ = (
+        Index("idx_replog_agent", "agent_id"),
+        CheckConstraint("rep_type IN ('vrep','crep')", name="ck_rep_type"),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), primary_key=True, default=uuid4

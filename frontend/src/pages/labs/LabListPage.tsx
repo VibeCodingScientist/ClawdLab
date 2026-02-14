@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Ca
 import { Button } from '@/components/common/Button'
 import { Users, ArrowRight, Star, Sparkles } from 'lucide-react'
 import { getErrorMessage } from '@/types'
+import { isMockMode } from '@/mock/useMockMode'
 import { MOCK_LAB_STATS, MOCK_EXTENDED_AGENTS, MOCK_LAB_STATE } from '@/mock/mockData'
 import { getDomainStyle } from '@/utils/domainStyles'
 
@@ -70,7 +71,7 @@ export function LabListPage() {
   const featuredLab = labs?.length
     ? labs.reduce((a, b) => (a.memberCount > b.memberCount ? a : b))
     : null
-  const featuredStats = featuredLab ? MOCK_LAB_STATS[featuredLab.slug] : null
+  const featuredStats = featuredLab && isMockMode() ? MOCK_LAB_STATS[featuredLab.slug] : null
 
   return (
     <div className="space-y-6">
@@ -108,7 +109,7 @@ export function LabListPage() {
                       <Star className="h-3 w-3" />
                       Featured
                     </span>
-                    <ActivityIndicator slug={featuredLab.slug} />
+                    <ActivityIndicator slug={featuredLab.slug} memberCount={featuredLab.memberCount} />
                   </div>
                   <h2 className="text-2xl font-bold">{featuredLab.name}</h2>
                   {featuredLab.description && (
@@ -156,7 +157,7 @@ export function LabListPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg flex-1">{lab.name}</CardTitle>
-                <ActivityIndicator slug={lab.slug} />
+                <ActivityIndicator slug={lab.slug} memberCount={lab.memberCount} />
               </div>
               {lab.description && (
                 <p className="text-sm text-muted-foreground line-clamp-2">{lab.description}</p>
@@ -182,12 +183,17 @@ export function LabListPage() {
                   {lab.memberCount}
                 </span>
                 {(() => {
-                  const latest = MOCK_LAB_STATE[lab.slug]?.find(i => i.verificationScore !== null)
-                  return latest ? (
-                    <span className="text-xs truncate max-w-[180px]">
-                      Latest: {latest.title}
-                    </span>
-                  ) : (
+                  if (isMockMode()) {
+                    const latest = MOCK_LAB_STATE[lab.slug]?.find(i => i.verificationScore !== null)
+                    if (latest) {
+                      return (
+                        <span className="text-xs truncate max-w-[180px]">
+                          Latest: {latest.title}
+                        </span>
+                      )
+                    }
+                  }
+                  return (
                     <span className="text-xs">
                       {GOVERNANCE_LABELS[lab.governanceType] ?? lab.governanceType}
                     </span>
@@ -213,23 +219,25 @@ export function LabListPage() {
 }
 
 /** 4.1: Activity indicator for lab cards */
-function ActivityIndicator({ slug }: { slug: string }) {
-  const agentCount = MOCK_EXTENDED_AGENTS[slug]?.length ?? 0
+function ActivityIndicator({ slug, memberCount }: { slug: string; memberCount: number }) {
+  // Use mock extended agents count in mock mode, otherwise use real member count
+  const agentCount = isMockMode()
+    ? (MOCK_EXTENDED_AGENTS[slug]?.length ?? memberCount)
+    : memberCount
 
   if (agentCount === 0) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-        {agentCount} agents · last active 12h ago
+        No agents yet
       </span>
     )
   }
 
-  // New labs (< 7 agents) get sparkle badge + count
   if (agentCount < 7) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-600">
         <Sparkles className="h-2.5 w-2.5" />
-        {agentCount} agents · last active 2h ago
+        {agentCount} agents
       </span>
     )
   }
@@ -237,7 +245,7 @@ function ActivityIndicator({ slug }: { slug: string }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-600">
       <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-      Live — {agentCount} agents
+      {agentCount} agents
     </span>
   )
 }
