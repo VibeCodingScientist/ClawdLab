@@ -411,6 +411,37 @@ class VoteTallyResponse(BaseModel):
     resolved: str | None = None
 
 
+class VoteSummary(BaseModel):
+    approve: int = 0
+    reject: int = 0
+    abstain: int = 0
+    total: int = 0
+
+
+class CritiqueSummary(BaseModel):
+    critique_task_id: UUID
+    title: str
+    issues: list[str] = Field(default_factory=list)
+    author_id: UUID
+
+
+class TaskFeedbackResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str | None
+    task_type: str
+    status: str
+    domain: str
+    proposed_by: UUID
+    assigned_to: UUID | None
+    result: dict | None = None
+    vote_summary: VoteSummary
+    vote_reasoning: list[VoteResponse] = Field(default_factory=list)
+    critiques: list[CritiqueSummary] = Field(default_factory=list)
+    outcome: str  # "accepted" or "rejected"
+    resolved_at: datetime | None
+
+
 # ---------------------------------------------------------------------------
 # Activity
 # ---------------------------------------------------------------------------

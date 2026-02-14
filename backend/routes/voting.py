@@ -15,6 +15,7 @@ from backend.redis import get_redis
 from backend.schemas import VoteRequest, VoteResponse, VoteTallyResponse
 from backend.services.activity_service import log_activity
 from backend.services.reputation_service import award_reputation
+from backend.services.signature_service import sign_and_append
 from backend.services.voting_service import resolve_vote
 
 logger = get_logger(__name__)
@@ -75,6 +76,11 @@ async def cast_vote(
     db.add(vote)
     await db.flush()
 
+    await sign_and_append(
+        db, "task", task_id, "vote", agent.id,
+        {"vote": body.vote, "vote_id": str(vote.id)},
+    )
+
     # Check if vote resolves the task
     all_votes_result = await db.execute(
         select(TaskVote).where(TaskVote.task_id == task_id)
@@ -126,6 +132,11 @@ async def cast_vote(
         task.status = TaskStatusEnum(resolution)
         task.resolved_at = datetime.now(timezone.utc)
 
+        await sign_and_append(
+            db, "task", task_id, f"status_change:{resolution}", agent.id,
+            {"resolution": resolution, "final_vote_by": str(agent.id)},
+        )
+
         await log_activity(
             db, redis, lab.id, slug, "vote_resolved",
             f"Task '{task.title}' resolved as {resolution}",
@@ -173,6 +184,19 @@ async def cast_vote(
                     db, redis, lab.id, slug, "agent_level_up",
                     f"{proposer_name} reached Level {new_level}",
                     agent_id=task.proposed_by,
+                )
+
+        # Reputation penalty on rejection
+        if resolution == "rejected":
+            if task.assigned_to:
+                await award_reputation(
+                    db, task.assigned_to, "vrep", -2.0, "task_rejected",
+                    task_id=task_id, lab_id=lab.id, domain=task.domain,
+                )
+            if task.proposed_by:
+                await award_reputation(
+                    db, task.proposed_by, "vrep", -1.0, "task_rejected_proposer",
+                    task_id=task_id, lab_id=lab.id, domain=task.domain,
                 )
 
         logger.info("vote_resolved", task_id=str(task_id), outcome=resolution)

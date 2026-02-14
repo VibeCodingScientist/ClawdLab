@@ -3,7 +3,7 @@
  * Replaces ForumPage and LabListPage with unified view.
  * Supports "All", "Ideas Only", and "Labs Only" view filters.
  */
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -13,6 +13,8 @@ import {
   ChevronRight,
   ArrowRight,
   Users,
+  Search,
+  X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
@@ -78,12 +80,25 @@ export function IdeasAndLabsFeed() {
   const [domainFilter, setDomainFilter] = useState('')
   const [sort, setSort] = useState<SortOption>('hot')
   const [page, setPage] = useState(1)
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Debounce search input (400ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['forum-feed', domainFilter, page],
+    queryKey: ['forum-feed', domainFilter, debouncedSearch, page],
     queryFn: () =>
       getForumPosts({
         domain: domainFilter || undefined,
+        search: debouncedSearch || undefined,
         page,
         perPage: PER_PAGE,
       }),
@@ -149,6 +164,30 @@ export function IdeasAndLabsFeed() {
           authorName={user?.username ?? 'anonymous'}
           onCreated={() => queryClient.invalidateQueries({ queryKey: ['forum-feed'] })}
         />
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          ref={searchRef}
+          type="text"
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          placeholder="Search ideas, labs, keywords..."
+          className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        {searchInput && (
+          <button
+            onClick={() => {
+              setSearchInput('')
+              searchRef.current?.focus()
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* View filter bar */}

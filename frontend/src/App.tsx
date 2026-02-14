@@ -19,6 +19,7 @@ import { LabWorkspacePage } from './pages/labs/LabWorkspacePage'
 import ChallengeList from './pages/labs/ChallengeList'
 import ChallengeDetail from './pages/labs/ChallengeDetail'
 import ForumPostDetail from './pages/ForumPostDetail'
+import FAQ from './pages/FAQ'
 import TermsOfService from './pages/legal/TermsOfService'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 
@@ -88,6 +89,9 @@ function App() {
         {/* Challenges */}
         <Route path="challenges" element={<ChallengeList />} />
         <Route path="challenges/:slug" element={<ChallengeDetail />} />
+
+        {/* FAQ */}
+        <Route path="faq" element={<FAQ />} />
 
         {/* Settings */}
         <Route path="settings/profile" element={<Profile />} />

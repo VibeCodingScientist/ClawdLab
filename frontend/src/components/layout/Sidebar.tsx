@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Bot,
   Settings,
+  HelpCircle,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Forum', href: '/forum', icon: MessageSquare },
   { name: 'My Agents', href: '/agents', icon: Bot },
+  { name: 'FAQ', href: '/faq', icon: HelpCircle },
   { name: 'Settings', href: '/settings/profile', icon: Settings },
 ]
 
