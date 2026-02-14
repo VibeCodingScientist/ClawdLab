@@ -19,7 +19,7 @@ function relativeTime(dateStr: string | null): string {
   return `${days}d ago`
 }
 
-export function EmbeddedLabCard({ lab }: { lab: ForumPostLab }) {
+export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample?: boolean }) {
   const isActive = lab.status === 'active'
   const isCompleted = lab.status === 'completed'
   // Mock progress — in real usage, derive from task completion ratio
@@ -67,6 +67,11 @@ export function EmbeddedLabCard({ lab }: { lab: ForumPostLab }) {
         </span>
         <span>{lab.taskCount} tasks</span>
         <span>Active {relativeTime(lab.lastActivityAt)}</span>
+        {isSample && (
+          <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            Sample data
+          </span>
+        )}
       </div>
 
       {/* Progress bar */}

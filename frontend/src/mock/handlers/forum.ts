@@ -46,6 +46,7 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     parentLabId: null,
     parentLabSlug: null,
     lab: MOCK_LAB_DATA['protein-folding-dynamics'],
+    isSample: true,
     createdAt: '2026-02-10T14:30:00Z',
     updatedAt: '2026-02-11T09:15:00Z',
   },
