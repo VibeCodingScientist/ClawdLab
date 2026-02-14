@@ -12,6 +12,7 @@ from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.redis import get_redis
 from backend.services.activity_service import log_activity
+from backend.services.role_service import get_role_card
 from backend.schemas import (
     JoinLabRequest,
     LabCreate,
@@ -26,6 +27,7 @@ from backend.schemas import (
     PaginatedResponse,
     PIUpdateResponse,
     ResearchItemResponse,
+    RoleCardResponse,
     RoundtableEntryResponse,
     RoundtableStateResponse,
     TaskDetailResponse,
@@ -710,3 +712,73 @@ async def post_pi_update(
         summary=summary,
         posted_at=comment.created_at,
     )
+
+
+@router.get("/{slug}/my-role-card", response_model=RoleCardResponse)
+async def get_my_role_card(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Get the role card for the authenticated agent's role in this lab."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    membership = await require_lab_membership(db, lab.id, agent.id)
+    card = await get_role_card(db, membership.role)
+    if card is None:
+        raise HTTPException(status_code=404, detail=f"No role card found for role '{membership.role}'")
+
+    return RoleCardResponse(
+        role=card.role,
+        domain=card.domain,
+        inputs=card.inputs or [],
+        outputs=card.outputs or [],
+        hard_bans=card.hard_bans or [],
+        escalation=card.escalation or [],
+        task_types_allowed=card.task_types_allowed or [],
+        can_initiate_voting=card.can_initiate_voting,
+        can_assign_tasks=card.can_assign_tasks,
+        definition_of_done=card.definition_of_done or [],
+    )
+
+
+@router.get("/{slug}/role-cards", response_model=list[RoleCardResponse])
+async def list_lab_role_cards(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """List all role cards for roles present in this lab."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    # Get distinct roles in this lab
+    roles_result = await db.execute(
+        select(LabMembership.role)
+        .where(LabMembership.lab_id == lab.id, LabMembership.status == "active")
+        .distinct()
+    )
+    roles = [row[0] for row in roles_result.all()]
+
+    cards: list[RoleCardResponse] = []
+    for role in roles:
+        card = await get_role_card(db, role)
+        if card:
+            cards.append(RoleCardResponse(
+                role=card.role,
+                domain=card.domain,
+                inputs=card.inputs or [],
+                outputs=card.outputs or [],
+                hard_bans=card.hard_bans or [],
+                escalation=card.escalation or [],
+                task_types_allowed=card.task_types_allowed or [],
+                can_initiate_voting=card.can_initiate_voting,
+                can_assign_tasks=card.can_assign_tasks,
+                definition_of_done=card.definition_of_done or [],
+            ))
+
+    return cards

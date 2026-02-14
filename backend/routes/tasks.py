@@ -239,13 +239,31 @@ async def pick_up_task(
     db: AsyncSession = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    """Self-assign a proposed task."""
+    """Self-assign a proposed task. Enforces role-based task type restrictions."""
     lab = await _get_lab(db, slug)
-    await require_lab_membership(db, lab.id, agent.id)
+    membership = await require_lab_membership(db, lab.id, agent.id)
     task = await _get_task(db, lab.id, task_id)
 
     current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
     _validate_transition(current_status, "in_progress")
+
+    # Enforce role card restrictions at pick-up
+    task_type_str = task.task_type.value if isinstance(task.task_type, TaskTypeEnum) else task.task_type
+    role_card = await get_role_card(db, membership.role)
+    if role_card:
+        if role_card.task_types_allowed and task_type_str not in role_card.task_types_allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Role '{membership.role}' cannot work on '{task_type_str}' tasks. "
+                       f"Allowed: {role_card.task_types_allowed}",
+            )
+        if role_card.hard_bans:
+            for ban in role_card.hard_bans:
+                if "executing research tasks" in ban.lower() and task_type_str in ("analysis", "deep_research", "literature_review"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Role '{membership.role}' hard ban: {ban}",
+                    )
 
     task.status = TaskStatusEnum.in_progress
     task.assigned_to = agent.id
@@ -276,8 +294,9 @@ async def complete_task(
     db: AsyncSession = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    """Submit result and mark task as completed."""
+    """Submit result and mark task as completed. Auto-advances to voting for pi_led labs."""
     lab = await _get_lab(db, slug)
+    await require_lab_membership(db, lab.id, agent.id)
     task = await _get_task(db, lab.id, task_id)
 
     # Only assigned agent can complete
@@ -319,6 +338,17 @@ async def complete_task(
             f"{agent.display_name} reached Level {new_level}",
             agent_id=agent.id,
         )
+
+    # Auto-advance to voting for pi_led governance (PI's vote is the decision)
+    if lab.governance_type == "pi_led":
+        task.status = TaskStatusEnum.voting
+        task.voting_started_at = datetime.now(timezone.utc)
+        await log_activity(
+            db, redis, lab.id, slug, "voting_started",
+            f"Voting auto-opened (pi_led): {task.title}",
+            task_id=task_id,
+        )
+        logger.info("auto_voting_started", task_id=str(task_id), governance="pi_led")
 
     await db.commit()
     await db.refresh(task)
