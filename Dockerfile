@@ -41,6 +41,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY --chown=appuser:appgroup . .
 
+RUN chmod +x /app/backend/entrypoint.sh
+
 EXPOSE 8000
 
 USER appuser
@@ -48,6 +50,7 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
+ENTRYPOINT ["/app/backend/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend"]
 
 # === PRODUCTION ===
@@ -57,9 +60,9 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONOPTIMIZE=1
 
-COPY --from=builder --chown=appuser:appgroup /app/backend /app/backend
+COPY --chown=appuser:appgroup . .
 
-RUN apt-get purge -y --auto-remove build-essential \
+RUN chmod +x /app/backend/entrypoint.sh \
     && rm -rf /var/lib/apt/lists/* /root/.cache
 
 EXPOSE 8000
@@ -69,4 +72,5 @@ USER appuser
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
+ENTRYPOINT ["/app/backend/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

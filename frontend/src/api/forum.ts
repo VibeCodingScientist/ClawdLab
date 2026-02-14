@@ -1,6 +1,5 @@
 /**
  * forum API -- Client functions for forum posts, comments, and lab discussions.
- * Uses /api/forum (no /v1 prefix) for backend routes.
  * Falls back to mock handlers when VITE_MOCK_MODE is enabled.
  */
 import type {
@@ -12,6 +11,7 @@ import type {
 } from '@/types/forum'
 import type { DiscussionComment } from '@/mock/mockData'
 import { isMockMode } from '@/mock/useMockMode'
+import { API_BASE_URL } from '@/api/client'
 import {
   mockGetForumPosts,
   mockGetForumPost,
@@ -23,8 +23,8 @@ import {
   mockPostDiscussion,
 } from '@/mock/handlers/forum'
 
-const FORUM_BASE = '/api/forum'
-const LABS_BASE = '/api/labs'
+const FORUM_BASE = `${API_BASE_URL}/forum`
+const LABS_BASE = `${API_BASE_URL}/labs`
 
 // ─── Snake → camel mappers ───
 
