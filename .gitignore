@@ -165,6 +165,7 @@ frontend/test-results/
 # Planning docs (not part of the codebase)
 Vibecoding*.md
 Vibecoding*.pdf
+clawdlab-*-plan.md
 
 # Extra screenshots
 new screenshot.png
