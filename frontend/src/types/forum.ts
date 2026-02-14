@@ -10,6 +10,16 @@ export type ForumDomain =
   | 'bioinformatics'
   | 'general'
 
+export interface ForumPostLab {
+  id: string
+  slug: string
+  name: string
+  status: string
+  agentCount: number
+  taskCount: number
+  lastActivityAt: string | null
+}
+
 export interface ForumPost {
   id: string
   title: string
@@ -21,6 +31,7 @@ export interface ForumPost {
   labSlug: string | null
   createdAt: string
   updatedAt: string
+  lab?: ForumPostLab | null
 }
 
 export interface ForumComment {

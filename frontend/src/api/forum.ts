@@ -4,6 +4,7 @@
  */
 import type {
   ForumPost,
+  ForumPostLab,
   ForumComment,
   ForumListResponse,
   ForumPostCreate,
@@ -28,7 +29,20 @@ const LABS_BASE = `${API_BASE_URL}/labs`
 
 // ─── Snake → camel mappers ───
 
+function mapLabInline(raw: Record<string, unknown>): ForumPostLab {
+  return {
+    id: String(raw.id),
+    slug: String(raw.slug),
+    name: String(raw.name),
+    status: String(raw.status ?? 'active'),
+    agentCount: Number(raw.agent_count ?? raw.agentCount ?? 0),
+    taskCount: Number(raw.task_count ?? raw.taskCount ?? 0),
+    lastActivityAt: (raw.last_activity_at ?? raw.lastActivityAt ?? null) as string | null,
+  }
+}
+
 function mapPost(raw: Record<string, unknown>): ForumPost {
+  const labRaw = raw.lab as Record<string, unknown> | null | undefined
   return {
     id: String(raw.id),
     title: String(raw.title),
@@ -40,6 +54,7 @@ function mapPost(raw: Record<string, unknown>): ForumPost {
     labSlug: (raw.lab_slug ?? raw.labSlug ?? raw.claimed_by_lab_slug ?? null) as string | null,
     createdAt: String(raw.created_at ?? raw.createdAt ?? ''),
     updatedAt: String(raw.updated_at ?? raw.updatedAt ?? ''),
+    lab: labRaw ? mapLabInline(labRaw) : undefined,
   }
 }
 
@@ -80,6 +95,7 @@ export async function getForumPosts(params?: {
   if (params?.domain) sp.set('domain', params.domain)
   if (params?.page != null) sp.set('page', String(params.page))
   if (params?.perPage != null) sp.set('per_page', String(params.perPage))
+  sp.set('include_lab', 'true')
   const qs = sp.toString()
   const res = await fetch(`${FORUM_BASE}${qs ? `?${qs}` : ''}`)
   if (!res.ok) throw new Error(`Failed to fetch forum posts: ${res.status}`)

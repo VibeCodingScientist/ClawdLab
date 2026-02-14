@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,11 +14,12 @@ from backend.auth import (
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.redis import get_redis
-from backend.models import Agent, AgentReputation, AgentToken
+from backend.models import Agent, AgentReputation, AgentToken, Lab, LabMembership, Task
 from backend.schemas import (
     AgentDetailResponse,
     AgentRegisterRequest,
     AgentRegisterResponse,
+    DeployerAgentSummary,
     HeartbeatRequest,
     HeartbeatResponse,
     PaginatedResponse,
@@ -28,6 +29,7 @@ from backend.services.role_service import compute_level, compute_tier
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/agents", tags=["agents"])
+deployer_router = APIRouter(prefix="/api/deployers", tags=["deployers"])
 
 
 @router.post("/register", response_model=AgentRegisterResponse, status_code=201)
@@ -213,3 +215,103 @@ async def get_agent_reputation(
         level=compute_level(total_rep),
         tier=compute_tier(total_rep),
     )
+
+
+# ---------------------------------------------------------------------------
+# Deployer endpoints
+# ---------------------------------------------------------------------------
+
+
+@deployer_router.get("/{deployer_id}/agents/summary", response_model=list[DeployerAgentSummary])
+async def get_deployer_agents_summary(
+    deployer_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the deployer's agents with dashboard data (rep, labs, tasks)."""
+    # Try Redis cache first
+    cache_key = f"deployer_agents:{deployer_id}"
+    try:
+        redis = get_redis()
+        cached = await redis.get(cache_key)
+        if cached:
+            import json
+            return json.loads(cached)
+    except RuntimeError:
+        pass
+
+    # Fetch agents belonging to this deployer
+    agents_result = await db.execute(
+        select(Agent).where(Agent.deployer_id == deployer_id, Agent.status == "active")
+    )
+    agents = agents_result.scalars().all()
+    if not agents:
+        return []
+
+    agent_ids = [a.id for a in agents]
+
+    # Reputation
+    rep_result = await db.execute(
+        select(AgentReputation).where(AgentReputation.agent_id.in_(agent_ids))
+    )
+    rep_map = {r.agent_id: r for r in rep_result.scalars().all()}
+
+    # Active lab memberships
+    membership_result = await db.execute(
+        select(LabMembership, Lab.slug, Lab.name, Lab.status.label("lab_status"))
+        .join(Lab, LabMembership.lab_id == Lab.id)
+        .where(LabMembership.agent_id.in_(agent_ids), LabMembership.status == "active")
+    )
+    labs_by_agent: dict[UUID, list[dict]] = {}
+    roles_by_agent: dict[UUID, str] = {}
+    for m, slug, name, lab_status in membership_result.all():
+        labs_by_agent.setdefault(m.agent_id, []).append(
+            {"slug": slug, "name": name, "status": lab_status}
+        )
+        if m.agent_id not in roles_by_agent:
+            roles_by_agent[m.agent_id] = m.role
+
+    # Task counts
+    completed_q = (
+        select(Task.assigned_to, func.count().label("cnt"))
+        .where(Task.assigned_to.in_(agent_ids), Task.status == "completed")
+        .group_by(Task.assigned_to)
+    )
+    completed_map = {r.assigned_to: r.cnt for r in (await db.execute(completed_q)).all()}
+
+    in_progress_q = (
+        select(Task.assigned_to, func.count().label("cnt"))
+        .where(Task.assigned_to.in_(agent_ids), Task.status == "in_progress")
+        .group_by(Task.assigned_to)
+    )
+    in_progress_map = {r.assigned_to: r.cnt for r in (await db.execute(in_progress_q)).all()}
+
+    summaries = []
+    for a in agents:
+        rep = rep_map.get(a.id)
+        vrep = float(rep.vrep) if rep else 0.0
+        crep = float(rep.crep) if rep else 0.0
+        total_rep = vrep + crep
+        summaries.append(
+            DeployerAgentSummary(
+                agent_id=a.id,
+                display_name=a.display_name,
+                role=roles_by_agent.get(a.id),
+                level=compute_level(total_rep),
+                tier=compute_tier(total_rep),
+                vrep=vrep,
+                crep=crep,
+                active_labs=labs_by_agent.get(a.id, []),
+                tasks_completed=completed_map.get(a.id, 0),
+                tasks_in_progress=in_progress_map.get(a.id, 0),
+            )
+        )
+
+    # Cache for 60 seconds
+    try:
+        import json
+        redis = get_redis()
+        await redis.set(cache_key, json.dumps([s.model_dump(mode="json") for s in summaries]), ex=60)
+    except RuntimeError:
+        pass
+
+    return summaries
