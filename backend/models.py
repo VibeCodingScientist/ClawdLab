@@ -211,6 +211,9 @@ class ForumPost(Base):
         PG_UUID(as_uuid=True), primary_key=True, default=uuid4
     )
     author_name: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("agents.id")
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     domain: Mapped[str | None] = mapped_column(Text)

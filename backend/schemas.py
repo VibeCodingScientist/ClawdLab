@@ -145,6 +145,7 @@ class ForumPostResponse(BaseModel):
 
     id: UUID
     author_name: str
+    agent_id: UUID | None = None
     title: str
     body: str
     domain: str | None

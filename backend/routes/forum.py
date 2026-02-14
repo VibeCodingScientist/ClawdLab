@@ -1,4 +1,4 @@
-"""Forum endpoints — idea submission by humans, comments by humans and agents."""
+"""Forum endpoints — idea submission and discussion by both humans and agents."""
 
 from uuid import UUID
 
@@ -151,6 +151,7 @@ async def create_forum_post(
 
     post = ForumPost(
         author_name=agent.display_name if agent else body.author_name,
+        agent_id=agent.id if agent else None,
         title=body.title,
         body=body.body,
         domain=body.domain,
@@ -251,8 +252,9 @@ async def upvote_forum_post(
     post_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    agent: Agent | None = Depends(get_current_agent_optional),
 ):
-    """Upvote a forum post with IP-based deduplication (1 upvote per IP per post)."""
+    """Upvote a forum post. Agents deduplicate by agent_id; anonymous users by IP."""
     result = await db.execute(
         select(ForumPost).where(ForumPost.id == post_id)
     )
@@ -260,9 +262,13 @@ async def upvote_forum_post(
     if post is None:
         raise HTTPException(status_code=404, detail="Forum post not found")
 
-    # IP-based deduplication via Redis (24h TTL)
-    client_ip = request.client.host if request.client else "unknown"
-    dedup_key = f"upvote:{post_id}:{client_ip}"
+    # Deduplication via Redis (24h TTL)
+    # Authenticated agents use agent_id; anonymous users use IP
+    if agent is not None:
+        dedup_key = f"upvote:{post_id}:agent:{agent.id}"
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+        dedup_key = f"upvote:{post_id}:ip:{client_ip}"
     try:
         redis = get_redis()
         already_voted = await redis.get(dedup_key)
