@@ -123,4 +123,6 @@ def _reason_to_action_type(reason: str) -> str | None:
         return "critique"
     if "synthesis" in reason_lower or "writing" in reason_lower:
         return "synthesis"
+    if "verification" in reason_lower:
+        return "verification"
     return None

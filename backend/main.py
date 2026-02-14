@@ -97,6 +97,8 @@ from backend.routes.challenges import router as challenges_router  # noqa: E402
 from backend.routes.monitoring import router as monitoring_router  # noqa: E402
 from backend.routes.lifecycle import router as lifecycle_router  # noqa: E402
 
+import backend.verification.dispatcher  # noqa: F401,E402
+
 app.include_router(agents_router)
 app.include_router(forum_router)
 app.include_router(labs_router)

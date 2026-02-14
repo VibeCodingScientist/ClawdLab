@@ -12,9 +12,11 @@ from backend.auth import get_current_agent, require_lab_membership, require_lab_
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Agent, Lab, Task, TaskStatusEnum, TaskTypeEnum, TaskVote
+from backend.payloads.task_payloads import validate_task_result
 from backend.redis import get_redis
 from backend.services.activity_service import log_activity
 from backend.services.reputation_service import award_reputation
+from backend.verification.dispatcher import dispatch_verification
 from backend.schemas import (
     CritiqueRequest,
     PaginatedResponse,
@@ -269,6 +271,15 @@ async def complete_task(
     current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
     _validate_transition(current_status, "completed")
 
+    # Validate task result payload
+    task_type_str = task.task_type.value if isinstance(task.task_type, TaskTypeEnum) else task.task_type
+    valid, payload_errors = validate_task_result(task_type_str, task.domain, body.result)
+    if not valid:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Invalid task result structure", "errors": payload_errors},
+        )
+
     task.status = TaskStatusEnum.completed
     task.result = body.result
     task.completed_at = datetime.now(timezone.utc)
@@ -400,42 +411,88 @@ async def file_critique(
     return critique_task
 
 
-@router.patch("/{task_id}/verify", response_model=TaskDetailResponse)
-async def set_verification(
+@router.post("/{task_id}/verify", response_model=TaskDetailResponse)
+async def verify_task(
     slug: str,
     task_id: UUID,
-    body: VerificationRequest,
     db: AsyncSession = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    """Set verification score/badge on an accepted task. PI only."""
+    """
+    Run domain-specific verification on a completed/accepted task. PI only.
+
+    Dispatches to the correct domain adapter (Math, ML, CompBio, Materials,
+    Bioinformatics) which runs the claim in a sandboxed Docker container
+    and returns a score/badge automatically.
+    """
     lab = await _get_lab(db, slug)
     await require_lab_role(db, lab.id, agent.id, "pi")
     task = await _get_task(db, lab.id, task_id)
 
+    # Must be completed or accepted
     current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
-    if current_status != "accepted":
-        raise HTTPException(
-            status_code=400,
-            detail="Can only set verification on accepted tasks",
+    if current_status not in ("completed", "accepted"):
+        raise HTTPException(status_code=400, detail="Task must be completed or accepted to verify")
+
+    if not task.result:
+        raise HTTPException(status_code=400, detail="Task has no result to verify")
+
+    if task.domain == "general":
+        raise HTTPException(status_code=400, detail="General domain tasks cannot be verified")
+
+    # Already verified?
+    if task.verification_score is not None:
+        raise HTTPException(status_code=409, detail="Task already verified. Submit a new task to re-verify.")
+
+    # Dispatch to domain adapter
+    metadata = {
+        "task_type": task.task_type.value if hasattr(task.task_type, "value") else task.task_type,
+        "domain": task.domain,
+        "title": task.title,
+        "description": task.description,
+        "lab_slug": slug,
+    }
+
+    vresult = await dispatch_verification(task.domain, task.result, metadata)
+
+    # Write results to task
+    task.verification_score = vresult.score
+    task.verification_badge = vresult.badge.value
+    task.verification_result = {
+        "passed": vresult.passed,
+        "score": vresult.score,
+        "badge": vresult.badge.value,
+        "domain": vresult.domain,
+        "details": vresult.details,
+        "errors": vresult.errors,
+        "warnings": vresult.warnings,
+        "compute_time_seconds": vresult.compute_time_seconds,
+    }
+
+    # Award vRep based on verification score
+    if vresult.passed and task.assigned_to:
+        vrep_award = vresult.score * 20  # Up to 20 vRep for perfect verification
+        await award_reputation(
+            db, task.assigned_to, "vrep", vrep_award,
+            "verification_passed", task_id=task_id, lab_id=lab.id,
+            domain=task.domain,
         )
 
-    task.verification_score = body.verification_score
-    task.verification_badge = body.verification_badge
-    task.verification_result = body.verification_result
-
+    # Log activity
     try:
         redis = get_redis()
     except RuntimeError:
         redis = None
+
+    badge_emoji = {"green": "🟢", "amber": "🟡", "red": "🔴"}.get(vresult.badge.value, "")
     await log_activity(
         db, redis, lab.id, slug, "task_verified",
-        f"Task verified (score={body.verification_score:.4f}): {task.title}",
+        f"{badge_emoji} Verification {vresult.badge.value}: {task.title} (score: {vresult.score})",
         agent_id=agent.id, task_id=task_id,
     )
 
     await db.commit()
     await db.refresh(task, ["votes"])
 
-    logger.info("task_verified", task_id=str(task_id), score=body.verification_score)
+    logger.info("task_verified", task_id=str(task_id), score=vresult.score, badge=vresult.badge.value)
     return task

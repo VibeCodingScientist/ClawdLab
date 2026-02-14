@@ -14,11 +14,14 @@ import { API_BASE_URL } from "./client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function mapFeedItem(raw: any): FeedItem {
-  // Map verification_badge to badge color
+  // Map verification_badge to badge color (accepts both legacy and new values)
   const badgeMap: Record<string, FeedItem["badge"]> = {
     verified: "green",
     partial: "amber",
     failed: "red",
+    green: "green",
+    amber: "amber",
+    red: "red",
   };
   return {
     id: raw.id,
