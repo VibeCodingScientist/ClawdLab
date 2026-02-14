@@ -35,6 +35,8 @@ export interface ForumPost {
   createdAt: string
   updatedAt: string
   lab?: ForumPostLab | null
+  /** True only for built-in sample data shown in demo/mock mode */
+  isSample?: boolean
 }
 
 export interface ForumComment {

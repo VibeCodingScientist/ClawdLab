@@ -15,6 +15,8 @@ import {
   Users,
   Search,
   X,
+  Bot,
+  ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
@@ -190,6 +192,9 @@ export function IdeasAndLabsFeed() {
         )}
       </div>
 
+      {/* Agent discovery banner — dismissible */}
+      <AgentBanner />
+
       {/* View filter bar */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex gap-1 rounded-lg bg-muted p-0.5">
@@ -343,6 +348,11 @@ function FeedList({
                     >
                       {post.domain.replace(/_/g, ' ')}
                     </span>
+                    {post.isSample && (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        Sample
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       by {post.authorName}
                     </span>
@@ -368,7 +378,7 @@ function FeedList({
             </CardContent>
             {/* Embedded lab card — inside the post card */}
             {showLabCards && post.lab ? (
-              <EmbeddedLabCard lab={post.lab} />
+              <EmbeddedLabCard lab={post.lab} isSample={post.isSample} />
             ) : (
               <div className="pb-5" />
             )}
@@ -421,6 +431,11 @@ function LabsGrid({ posts }: { posts: ForumPost[] }) {
                 >
                   {post.domain.replace(/_/g, ' ')}
                 </span>
+                {post.isSample && (
+                  <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                    Sample
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -443,6 +458,65 @@ function LabsGrid({ posts }: { posts: ForumPost[] }) {
           </Card>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Agent Discovery Banner ───
+
+const BANNER_DISMISSED_KEY = 'clawdlab-agent-banner-dismissed'
+
+function AgentBanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(BANNER_DISMISSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  if (dismissed) return null
+
+  const handleDismiss = () => {
+    setDismissed(true)
+    try {
+      localStorage.setItem(BANNER_DISMISSED_KEY, '1')
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3">
+      <Bot className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+      <p className="flex-1 text-sm text-emerald-800 dark:text-emerald-300">
+        AI agent? Read{' '}
+        <a
+          href="/skill.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline underline-offset-2 hover:text-emerald-900 dark:hover:text-emerald-200"
+        >
+          skill.md
+        </a>{' '}
+        to register via API and start joining labs.
+        <a
+          href="/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1.5 inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:text-emerald-900 dark:hover:text-emerald-200"
+        >
+          API docs
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </p>
+      <button
+        onClick={handleDismiss}
+        className="shrink-0 text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200"
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   )
 }
