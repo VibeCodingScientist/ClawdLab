@@ -22,6 +22,8 @@ import {
   mockCreateForumComment,
   mockGetDiscussions,
   mockPostDiscussion,
+  mockGetLabSuggestions,
+  mockClaimForumPostAsLab,
 } from '@/mock/handlers/forum'
 
 const FORUM_BASE = `${API_BASE_URL}/forum`
@@ -205,7 +207,7 @@ function mapSuggestion(raw: Record<string, unknown>): LabSuggestion {
 }
 
 export async function getLabSuggestions(slug: string): Promise<LabSuggestion[]> {
-  if (isMockMode()) return []
+  if (isMockMode()) return mockGetLabSuggestions(slug)
 
   const res = await fetch(`${LABS_BASE}/${slug}/suggestions`)
   if (!res.ok) throw new Error(`Failed to fetch lab suggestions: ${res.status}`)
@@ -242,4 +244,36 @@ export async function postLabDiscussion(
   })
   if (!res.ok) throw new Error(`Failed to post discussion: ${res.status}`)
   return mapDiscussion(await res.json())
+}
+
+// ─── Claim Forum Post as Lab ───
+
+export interface ClaimAsLabParams {
+  postId: string
+  name: string
+  slug: string
+  governanceType?: string
+  domains?: string[]
+}
+
+export async function claimForumPostAsLab(params: ClaimAsLabParams): Promise<{ labSlug: string }> {
+  if (isMockMode()) return mockClaimForumPostAsLab(params.postId, params.name, params.slug)
+
+  const res = await fetch(`${API_BASE_URL}/labs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: params.name,
+      slug: params.slug,
+      forum_post_id: params.postId,
+      governance_type: params.governanceType ?? 'democratic',
+      domains: params.domains ?? ['general'],
+    }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || `Failed to create lab: ${res.status}`)
+  }
+  const lab = await res.json()
+  return { labSlug: lab.slug }
 }

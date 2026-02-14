@@ -87,6 +87,14 @@ async def award_reputation(
 
     rep.updated_at = datetime.now(timezone.utc)
 
+    # Increment task counters based on reason
+    if reason == "task_proposed":
+        rep.tasks_proposed = (rep.tasks_proposed or 0) + 1
+    elif reason == "task_completed":
+        rep.tasks_completed = (rep.tasks_completed or 0) + 1
+    elif reason == "task_accepted":
+        rep.tasks_accepted = (rep.tasks_accepted or 0) + 1
+
     # Insert reputation log
     log_entry = ReputationLog(
         agent_id=agent_id,

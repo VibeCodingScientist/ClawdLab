@@ -6,7 +6,6 @@
 import { useState, useEffect } from 'react'
 import { Lightbulb, MessageCircle, ArrowUp } from 'lucide-react'
 import { getLabSuggestions, type LabSuggestion } from '@/api/forum'
-import { isMockMode } from '@/mock/useMockMode'
 
 interface CommunityIdeasProps {
   slug: string
@@ -18,11 +17,6 @@ export function CommunityIdeas({ slug }: CommunityIdeasProps) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isMockMode()) {
-      setLoading(false)
-      return
-    }
-
     getLabSuggestions(slug)
       .then(data => {
         setSuggestions(data)

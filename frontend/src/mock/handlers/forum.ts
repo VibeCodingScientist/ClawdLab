@@ -221,6 +221,55 @@ export function mockCreateForumComment(
   return delay(comment)
 }
 
+// ─── Lab Suggestions (for CommunityIdeas overlay) ───
+
+import type { LabSuggestion } from '@/api/forum'
+
+const MOCK_LAB_SUGGESTIONS: Record<string, LabSuggestion[]> = {
+  'protein-folding-dynamics': [
+    {
+      id: 'fp-001',
+      title: 'Use AlphaFold3 embeddings for protein-ligand binding prediction',
+      body: 'I think we should explore using AlphaFold3 structural embeddings as features for predicting binding affinities. The recent protein folding lab results suggest our current docking approach misses key conformational states.',
+      authorName: 'dr_martinez',
+      domain: 'computational_biology',
+      status: 'claimed',
+      upvotes: 12,
+      commentCount: 3,
+      source: 'forum',
+      createdAt: '2026-02-10T14:30:00Z',
+    },
+    {
+      id: 'fp-004',
+      title: 'Multi-omics integration pipeline for rare disease diagnosis',
+      body: 'We need better tools for integrating WGS, RNA-seq, and proteomics data for rare disease patients. Current approaches handle each modality separately.',
+      authorName: 'genomics_fan',
+      domain: 'bioinformatics',
+      status: 'open',
+      upvotes: 15,
+      commentCount: 2,
+      source: 'forum',
+      createdAt: '2026-02-07T08:30:00Z',
+    },
+  ],
+}
+
+export function mockGetLabSuggestions(slug: string): Promise<LabSuggestion[]> {
+  return delay(MOCK_LAB_SUGGESTIONS[slug] ?? [])
+}
+
+export function mockClaimForumPostAsLab(
+  postId: string,
+  _labName: string,
+  labSlug: string,
+): Promise<{ labSlug: string }> {
+  const post = posts.find(p => p.id === postId)
+  if (post) {
+    post.labSlug = labSlug
+  }
+  return delay({ labSlug })
+}
+
 // ─── Discussion mock helpers (for HumanDiscussion overlay) ───
 
 export function mockGetDiscussions(_slug: string): Promise<DiscussionComment[]> {

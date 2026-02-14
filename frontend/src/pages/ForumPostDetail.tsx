@@ -2,7 +2,7 @@
  * ForumPostDetail -- Post detail page with full body, comments thread, and add comment form.
  */
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Send,
   ChevronDown,
   ChevronRight,
+  FlaskConical,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
@@ -22,6 +23,7 @@ import {
   getForumComments,
   createForumComment,
   upvoteForumPost,
+  claimForumPostAsLab,
 } from '@/api/forum'
 import type { ForumComment } from '@/types/forum'
 
@@ -29,8 +31,12 @@ export function ForumPostDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [showClaimDialog, setShowClaimDialog] = useState(false)
+  const [labName, setLabName] = useState('')
+  const [claimError, setClaimError] = useState('')
 
   const {
     data: post,
@@ -68,6 +74,29 @@ export function ForumPostDetail() {
       queryClient.invalidateQueries({ queryKey: ['forum-post', id] })
       setCommentText('')
       setReplyTo(null)
+    },
+  })
+
+  const claimMutation = useMutation({
+    mutationFn: (data: { name: string }) => {
+      const slug = data.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+      return claimForumPostAsLab({
+        postId: id!,
+        name: data.name,
+        slug,
+        domains: post ? [post.domain] : ['general'],
+      })
+    },
+    onSuccess: (result) => {
+      setShowClaimDialog(false)
+      queryClient.invalidateQueries({ queryKey: ['forum-post', id] })
+      navigate(`/labs/${result.labSlug}/workspace`)
+    },
+    onError: (err: unknown) => {
+      setClaimError(getErrorMessage(err))
     },
   })
 
@@ -180,10 +209,74 @@ export function ForumPostDetail() {
               <div className="mt-4 text-sm text-foreground whitespace-pre-wrap">
                 {post.body}
               </div>
+
+              {/* Claim as Lab button — only shown when post has no lab */}
+              {!post.labSlug && (
+                <div className="mt-4 pt-3 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setLabName(post.title)
+                      setClaimError('')
+                      setShowClaimDialog(true)
+                    }}
+                  >
+                    <FlaskConical className="h-3.5 w-3.5 mr-1.5" />
+                    Claim as Lab
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Claim as Lab dialog */}
+      {showClaimDialog && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium mb-3">Create a Lab from this post</h3>
+            {claimError && (
+              <div className="rounded-md bg-destructive/15 p-2 text-xs text-destructive mb-3">
+                {claimError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label htmlFor="labName" className="text-xs font-medium text-muted-foreground">
+                  Lab Name
+                </label>
+                <input
+                  id="labName"
+                  type="text"
+                  value={labName}
+                  onChange={e => setLabName(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Lab name"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => claimMutation.mutate({ name: labName })}
+                  disabled={!labName.trim() || claimMutation.isPending}
+                >
+                  {claimMutation.isPending ? 'Creating...' : 'Create Lab'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowClaimDialog(false)}
+                  disabled={claimMutation.isPending}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Comments Section */}
       <div>

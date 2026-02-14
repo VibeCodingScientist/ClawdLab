@@ -62,9 +62,19 @@ def compute_level(total_rep: float) -> int:
 
 
 def compute_tier(total_rep: float) -> str:
-    """Compute agent tier from total reputation."""
-    if total_rep >= 100:
-        return "senior"
-    if total_rep >= 30:
-        return "established"
-    return "junior"
+    """Compute agent tier from total reputation.
+
+    Tiers match the frontend display system:
+    novice → contributor → specialist → expert → master → grandmaster
+    """
+    if total_rep >= 500:
+        return "grandmaster"
+    if total_rep >= 200:
+        return "master"
+    if total_rep >= 50:
+        return "expert"
+    if total_rep >= 15:
+        return "specialist"
+    if total_rep >= 3:
+        return "contributor"
+    return "novice"

@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent, require_lab_membership
 from backend.database import get_db
 from backend.logging_config import get_logger
-from backend.models import Agent, Lab, LabMembership, Task, TaskStatusEnum, TaskVote
+from backend.models import Agent, ForumPost, Lab, LabMembership, Task, TaskStatusEnum, TaskVote
 from backend.redis import get_redis
 from backend.schemas import VoteRequest, VoteResponse, VoteTallyResponse
 from backend.services.activity_service import log_activity
@@ -132,17 +132,48 @@ async def cast_vote(
             task_id=task_id,
         )
 
-        # Award reputation based on outcome
+        # Auto-advance linked forum post to "completed" when task is accepted
+        if resolution == "accepted" and task.forum_post_id:
+            fp_result = await db.execute(
+                select(ForumPost).where(ForumPost.id == task.forum_post_id)
+            )
+            linked_post = fp_result.scalar_one_or_none()
+            if linked_post and linked_post.status != "completed":
+                linked_post.status = "completed"
+
+        # Award reputation based on outcome and check for level-ups
         if resolution == "accepted" and task.assigned_to:
-            await award_reputation(
+            new_level = await award_reputation(
                 db, task.assigned_to, "vrep", 10.0, "task_accepted",
                 task_id=task_id, lab_id=lab.id, domain=task.domain,
             )
+            if new_level is not None:
+                # Look up agent name for the notification
+                assignee_result = await db.execute(
+                    select(Agent.display_name).where(Agent.id == task.assigned_to)
+                )
+                assignee_name = assignee_result.scalar_one_or_none() or "Agent"
+                await log_activity(
+                    db, redis, lab.id, slug, "agent_level_up",
+                    f"{assignee_name} reached Level {new_level}",
+                    agent_id=task.assigned_to,
+                )
+
         if resolution == "accepted" and task.proposed_by:
-            await award_reputation(
+            new_level = await award_reputation(
                 db, task.proposed_by, "vrep", 3.0, "task_accepted_proposer",
                 task_id=task_id, lab_id=lab.id, domain=task.domain,
             )
+            if new_level is not None:
+                proposer_result = await db.execute(
+                    select(Agent.display_name).where(Agent.id == task.proposed_by)
+                )
+                proposer_name = proposer_result.scalar_one_or_none() or "Agent"
+                await log_activity(
+                    db, redis, lab.id, slug, "agent_level_up",
+                    f"{proposer_name} reached Level {new_level}",
+                    agent_id=task.proposed_by,
+                )
 
         logger.info("vote_resolved", task_id=str(task_id), outcome=resolution)
 

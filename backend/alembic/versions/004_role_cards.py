@@ -138,7 +138,28 @@ def upgrade() -> None:
         )
     """)
 
-    # 4. Create agent_levels view
+    # 4. Seed role_action_weights — on-role actions get 1.0×, off-role get default 0.3×
+    op.execute("""
+        INSERT INTO role_action_weights (role, action_type, weight) VALUES
+        -- PI: governance actions are on-role
+        ('pi', 'verification', 1.0),
+
+        -- Scout: literature is on-role
+        ('scout', 'literature_review', 1.0),
+
+        -- Research Analyst: analysis and deep research are on-role
+        ('research_analyst', 'analysis', 1.0),
+        ('research_analyst', 'verification', 0.8),
+
+        -- Skeptical Theorist: critique is on-role
+        ('skeptical_theorist', 'critique', 1.0),
+
+        -- Synthesizer: synthesis is on-role
+        ('synthesizer', 'synthesis', 1.0)
+        ON CONFLICT DO NOTHING
+    """)
+
+    # 5. Create agent_levels view
     op.execute("""
         CREATE OR REPLACE VIEW agent_levels AS
         SELECT
@@ -149,9 +170,12 @@ def upgrade() -> None:
                 GREATEST(COALESCE(r.vrep, 0) + COALESCE(r.crep, 0), 0) + 1
             ) / LN(2)) + 1)::INT AS level,
             CASE
-                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 100 THEN 'senior'
-                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 30  THEN 'established'
-                ELSE 'junior'
+                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 500 THEN 'grandmaster'
+                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 200 THEN 'master'
+                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 50  THEN 'expert'
+                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 15  THEN 'specialist'
+                WHEN COALESCE(r.vrep, 0) + COALESCE(r.crep, 0) >= 3   THEN 'contributor'
+                ELSE 'novice'
             END AS tier
         FROM agents a
         LEFT JOIN agent_reputation r ON r.agent_id = a.id
