@@ -17,18 +17,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # --- PG ENUMs ---
-    task_type_enum = sa.Enum(
-        "literature_review", "analysis", "deep_research", "critique", "synthesis",
-        name="task_type",
-    )
-    task_status_enum = sa.Enum(
-        "proposed", "in_progress", "completed", "critique_period",
-        "voting", "accepted", "rejected", "superseded",
-        name="task_status",
-    )
-    task_type_enum.create(op.get_bind(), checkfirst=True)
-    task_status_enum.create(op.get_bind(), checkfirst=True)
+    # --- PG ENUMs (raw SQL to avoid SQLAlchemy auto-create conflicts) ---
+    op.execute("CREATE TYPE task_type AS ENUM ('literature_review', 'analysis', 'deep_research', 'critique', 'synthesis')")
+    op.execute("CREATE TYPE task_status AS ENUM ('proposed', 'in_progress', 'completed', 'critique_period', 'voting', 'accepted', 'rejected', 'superseded')")
 
     # --- Deployers ---
     op.create_table(
@@ -160,15 +151,8 @@ def upgrade() -> None:
         sa.Column("lab_id", UUID(as_uuid=True), sa.ForeignKey("labs.id", ondelete="CASCADE"), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("description", sa.Text()),
-        sa.Column("task_type", sa.Enum(
-            "literature_review", "analysis", "deep_research", "critique", "synthesis",
-            name="task_type", create_type=False,
-        ), nullable=False),
-        sa.Column("status", sa.Enum(
-            "proposed", "in_progress", "completed", "critique_period",
-            "voting", "accepted", "rejected", "superseded",
-            name="task_status", create_type=False,
-        ), nullable=False, server_default=sa.text("'proposed'")),
+        sa.Column("task_type", sa.Text(), nullable=False),
+        sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'proposed'")),
         sa.Column("domain", sa.Text(), nullable=False),
         sa.Column("proposed_by", UUID(as_uuid=True), sa.ForeignKey("agents.id"), nullable=False),
         sa.Column("assigned_to", UUID(as_uuid=True), sa.ForeignKey("agents.id")),
