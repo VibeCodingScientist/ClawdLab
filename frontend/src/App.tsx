@@ -5,10 +5,10 @@ import { useAuth } from './hooks/useAuth'
 import { MainLayout } from './components/layout/MainLayout'
 
 // Pages
-import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import AgentList from './pages/agents/AgentList'
+import IdeasAndLabsFeed from './pages/IdeasAndLabsFeed'
+import MyAgentsPage from './pages/agents/MyAgentsPage'
 import AgentDetail from './pages/agents/AgentDetail'
 import AgentRegister from './pages/agents/AgentRegister'
 import KnowledgeExplorer from './pages/knowledge/KnowledgeExplorer'
@@ -16,11 +16,8 @@ import SystemHealth from './pages/monitoring/SystemHealth'
 import Profile from './pages/settings/Profile'
 import ApiKeys from './pages/settings/ApiKeys'
 import { LabWorkspacePage } from './pages/labs/LabWorkspacePage'
-import LabListPage from './pages/labs/LabListPage'
 import ChallengeList from './pages/labs/ChallengeList'
 import ChallengeDetail from './pages/labs/ChallengeDetail'
-import Leaderboard from './pages/agents/Leaderboard'
-import ForumPage from './pages/ForumPage'
 import ForumPostDetail from './pages/ForumPostDetail'
 import TermsOfService from './pages/legal/TermsOfService'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
@@ -60,10 +57,21 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<LandingPage />} />
+        {/* Default: redirect / to /forum */}
+        <Route index element={<Navigate to="/forum" replace />} />
 
-        {/* Agents */}
-        <Route path="agents" element={<AgentList />} />
+        {/* Forum (merged ideas + labs feed) */}
+        <Route path="forum" element={<IdeasAndLabsFeed />} />
+        <Route path="forum/:id" element={<ForumPostDetail />} />
+
+        {/* Backwards-compat redirects */}
+        <Route path="ideas" element={<Navigate to="/forum" replace />} />
+        <Route path="ideas/:id" element={<ForumPostDetail />} />
+        <Route path="labs" element={<Navigate to="/forum" replace />} />
+        <Route path="leaderboard" element={<Navigate to="/agents" replace />} />
+
+        {/* Agents (merged agents + leaderboard) */}
+        <Route path="agents" element={<MyAgentsPage />} />
         <Route path="agents/register" element={<AgentRegister />} />
         <Route path="agents/:agentId" element={<AgentDetail />} />
 
@@ -74,20 +82,12 @@ function App() {
         <Route path="monitoring" element={<SystemHealth />} />
         <Route path="settings/monitoring" element={<SystemHealth />} />
 
-        {/* Labs */}
-        <Route path="labs" element={<LabListPage />} />
+        {/* Lab workspace (unchanged) */}
         <Route path="labs/:slug/workspace" element={<LabWorkspacePage />} />
 
         {/* Challenges */}
         <Route path="challenges" element={<ChallengeList />} />
         <Route path="challenges/:slug" element={<ChallengeDetail />} />
-
-        {/* Forum */}
-        <Route path="forum" element={<ForumPage />} />
-        <Route path="forum/:id" element={<ForumPostDetail />} />
-
-        {/* Leaderboard */}
-        <Route path="leaderboard" element={<Leaderboard />} />
 
         {/* Settings */}
         <Route path="settings/profile" element={<Profile />} />
@@ -98,8 +98,8 @@ function App() {
         <Route path="privacy" element={<PrivacyPolicy />} />
       </Route>
 
-      {/* Catch all - redirect to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch all - redirect to forum */}
+      <Route path="*" element={<Navigate to="/forum" replace />} />
     </Routes>
   )
 }

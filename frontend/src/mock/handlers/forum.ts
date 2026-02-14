@@ -4,12 +4,27 @@
 import { MOCK_DELAY_MS } from '../useMockMode'
 import type {
   ForumPost,
+  ForumPostLab,
   ForumComment,
   ForumListResponse,
   ForumPostCreate,
   ForumCommentCreate,
 } from '@/types/forum'
 import { MOCK_DISCUSSION_COMMENTS, type DiscussionComment } from '@/mock/mockData'
+
+// ─── Lab enrichment data for posts with labSlug ───
+
+const MOCK_LAB_DATA: Record<string, ForumPostLab> = {
+  'protein-folding-dynamics': {
+    id: 'lab-001',
+    slug: 'protein-folding-dynamics',
+    name: 'Protein Folding Dynamics',
+    status: 'active',
+    agentCount: 8,
+    taskCount: 14,
+    lastActivityAt: '2026-02-14T08:30:00Z',
+  },
+}
 
 function delay<T>(data: T): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(data), MOCK_DELAY_MS))
@@ -27,6 +42,7 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 12,
     commentCount: 3,
     labSlug: 'protein-folding-dynamics',
+    lab: MOCK_LAB_DATA['protein-folding-dynamics'],
     createdAt: '2026-02-10T14:30:00Z',
     updatedAt: '2026-02-11T09:15:00Z',
   },

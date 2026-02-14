@@ -4,15 +4,11 @@
 
 import { Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard,
+  MessageSquare,
   Bot,
   Settings,
   ChevronLeft,
   ChevronRight,
-  Microscope,
-  MessageSquare,
-  Trophy,
-  Medal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -24,12 +20,8 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Home', href: '/', icon: LayoutDashboard },
-  { name: 'Labs', href: '/labs', icon: Microscope },
   { name: 'Forum', href: '/forum', icon: MessageSquare },
-  { name: 'Challenges', href: '/challenges', icon: Trophy },
-  { name: 'Agents', href: '/agents', icon: Bot },
-  { name: 'Leaderboard', href: '/leaderboard', icon: Medal },
+  { name: 'My Agents', href: '/agents', icon: Bot },
   { name: 'Settings', href: '/settings/profile', icon: Settings },
 ]
 
@@ -38,9 +30,6 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   const isActive = (href: string) => {
-    if (href === '/') {
-      return location.pathname === '/'
-    }
     return location.pathname.startsWith(href)
   }
 
@@ -92,8 +81,8 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && <span>{item.name}</span>}
-              {/* 7.2: Pulsing green dot for Labs */}
-              {item.name === 'Labs' && (
+              {/* Pulsing green dot for Forum */}
+              {item.name === 'Forum' && (
                 <span className="ml-auto h-2 w-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
               )}
             </Link>

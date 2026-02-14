@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent_optional
 from backend.database import get_db
 from backend.logging_config import get_logger
-from backend.models import Agent, ForumComment, ForumPost, Lab
+from backend.models import Agent, ForumComment, ForumPost, Lab, LabActivityLog, LabMembership, Task
 from backend.redis import get_redis
 from backend.schemas import (
     ForumCommentCreate,
@@ -18,6 +18,8 @@ from backend.schemas import (
     ForumPostCreate,
     ForumPostListResponse,
     ForumPostResponse,
+    ForumPostWithLabResponse,
+    LabSummaryInline,
     PaginatedResponse,
 )
 
@@ -29,11 +31,12 @@ router = APIRouter(prefix="/api/forum", tags=["forum"])
 async def list_forum_posts(
     status: str | None = Query(None, pattern=r"^(open|claimed|in_progress|completed|closed)$"),
     domain: str | None = Query(None),
+    include_lab: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """List forum posts with optional filters."""
+    """List forum posts with optional filters. Pass include_lab=true for lab enrichment."""
     query = select(ForumPost)
 
     if status:
@@ -49,9 +52,15 @@ async def list_forum_posts(
     query = query.order_by(ForumPost.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
 
-    # Join lab to resolve slug
+    # Join lab to resolve slug (+ extra fields when include_lab)
     list_query = (
-        select(ForumPost, Lab.slug.label("lab_slug"))
+        select(
+            ForumPost,
+            Lab.slug.label("lab_slug"),
+            Lab.id.label("lab_id"),
+            Lab.name.label("lab_name"),
+            Lab.status.label("lab_status"),
+        )
         .outerjoin(Lab, ForumPost.claimed_by_lab == Lab.id)
         .where(ForumPost.id.in_(select(ForumPost.id).select_from(query.subquery())))
         .order_by(ForumPost.created_at.desc())
@@ -60,8 +69,53 @@ async def list_forum_posts(
     result = await db.execute(list_query)
     rows = result.all()
 
-    items = [
-        ForumPostListResponse(
+    # Pre-fetch lab summary data when requested
+    lab_summaries: dict[str, LabSummaryInline] = {}
+    if include_lab:
+        lab_ids = [row.lab_id for row in rows if row.lab_id is not None]
+        if lab_ids:
+            # Agent counts
+            agent_counts_q = (
+                select(LabMembership.lab_id, func.count().label("cnt"))
+                .where(LabMembership.lab_id.in_(lab_ids), LabMembership.status == "active")
+                .group_by(LabMembership.lab_id)
+            )
+            agent_counts = {r.lab_id: r.cnt for r in (await db.execute(agent_counts_q)).all()}
+
+            # Task counts
+            task_counts_q = (
+                select(Task.lab_id, func.count().label("cnt"))
+                .where(Task.lab_id.in_(lab_ids))
+                .group_by(Task.lab_id)
+            )
+            task_counts = {r.lab_id: r.cnt for r in (await db.execute(task_counts_q)).all()}
+
+            # Last activity
+            activity_q = (
+                select(LabActivityLog.lab_id, func.max(LabActivityLog.created_at).label("last_at"))
+                .where(LabActivityLog.lab_id.in_(lab_ids))
+                .group_by(LabActivityLog.lab_id)
+            )
+            last_activities = {r.lab_id: r.last_at for r in (await db.execute(activity_q)).all()}
+
+            for row in rows:
+                if row.lab_id is not None:
+                    lab_summaries[str(row.lab_id)] = LabSummaryInline(
+                        id=row.lab_id,
+                        slug=row.lab_slug,
+                        name=row.lab_name,
+                        status=row.lab_status,
+                        agent_count=agent_counts.get(row.lab_id, 0),
+                        task_count=task_counts.get(row.lab_id, 0),
+                        last_activity_at=last_activities.get(row.lab_id),
+                    )
+
+    ResponseClass = ForumPostWithLabResponse if include_lab else ForumPostListResponse
+
+    items = []
+    for row in rows:
+        p = row[0]  # ForumPost
+        base = dict(
             id=p.id,
             author_name=p.author_name,
             title=p.title,
@@ -69,14 +123,15 @@ async def list_forum_posts(
             domain=p.domain,
             status=p.status,
             claimed_by_lab=p.claimed_by_lab,
-            lab_slug=lab_slug,
+            lab_slug=row.lab_slug,
             upvotes=p.upvotes,
             created_at=p.created_at,
             updated_at=p.updated_at,
             comment_count=len(p.comments),
         )
-        for p, lab_slug in rows
-    ]
+        if include_lab:
+            base["lab"] = lab_summaries.get(str(row.lab_id)) if row.lab_id else None
+        items.append(ResponseClass(**base))
 
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 

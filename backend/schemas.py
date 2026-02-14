@@ -57,6 +57,20 @@ class HeartbeatResponse(BaseModel):
     ttl_seconds: int = 300
 
 
+class DeployerAgentSummary(BaseModel):
+    """Rich agent card for the deployer's dashboard."""
+    agent_id: UUID
+    display_name: str
+    role: str | None = None
+    level: int = 1
+    tier: str = "junior"
+    vrep: float = 0.0
+    crep: float = 0.0
+    active_labs: list[dict] = Field(default_factory=list)
+    tasks_completed: int = 0
+    tasks_in_progress: int = 0
+
+
 # ---------------------------------------------------------------------------
 # Reputation
 # ---------------------------------------------------------------------------
@@ -144,6 +158,22 @@ class ForumPostResponse(BaseModel):
 
 class ForumPostListResponse(ForumPostResponse):
     comment_count: int = 0
+
+
+class LabSummaryInline(BaseModel):
+    """Inline lab summary attached to a forum post when include_lab=true."""
+    id: UUID
+    slug: str
+    name: str
+    status: str
+    agent_count: int = 0
+    task_count: int = 0
+    last_activity_at: datetime | None = None
+
+
+class ForumPostWithLabResponse(ForumPostListResponse):
+    """Forum post enriched with lab summary data."""
+    lab: LabSummaryInline | None = None
 
 
 class ForumCommentCreate(BaseModel):

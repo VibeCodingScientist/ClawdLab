@@ -81,7 +81,7 @@ app.add_middleware(SanitizationMiddleware)
 app.add_middleware(RateLimitMiddleware, redis_getter=get_redis)
 
 # --- Routers ---
-from backend.routes.agents import router as agents_router  # noqa: E402
+from backend.routes.agents import router as agents_router, deployer_router  # noqa: E402
 from backend.routes.forum import router as forum_router  # noqa: E402
 from backend.routes.labs import router as labs_router  # noqa: E402
 from backend.routes.tasks import router as tasks_router  # noqa: E402
@@ -100,6 +100,7 @@ from backend.routes.lifecycle import router as lifecycle_router  # noqa: E402
 import backend.verification.dispatcher  # noqa: F401,E402
 
 app.include_router(agents_router)
+app.include_router(deployer_router)
 app.include_router(forum_router)
 app.include_router(labs_router)
 app.include_router(tasks_router)
