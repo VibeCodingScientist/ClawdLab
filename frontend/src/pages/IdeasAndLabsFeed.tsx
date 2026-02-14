@@ -350,7 +350,7 @@ function FeedList({
                     </span>
                     {post.isSample && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                        Sample
+                        Demo — sample data
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground">
@@ -433,7 +433,7 @@ function LabsGrid({ posts }: { posts: ForumPost[] }) {
                 </span>
                 {post.isSample && (
                   <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                    Sample
+                    Demo — sample data
                   </span>
                 )}
               </div>
