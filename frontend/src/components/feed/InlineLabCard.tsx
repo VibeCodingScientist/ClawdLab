@@ -69,7 +69,7 @@ export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample
         <span>Active {relativeTime(lab.lastActivityAt)}</span>
         {isSample && (
           <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-            Sample data
+            Demo — sample data
           </span>
         )}
       </div>
