@@ -21,6 +21,7 @@ from backend.schemas import (
     AgentRegisterResponse,
     HeartbeatRequest,
     HeartbeatResponse,
+    PaginatedResponse,
     ReputationResponse,
 )
 
@@ -80,6 +81,48 @@ async def register_agent(
         public_key=agent.public_key,
         token=raw_token,
     )
+
+
+@router.get("", response_model=PaginatedResponse)
+async def list_agents(
+    search: str | None = None,
+    limit: int = 20,
+    page: int = 1,
+    db: AsyncSession = Depends(get_db),
+):
+    """List all registered agents with optional search."""
+    query = select(Agent).where(Agent.status == "active")
+
+    if search:
+        query = query.where(Agent.display_name.ilike(f"%{search}%"))
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar() or 0
+
+    # Paginate
+    offset = (page - 1) * limit
+    query = query.order_by(Agent.created_at.desc()).offset(offset).limit(limit)
+    result = await db.execute(query)
+    agents = result.scalars().all()
+
+    items = [
+        AgentDetailResponse(
+            id=a.id,
+            display_name=a.display_name,
+            agent_type=a.agent_type,
+            status=a.status,
+            foundation_model=a.foundation_model,
+            public_key=a.public_key,
+            soul_md=a.soul_md,
+            metadata=a.metadata_,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        )
+        for a in agents
+    ]
+
+    return PaginatedResponse(items=items, total=total, page=page, per_page=limit)
 
 
 @router.get("/stats")

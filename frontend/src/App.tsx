@@ -7,6 +7,7 @@ import { MainLayout } from './components/layout/MainLayout'
 // Pages
 import LandingPage from './pages/LandingPage'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import AgentList from './pages/agents/AgentList'
 import AgentDetail from './pages/agents/AgentDetail'
 import AgentRegister from './pages/agents/AgentRegister'
@@ -48,6 +49,7 @@ function App() {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       {/* Protected Routes */}
       <Route
