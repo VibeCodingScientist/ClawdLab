@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { API_BASE_URL } from '@/api/client'
 import { setTokens } from '@/api/client'
+import { isMockMode } from '@/mock/useMockMode'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/Card'
 import { getErrorMessage } from '@/types'
@@ -19,7 +20,7 @@ export default function Register() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const { refreshUser } = useAuth()
+  const { refreshUser, login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,6 +39,12 @@ export default function Register() {
 
     setIsLoading(true)
     try {
+      if (isMockMode()) {
+        await login({ username, password })
+        navigate('/', { replace: true })
+        return
+      }
+
       const res = await fetch(`${API_BASE_URL}/security/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

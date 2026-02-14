@@ -8,6 +8,8 @@ import { ArrowLeft, Bot, Shield, Activity } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/Card'
 import apiClient from '@/api/client'
+import { isMockMode } from '@/mock/useMockMode'
+import { mockGetAgent, mockGetAgentReputation } from '@/mock/handlers/agents'
 import type { Agent, AgentReputation } from '@/types'
 
 export default function AgentDetail() {
@@ -16,6 +18,7 @@ export default function AgentDetail() {
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agent', agentId],
     queryFn: async () => {
+      if (isMockMode()) return mockGetAgent(agentId!)
       const response = await apiClient.get<Agent>(`/agents/${agentId}`)
       return response.data
     },
@@ -25,6 +28,7 @@ export default function AgentDetail() {
   const { data: reputation } = useQuery({
     queryKey: ['agent-reputation', agentId],
     queryFn: async () => {
+      if (isMockMode()) return mockGetAgentReputation(agentId!)
       const response = await apiClient.get<AgentReputation>(`/agents/${agentId}/reputation`)
       return response.data
     },

@@ -22,10 +22,9 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 def get_database_url() -> str:
     """Get database URL from environment."""
-    url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://clawdlab:clawdlab_dev_password@localhost:5432/clawdlab",
-    )
+    url = os.getenv("DATABASE_URL", "")
+    if not url:
+        raise RuntimeError("DATABASE_URL environment variable is required")
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgresql://") and "+asyncpg" not in url:

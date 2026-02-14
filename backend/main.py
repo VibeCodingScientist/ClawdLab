@@ -17,6 +17,12 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB + Redis on startup, cleanup on shutdown."""
+    # Validate required config
+    required_vars = ["JWT_SECRET_KEY", "DATABASE_URL"]
+    missing = [v for v in required_vars if not os.getenv(v)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
     # Configure logging
     log_level = os.getenv("LOG_LEVEL", "INFO")
     json_format = os.getenv("LOG_FORMAT", "json") == "json"
@@ -69,8 +75,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(","),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Agent-Token"],
 )
 
 # Security middleware

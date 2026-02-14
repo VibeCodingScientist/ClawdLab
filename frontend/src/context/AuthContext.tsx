@@ -111,6 +111,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true)
     try {
+      if (isMockMode()) {
+        setUser(MOCK_USER)
+        return
+      }
+
       // Authenticate with the API
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await apiClient.post<{

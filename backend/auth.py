@@ -27,7 +27,9 @@ logger = get_logger(__name__)
 # JWT Configuration (human auth)
 # ---------------------------------------------------------------------------
 
-JWT_SECRET = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret-change-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30

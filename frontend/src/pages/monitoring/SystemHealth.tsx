@@ -6,12 +6,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Activity, Server, Database, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/Card'
 import apiClient from '@/api/client'
+import { isMockMode } from '@/mock/useMockMode'
+import { mockGetSystemHealth } from '@/mock/handlers/monitoring'
 import type { SystemStatus } from '@/types'
 
 export default function SystemHealth() {
   const { data: status } = useQuery({
     queryKey: ['system-status-full'],
     queryFn: async () => {
+      if (isMockMode()) return mockGetSystemHealth()
       const response = await apiClient.get<SystemStatus>('/monitoring/health/status')
       return response.data
     },
