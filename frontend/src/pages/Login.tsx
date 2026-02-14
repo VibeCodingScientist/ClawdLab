@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/common/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common/Card'
@@ -104,6 +104,12 @@ export default function Login() {
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
             <p>Demo credentials: admin / admin</p>
+            <p className="mt-2">
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="text-primary hover:underline">
+                Create one
+              </Link>
+            </p>
           </div>
         </CardContent>
       </Card>
