@@ -110,6 +110,9 @@ export interface LabSummary {
   name: string;
   description: string | null;
   domains: string[];
+  tags: string[];
+  parentLabId: string | null;
+  parentLabSlug: string | null;
   memberCount: number;
   governanceType: string;
   visibility: string;

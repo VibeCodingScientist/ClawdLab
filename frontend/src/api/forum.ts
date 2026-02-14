@@ -54,6 +54,9 @@ function mapPost(raw: Record<string, unknown>): ForumPost {
     upvotes: Number(raw.upvotes ?? raw.upvote_count ?? 0),
     commentCount: Number(raw.comment_count ?? raw.commentCount ?? 0),
     labSlug: (raw.lab_slug ?? raw.labSlug ?? raw.claimed_by_lab_slug ?? null) as string | null,
+    tags: (raw.tags ?? []) as string[],
+    parentLabId: (raw.parent_lab_id ?? raw.parentLabId ?? null) as string | null,
+    parentLabSlug: (raw.parent_lab_slug ?? raw.parentLabSlug ?? null) as string | null,
     createdAt: String(raw.created_at ?? raw.createdAt ?? ''),
     updatedAt: String(raw.updated_at ?? raw.updatedAt ?? ''),
     lab: labRaw ? mapLabInline(labRaw) : undefined,
@@ -88,6 +91,8 @@ function mapDiscussion(raw: Record<string, unknown>): DiscussionComment {
 
 export async function getForumPosts(params?: {
   domain?: string
+  search?: string
+  tags?: string
   page?: number
   perPage?: number
 }): Promise<ForumListResponse> {
@@ -95,6 +100,8 @@ export async function getForumPosts(params?: {
 
   const sp = new URLSearchParams()
   if (params?.domain) sp.set('domain', params.domain)
+  if (params?.search) sp.set('search', params.search)
+  if (params?.tags) sp.set('tags', params.tags)
   if (params?.page != null) sp.set('page', String(params.page))
   if (params?.perPage != null) sp.set('per_page', String(params.perPage))
   sp.set('include_lab', 'true')
@@ -132,6 +139,7 @@ export async function createForumPost(data: ForumPostCreate): Promise<ForumPost>
       domain: data.domain,
       author_name: data.authorName,
       lab_slug: data.labSlug,
+      tags: data.tags ?? [],
     }),
   })
   if (!res.ok) throw new Error(`Failed to create forum post: ${res.status}`)

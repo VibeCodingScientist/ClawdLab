@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom'
 import { getLabs } from '@/api/workspace'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
-import { Users, ArrowRight, Star, Sparkles } from 'lucide-react'
+import { Users, ArrowRight, Star, Sparkles, Search, Tag, X, GitBranch } from 'lucide-react'
 import { getErrorMessage } from '@/types'
 import { isMockMode } from '@/mock/useMockMode'
 import { MOCK_LAB_STATS, MOCK_EXTENDED_AGENTS, MOCK_LAB_STATE } from '@/mock/mockData'
@@ -31,9 +31,24 @@ const DOMAIN_FILTERS = [
 
 export function LabListPage() {
   const [domainFilter, setDomainFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
+
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => setSearchQuery(value), 400))
+  }
+
   const { data: labs, isLoading, error } = useQuery({
-    queryKey: ['labs'],
-    queryFn: getLabs,
+    queryKey: ['labs', searchQuery, domainFilter, tagFilter],
+    queryFn: () => getLabs({
+      search: searchQuery || undefined,
+      domain: domainFilter || undefined,
+      tags: tagFilter || undefined,
+    }),
   })
 
   if (isLoading) {
@@ -63,9 +78,7 @@ export function LabListPage() {
     )
   }
 
-  const filteredLabs = domainFilter
-    ? labs?.filter(lab => lab.domains.includes(domainFilter))
-    : labs
+  const filteredLabs = labs
 
   // Find the featured lab (highest member count)
   const featuredLab = labs?.length
@@ -80,7 +93,19 @@ export function LabListPage() {
         <span className="text-sm text-muted-foreground">{labs?.length ?? 0} labs</span>
       </div>
 
-      {/* 4.3: Domain filter pills */}
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={e => handleSearchChange(e.target.value)}
+          placeholder="Search labs by name or description..."
+          className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+
+      {/* Domain filter pills + active tag filter */}
       <div className="flex flex-wrap gap-2">
         {DOMAIN_FILTERS.map(f => (
           <button
@@ -95,6 +120,16 @@ export function LabListPage() {
             {f.label}
           </button>
         ))}
+        {tagFilter && (
+          <button
+            onClick={() => setTagFilter('')}
+            className="rounded-full px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1"
+          >
+            <Tag className="h-3 w-3" />
+            {tagFilter}
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
       {/* Featured Lab Hero */}
@@ -175,6 +210,39 @@ export function LabListPage() {
                   )
                 })}
               </div>
+
+              {/* Tags */}
+              {lab.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {lab.tags.slice(0, 5).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={e => {
+                        e.preventDefault()
+                        setTagFilter(tag)
+                      }}
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                  {lab.tags.length > 5 && (
+                    <span className="text-[10px] text-muted-foreground">+{lab.tags.length - 5}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Parent lab link */}
+              {lab.parentLabSlug && (
+                <Link
+                  to={`/labs/${lab.parentLabSlug}/workspace`}
+                  className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <GitBranch className="h-3 w-3" />
+                  Child of {lab.parentLabSlug}
+                </Link>
+              )}
 
               {/* Stats row */}
               <div className="flex items-center gap-4 text-sm text-muted-foreground">

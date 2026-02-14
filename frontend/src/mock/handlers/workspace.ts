@@ -30,8 +30,31 @@ export function mockGetWorkspaceState(slug: string): Promise<WorkspaceState> {
   return delay(state)
 }
 
-export function mockGetLabs(): Promise<LabSummary[]> {
-  return delay(MOCK_LABS)
+export function mockGetLabs(params?: {
+  search?: string
+  domain?: string
+  tags?: string
+}): Promise<LabSummary[]> {
+  let items = [...MOCK_LABS]
+  if (params?.search) {
+    const q = params.search.toLowerCase()
+    items = items.filter(lab =>
+      lab.name.toLowerCase().includes(q) ||
+      (lab.description ?? '').toLowerCase().includes(q)
+    )
+  }
+  if (params?.domain) {
+    items = items.filter(lab => lab.domains.includes(params.domain!))
+  }
+  if (params?.tags) {
+    const tagList = params.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    if (tagList.length > 0) {
+      items = items.filter(lab =>
+        lab.tags.some(t => tagList.includes(t))
+      )
+    }
+  }
+  return delay(items)
 }
 
 export function mockGetLabDetail(slug: string): Promise<LabDetail> {

@@ -42,6 +42,9 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 12,
     commentCount: 3,
     labSlug: 'protein-folding-dynamics',
+    tags: ['protein-folding', 'alphafold', 'drug-discovery', 'binding-affinity'],
+    parentLabId: null,
+    parentLabSlug: null,
     lab: MOCK_LAB_DATA['protein-folding-dynamics'],
     createdAt: '2026-02-10T14:30:00Z',
     updatedAt: '2026-02-11T09:15:00Z',
@@ -55,6 +58,9 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 8,
     commentCount: 1,
     labSlug: null,
+    tags: ['metamaterials', 'topology-optimization', 'acoustics'],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: '2026-02-09T10:00:00Z',
     updatedAt: '2026-02-09T10:00:00Z',
   },
@@ -67,6 +73,9 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 23,
     commentCount: 5,
     labSlug: null,
+    tags: ['transformers', 'theorem-proving', 'lean4', 'attention'],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: '2026-02-08T16:45:00Z',
     updatedAt: '2026-02-10T12:00:00Z',
   },
@@ -79,6 +88,9 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 15,
     commentCount: 2,
     labSlug: null,
+    tags: ['multi-omics', 'rare-disease', 'genomics', 'proteomics'],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: '2026-02-07T08:30:00Z',
     updatedAt: '2026-02-08T14:20:00Z',
   },
@@ -91,6 +103,9 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 6,
     commentCount: 1,
     labSlug: null,
+    tags: ['ui', 'workspace', 'feedback'],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: '2026-02-06T20:00:00Z',
     updatedAt: '2026-02-06T20:00:00Z',
   },
@@ -103,8 +118,26 @@ const MOCK_FORUM_POSTS: ForumPost[] = [
     upvotes: 19,
     commentCount: 4,
     labSlug: null,
+    tags: ['quantum', 'markov-chains', 'spectral-gap', 'lean4'],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: '2026-02-05T11:15:00Z',
     updatedAt: '2026-02-09T17:30:00Z',
+  },
+  {
+    id: 'fp-007',
+    title: 'Spin-out: Conformational sampling for intrinsically disordered proteins',
+    body: 'Our protein folding dynamics lab has been getting great results on structured proteins, but IDPs remain a challenge. Proposing a dedicated sub-lab focused on enhanced sampling methods for disordered regions — REMD, metadynamics, and diffusion-based approaches.',
+    domain: 'computational_biology',
+    authorName: 'dr_martinez',
+    upvotes: 9,
+    commentCount: 2,
+    labSlug: null,
+    tags: ['protein-folding', 'disordered-proteins', 'molecular-dynamics', 'sampling'],
+    parentLabId: 'lab-001',
+    parentLabSlug: 'protein-folding-dynamics',
+    createdAt: '2026-02-12T10:00:00Z',
+    updatedAt: '2026-02-12T10:00:00Z',
   },
 ]
 
@@ -145,19 +178,35 @@ const MOCK_FORUM_COMMENTS: Record<string, ForumComment[]> = {
 
 let posts = [...MOCK_FORUM_POSTS]
 let commentsStore = { ...MOCK_FORUM_COMMENTS }
-let nextPostNum = 7
+let nextPostNum = 8
 let nextCommentNum = 100
 
 // ─── Mock API functions ───
 
 export function mockGetForumPosts(params?: {
   domain?: string
+  search?: string
+  tags?: string
   page?: number
   perPage?: number
 }): Promise<ForumListResponse> {
   let items = [...posts]
   if (params?.domain) {
     items = items.filter(p => p.domain === params.domain)
+  }
+  if (params?.search) {
+    const q = params.search.toLowerCase()
+    items = items.filter(p =>
+      p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q)
+    )
+  }
+  if (params?.tags) {
+    const tagList = params.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    if (tagList.length > 0) {
+      items = items.filter(p =>
+        p.tags.some(t => tagList.includes(t))
+      )
+    }
   }
   items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const page = params?.page ?? 1
@@ -183,6 +232,9 @@ export function mockCreateForumPost(data: ForumPostCreate): Promise<ForumPost> {
     upvotes: 0,
     commentCount: 0,
     labSlug: data.labSlug ?? null,
+    tags: data.tags ?? [],
+    parentLabId: null,
+    parentLabSlug: null,
     createdAt: now,
     updatedAt: now,
   }

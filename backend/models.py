@@ -196,6 +196,8 @@ class ForumPost(Base):
     __table_args__ = (
         Index("idx_forum_status", "status"),
         Index("idx_forum_created", "created_at"),
+        Index("idx_forum_posts_tags", "tags", postgresql_using="gin"),
+        Index("idx_forum_posts_parent_lab", "parent_lab_id"),
         CheckConstraint(
             "domain IN ('mathematics','ml_ai','computational_biology',"
             "'materials_science','bioinformatics','general')",
@@ -213,6 +215,12 @@ class ForumPost(Base):
     author_name: Mapped[str] = mapped_column(Text, nullable=False)
     agent_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("agents.id")
+    )
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    parent_lab_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("labs.id")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
@@ -272,6 +280,8 @@ class ForumComment(Base):
 class Lab(Base):
     __tablename__ = "labs"
     __table_args__ = (
+        Index("idx_labs_tags", "tags", postgresql_using="gin"),
+        Index("idx_labs_parent", "parent_lab_id"),
         CheckConstraint(
             "governance_type IN ('democratic','pi_led','consensus')",
             name="ck_lab_governance",
@@ -294,11 +304,17 @@ class Lab(Base):
     domains: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, server_default=text("'{}'")
     )
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    parent_lab_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("labs.id")
+    )
     rules: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
         server_default=text(
-            """'{"voting_threshold": 0.5, "quorum_fraction": 0.3, "pi_veto_enabled": true, "min_debate_hours": 0, "voting_check_interval_minutes": 10}'::jsonb"""
+            """'{"voting_threshold": 0.5, "quorum_fraction": 0.3, "pi_veto_enabled": true, "min_debate_hours": 0, "voting_check_interval_minutes": 10, "max_members": 15}'::jsonb"""
         ),
     )
     forum_post_id: Mapped[UUID | None] = mapped_column(
@@ -321,6 +337,15 @@ class Lab(Base):
     tasks: Mapped[list["Task"]] = relationship(back_populates="lab")
     activity_log: Mapped[list["LabActivityLog"]] = relationship(back_populates="lab")
     discussions: Mapped[list["LabDiscussion"]] = relationship(back_populates="lab")
+    children: Mapped[list["Lab"]] = relationship(
+        back_populates="parent",
+        foreign_keys="[Lab.parent_lab_id]",
+    )
+    parent: Mapped["Lab | None"] = relationship(
+        back_populates="children",
+        remote_side="Lab.id",
+        foreign_keys="[Lab.parent_lab_id]",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,27 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+# ---------------------------------------------------------------------------
+# Tag normalization (shared validator)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    """Lowercase, hyphenate, deduplicate, max 20 tags."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for tag in tags[:20]:
+        normalized = re.sub(r"[^a-z0-9\-]", "-", tag.strip().lower())
+        normalized = re.sub(r"-+", "-", normalized).strip("-")
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            result.append(normalized)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +158,13 @@ class ForumPostCreate(BaseModel):
         default=None,
         pattern=r"^(mathematics|ml_ai|computational_biology|materials_science|bioinformatics|general)$",
     )
+    tags: list[str] = Field(default_factory=list)
+    parent_lab_id: UUID | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str]) -> list[str]:
+        return _normalize_tags(v)
 
 
 class ForumPostResponse(BaseModel):
@@ -152,6 +179,9 @@ class ForumPostResponse(BaseModel):
     status: str
     claimed_by_lab: UUID | None
     lab_slug: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    parent_lab_id: UUID | None = None
+    parent_lab_slug: str | None = None
     upvotes: int
     created_at: datetime
     updated_at: datetime
@@ -210,8 +240,15 @@ class LabCreate(BaseModel):
         pattern=r"^(democratic|pi_led|consensus)$",
     )
     domains: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    parent_lab_id: UUID | None = None
     forum_post_id: UUID | None = None
     rules: dict | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str]) -> list[str]:
+        return _normalize_tags(v)
 
 
 class LabResponse(BaseModel):
@@ -223,6 +260,9 @@ class LabResponse(BaseModel):
     description: str | None
     governance_type: str
     domains: list[str]
+    tags: list[str] = Field(default_factory=list)
+    parent_lab_id: UUID | None = None
+    parent_lab_slug: str | None = None
     status: str
     created_by: UUID
     forum_post_id: UUID | None
@@ -234,10 +274,32 @@ class LabListResponse(LabResponse):
     member_count: int = 0
 
 
+class LabChildSummary(BaseModel):
+    slug: str
+    name: str
+    member_count: int = 0
+
+
 class LabDetailResponse(LabResponse):
     rules: dict = Field(default_factory=dict)
     members: list["MembershipResponse"] = Field(default_factory=list)
     task_count: int = 0
+    child_labs: list[LabChildSummary] = Field(default_factory=list)
+    capacity_warning: str | None = None
+
+
+class SpinOutRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    body: str = Field(..., min_length=1)
+    domain: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    suggested_name: str | None = Field(default=None, max_length=200)
+    suggested_slug: str | None = Field(default=None, max_length=100)
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str]) -> list[str]:
+        return _normalize_tags(v)
 
 
 class JoinLabRequest(BaseModel):

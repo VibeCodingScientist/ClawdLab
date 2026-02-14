@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,6 +31,8 @@ router = APIRouter(prefix="/api/forum", tags=["forum"])
 async def list_forum_posts(
     status: str | None = Query(None, pattern=r"^(open|claimed|in_progress|completed|closed)$"),
     domain: str | None = Query(None),
+    search: str | None = Query(None, max_length=200),
+    tags: str | None = Query(None, max_length=500),
     include_lab: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -43,6 +45,15 @@ async def list_forum_posts(
         query = query.where(ForumPost.status == status)
     if domain:
         query = query.where(ForumPost.domain == domain)
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            or_(ForumPost.title.ilike(pattern), ForumPost.body.ilike(pattern))
+        )
+    if tags:
+        tag_list = [t.strip().lower() for t in tags.split(",") if t.strip()]
+        if tag_list:
+            query = query.where(ForumPost.tags.overlap(tag_list))
 
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -52,6 +63,10 @@ async def list_forum_posts(
     query = query.order_by(ForumPost.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
 
+    # Alias for parent lab join
+    from sqlalchemy.orm import aliased
+    ParentLab = aliased(Lab, name="parent_lab")
+
     # Join lab to resolve slug (+ extra fields when include_lab)
     list_query = (
         select(
@@ -60,8 +75,10 @@ async def list_forum_posts(
             Lab.id.label("lab_id"),
             Lab.name.label("lab_name"),
             Lab.status.label("lab_status"),
+            ParentLab.slug.label("parent_lab_slug"),
         )
         .outerjoin(Lab, ForumPost.claimed_by_lab == Lab.id)
+        .outerjoin(ParentLab, ForumPost.parent_lab_id == ParentLab.id)
         .where(ForumPost.id.in_(select(ForumPost.id).select_from(query.subquery())))
         .order_by(ForumPost.created_at.desc())
         .options(selectinload(ForumPost.comments))
@@ -124,6 +141,9 @@ async def list_forum_posts(
             status=p.status,
             claimed_by_lab=p.claimed_by_lab,
             lab_slug=row.lab_slug,
+            tags=p.tags or [],
+            parent_lab_id=p.parent_lab_id,
+            parent_lab_slug=row.parent_lab_slug,
             upvotes=p.upvotes,
             created_at=p.created_at,
             updated_at=p.updated_at,
@@ -149,12 +169,22 @@ async def create_forum_post(
             detail="Either authenticate as an agent or provide author_name",
         )
 
+    # Validate parent_lab_id exists if provided
+    if body.parent_lab_id:
+        parent_lab_result = await db.execute(
+            select(Lab).where(Lab.id == body.parent_lab_id)
+        )
+        if parent_lab_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Parent lab not found")
+
     post = ForumPost(
         author_name=agent.display_name if agent else body.author_name,
         agent_id=agent.id if agent else None,
         title=body.title,
         body=body.body,
         domain=body.domain,
+        tags=body.tags,
+        parent_lab_id=body.parent_lab_id,
     )
     db.add(post)
     await db.commit()
@@ -170,9 +200,17 @@ async def get_forum_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single forum post with comments."""
+    from sqlalchemy.orm import aliased
+    ParentLab = aliased(Lab, name="parent_lab")
+
     result = await db.execute(
-        select(ForumPost, Lab.slug.label("lab_slug"))
+        select(
+            ForumPost,
+            Lab.slug.label("lab_slug"),
+            ParentLab.slug.label("parent_lab_slug"),
+        )
         .outerjoin(Lab, ForumPost.claimed_by_lab == Lab.id)
+        .outerjoin(ParentLab, ForumPost.parent_lab_id == ParentLab.id)
         .where(ForumPost.id == post_id)
         .options(selectinload(ForumPost.comments))
     )
@@ -180,7 +218,7 @@ async def get_forum_post(
     if row is None:
         raise HTTPException(status_code=404, detail="Forum post not found")
 
-    post, lab_slug = row
+    post = row[0]
     return ForumPostResponse(
         id=post.id,
         author_name=post.author_name,
@@ -189,7 +227,10 @@ async def get_forum_post(
         domain=post.domain,
         status=post.status,
         claimed_by_lab=post.claimed_by_lab,
-        lab_slug=lab_slug,
+        lab_slug=row.lab_slug,
+        tags=post.tags or [],
+        parent_lab_id=post.parent_lab_id,
+        parent_lab_slug=row.parent_lab_slug,
         upvotes=post.upvotes,
         created_at=post.created_at,
         updated_at=post.updated_at,

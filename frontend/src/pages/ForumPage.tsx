@@ -14,6 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Lightbulb,
+  Search,
+  GitBranch,
+  Tag,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
@@ -39,13 +42,29 @@ export function ForumPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [domainFilter, setDomainFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [page, setPage] = useState(1)
 
+  // Debounce search
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => {
+      setSearchQuery(value)
+      setPage(1)
+    }, 400))
+  }
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['forum-posts', domainFilter, page],
+    queryKey: ['forum-posts', domainFilter, searchQuery, tagFilter, page],
     queryFn: () =>
       getForumPosts({
         domain: domainFilter || undefined,
+        search: searchQuery || undefined,
+        tags: tagFilter || undefined,
         page,
         perPage: PER_PAGE,
       }),
@@ -104,7 +123,19 @@ export function ForumPage() {
         />
       </div>
 
-      {/* Domain filter pills */}
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={e => handleSearchChange(e.target.value)}
+          placeholder="Search posts by title or content..."
+          className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+
+      {/* Domain filter pills + active tag filter */}
       <div className="flex flex-wrap gap-2">
         {DOMAIN_FILTERS.map(f => (
           <button
@@ -122,6 +153,16 @@ export function ForumPage() {
             {f.label}
           </button>
         ))}
+        {tagFilter && (
+          <button
+            onClick={() => { setTagFilter(''); setPage(1) }}
+            className="rounded-full px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1"
+          >
+            <Tag className="h-3 w-3" />
+            {tagFilter}
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
       {/* Post list */}
@@ -190,7 +231,34 @@ export function ForumPage() {
                           {post.labSlug}
                         </Link>
                       )}
+                      {post.parentLabSlug && (
+                        <Link
+                          to={`/labs/${post.parentLabSlug}/workspace`}
+                          className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <GitBranch className="h-3 w-3" />
+                          Spin-out from {post.parentLabSlug}
+                        </Link>
+                      )}
                     </div>
+                    {post.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {post.tags.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={e => {
+                              e.preventDefault()
+                              setTagFilter(tag)
+                              setPage(1)
+                            }}
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -240,6 +308,7 @@ function SubmitIdeaDialog({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [domain, setDomain] = useState<ForumDomain>('general')
+  const [tagsInput, setTagsInput] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
   const createMutation = useMutation({
@@ -252,6 +321,7 @@ function SubmitIdeaDialog({
         setTitle('')
         setBody('')
         setDomain('general')
+        setTagsInput('')
         setSubmitted(false)
       }, 1500)
     },
@@ -259,11 +329,16 @@ function SubmitIdeaDialog({
 
   const handleSubmit = () => {
     if (!title.trim() || !body.trim()) return
+    const parsedTags = tagsInput
+      .split(',')
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean)
     createMutation.mutate({
       title: title.trim(),
       body: body.trim(),
       domain,
       authorName,
+      tags: parsedTags.length > 0 ? parsedTags : undefined,
     })
   }
 
@@ -327,6 +402,18 @@ function SubmitIdeaDialog({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Tags</label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={e => setTagsInput(e.target.value)}
+                  placeholder="e.g. protein-folding, alphafold, drug-discovery"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Comma-separated, max 20</p>
               </div>
 
               <div>

@@ -55,8 +55,11 @@ function mapLabSummary(raw: any): LabSummary {
     name: raw.name,
     description: raw.description,
     domains: raw.domains ?? [],
-    memberCount: raw.member_count ?? 0,
-    governanceType: raw.governance_type,
+    tags: raw.tags ?? [],
+    parentLabId: raw.parent_lab_id ?? raw.parentLabId ?? null,
+    parentLabSlug: raw.parent_lab_slug ?? raw.parentLabSlug ?? null,
+    memberCount: raw.member_count ?? raw.memberCount ?? 0,
+    governanceType: raw.governance_type ?? raw.governanceType,
     visibility: "public",
   };
 }
@@ -171,14 +174,52 @@ export function createWorkspaceSSE(slug: string): EventSource {
   return new EventSource(`${API_BASE_URL}/labs/${slug}/workspace/stream`);
 }
 
-export async function getLabs(): Promise<LabSummary[]> {
-  if (isMockMode()) return mockGetLabs();
-  const res = await fetch(`${API_BASE_URL}/labs`);
+export async function getLabs(params?: {
+  search?: string;
+  domain?: string;
+  tags?: string;
+}): Promise<LabSummary[]> {
+  if (isMockMode()) return mockGetLabs(params);
+  const sp = new URLSearchParams();
+  if (params?.search) sp.set("search", params.search);
+  if (params?.domain) sp.set("domain", params.domain);
+  if (params?.tags) sp.set("tags", params.tags);
+  const qs = sp.toString();
+  const res = await fetch(`${API_BASE_URL}/labs${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error(`Failed to fetch labs: ${res.status}`);
   const data = await res.json();
   // Backend returns PaginatedResponse with items array
   const items = data.items ?? data;
   return (Array.isArray(items) ? items : []).map(mapLabSummary);
+}
+
+export interface SpinOutData {
+  title: string;
+  body: string;
+  domain?: string;
+  tags?: string[];
+  suggestedName?: string;
+  suggestedSlug?: string;
+}
+
+export async function proposeSpinOut(slug: string, data: SpinOutData): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/spin-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: data.title,
+      body: data.body,
+      domain: data.domain,
+      tags: data.tags ?? [],
+      suggested_name: data.suggestedName,
+      suggested_slug: data.suggestedSlug,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to propose spin-out: ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function getLabDetail(slug: string): Promise<LabDetail> {

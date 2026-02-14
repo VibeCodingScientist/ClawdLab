@@ -3,9 +3,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from backend.auth import get_current_agent, require_lab_membership, require_lab_role
 from backend.database import get_db
@@ -14,7 +14,9 @@ from backend.redis import get_redis
 from backend.services.activity_service import log_activity
 from backend.services.role_service import get_role_card
 from backend.schemas import (
+    ForumPostResponse,
     JoinLabRequest,
+    LabChildSummary,
     LabCreate,
     LabDetailResponse,
     LabListResponse,
@@ -30,6 +32,7 @@ from backend.schemas import (
     RoleCardResponse,
     RoundtableEntryResponse,
     RoundtableStateResponse,
+    SpinOutRequest,
     TaskDetailResponse,
     TaskResponse,
     VoteResponse,
@@ -66,19 +69,32 @@ async def create_lab(
         if forum_post.status != "open":
             raise HTTPException(status_code=400, detail="Forum post is not open")
 
+    # Validate parent_lab_id if provided
+    if body.parent_lab_id:
+        parent_lab_result = await db.execute(
+            select(Lab).where(Lab.id == body.parent_lab_id)
+        )
+        if parent_lab_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Parent lab not found")
+
+    default_rules = {
+        "voting_threshold": 0.5,
+        "quorum_fraction": 0.3,
+        "pi_veto_enabled": True,
+        "min_debate_hours": 0,
+        "voting_check_interval_minutes": 10,
+        "max_members": 15,
+    }
+
     lab = Lab(
         slug=body.slug,
         name=body.name,
         description=body.description,
         governance_type=body.governance_type,
         domains=body.domains,
-        rules=body.rules or {
-            "voting_threshold": 0.5,
-            "quorum_fraction": 0.3,
-            "pi_veto_enabled": True,
-            "min_debate_hours": 0,
-            "voting_check_interval_minutes": 10,
-        },
+        tags=body.tags,
+        parent_lab_id=body.parent_lab_id,
+        rules=body.rules or default_rules,
         forum_post_id=body.forum_post_id,
         created_by=agent.id,
     )
@@ -118,11 +134,14 @@ async def create_lab(
 
 @router.get("", response_model=PaginatedResponse)
 async def list_labs(
+    search: str | None = Query(None, max_length=200),
+    domain: str | None = Query(None, max_length=50),
+    tags: str | None = Query(None, max_length=500),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all labs with member counts."""
+    """List all labs with member counts, optional search/domain/tag filters."""
     # Subquery for member count
     member_count_sq = (
         select(
@@ -134,15 +153,48 @@ async def list_labs(
         .subquery()
     )
 
+    ParentLab = aliased(Lab, name="parent_lab")
+
     query = (
-        select(Lab, func.coalesce(member_count_sq.c.member_count, 0).label("member_count"))
+        select(
+            Lab,
+            func.coalesce(member_count_sq.c.member_count, 0).label("member_count"),
+            ParentLab.slug.label("parent_lab_slug"),
+        )
         .outerjoin(member_count_sq, Lab.id == member_count_sq.c.lab_id)
+        .outerjoin(ParentLab, Lab.parent_lab_id == ParentLab.id)
         .where(Lab.status == "active")
         .order_by(Lab.created_at.desc())
     )
 
+    # Apply filters
+    base_filter = Lab.status == "active"
+    filters = [base_filter]
+    if search:
+        pattern = f"%{search}%"
+        filters.append(or_(Lab.name.ilike(pattern), Lab.description.ilike(pattern)))
+    if domain:
+        filters.append(Lab.domains.any(domain))
+    if tags:
+        tag_list = [t.strip().lower() for t in tags.split(",") if t.strip()]
+        if tag_list:
+            filters.append(Lab.tags.overlap(tag_list))
+
+    if len(filters) > 1:
+        query = (
+            select(
+                Lab,
+                func.coalesce(member_count_sq.c.member_count, 0).label("member_count"),
+                ParentLab.slug.label("parent_lab_slug"),
+            )
+            .outerjoin(member_count_sq, Lab.id == member_count_sq.c.lab_id)
+            .outerjoin(ParentLab, Lab.parent_lab_id == ParentLab.id)
+            .where(*filters)
+            .order_by(Lab.created_at.desc())
+        )
+
     count_query = select(func.count()).select_from(
-        select(Lab).where(Lab.status == "active").subquery()
+        select(Lab).where(*filters).subquery()
     )
     total = (await db.execute(count_query)).scalar() or 0
 
@@ -158,6 +210,9 @@ async def list_labs(
             description=lab.description,
             governance_type=lab.governance_type,
             domains=lab.domains,
+            tags=lab.tags or [],
+            parent_lab_id=lab.parent_lab_id,
+            parent_lab_slug=parent_lab_slug,
             status=lab.status,
             created_by=lab.created_by,
             forum_post_id=lab.forum_post_id,
@@ -165,7 +220,7 @@ async def list_labs(
             updated_at=lab.updated_at,
             member_count=member_count,
         )
-        for lab, member_count in rows
+        for lab, member_count, parent_lab_slug in rows
     ]
 
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
@@ -176,17 +231,23 @@ async def get_lab_detail(
     slug: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get lab detail with members and task counts."""
+    """Get lab detail with members, task counts, child labs, and capacity warning."""
+    ParentLab = aliased(Lab, name="parent_lab")
+
     result = await db.execute(
-        select(Lab)
+        select(Lab, ParentLab.slug.label("parent_lab_slug"))
+        .outerjoin(ParentLab, Lab.parent_lab_id == ParentLab.id)
         .where(Lab.slug == slug)
         .options(
             selectinload(Lab.memberships).selectinload(LabMembership.agent),
         )
     )
-    lab = result.scalar_one_or_none()
-    if lab is None:
+    row = result.one_or_none()
+    if row is None:
         raise HTTPException(status_code=404, detail="Lab not found")
+
+    lab = row[0]
+    parent_lab_slug = row.parent_lab_slug
 
     # Task count
     task_count_result = await db.execute(
@@ -207,6 +268,36 @@ async def get_lab_detail(
         if m.status == "active"
     ]
 
+    active_count = len(members)
+    max_members = (lab.rules or {}).get("max_members", 15)
+
+    # Capacity warning
+    capacity_warning = None
+    if max_members and active_count >= max_members:
+        capacity_warning = f"Lab is at capacity ({active_count}/{max_members} members). Consider a child lab or spin-out."
+    elif max_members and active_count >= max_members * 0.8:
+        capacity_warning = f"Lab is near capacity ({active_count}/{max_members} members)."
+
+    # Child labs with member counts
+    child_member_sq = (
+        select(
+            LabMembership.lab_id,
+            func.count().label("cnt"),
+        )
+        .where(LabMembership.status == "active")
+        .group_by(LabMembership.lab_id)
+        .subquery()
+    )
+    child_result = await db.execute(
+        select(Lab.slug, Lab.name, func.coalesce(child_member_sq.c.cnt, 0).label("member_count"))
+        .outerjoin(child_member_sq, Lab.id == child_member_sq.c.lab_id)
+        .where(Lab.parent_lab_id == lab.id)
+    )
+    child_labs = [
+        LabChildSummary(slug=r.slug, name=r.name, member_count=r.member_count)
+        for r in child_result.all()
+    ]
+
     return LabDetailResponse(
         id=lab.id,
         slug=lab.slug,
@@ -214,6 +305,9 @@ async def get_lab_detail(
         description=lab.description,
         governance_type=lab.governance_type,
         domains=lab.domains,
+        tags=lab.tags or [],
+        parent_lab_id=lab.parent_lab_id,
+        parent_lab_slug=parent_lab_slug,
         rules=lab.rules,
         status=lab.status,
         created_by=lab.created_by,
@@ -222,6 +316,8 @@ async def get_lab_detail(
         updated_at=lab.updated_at,
         members=members,
         task_count=task_count,
+        child_labs=child_labs,
+        capacity_warning=capacity_warning,
     )
 
 
@@ -241,6 +337,21 @@ async def join_lab(
 
     if lab.status != "active":
         raise HTTPException(status_code=400, detail="Lab is not active")
+
+    # Member cap check
+    max_members = (lab.rules or {}).get("max_members", 15)
+    if max_members:
+        active_count = (await db.execute(
+            select(func.count()).where(
+                LabMembership.lab_id == lab.id,
+                LabMembership.status == "active",
+            )
+        )).scalar() or 0
+        if active_count >= max_members:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Lab at capacity ({max_members} members). Consider a child lab or spin-out.",
+            )
 
     # Check if already a member
     existing = await db.execute(
@@ -339,6 +450,69 @@ async def leave_lab(
 
     logger.info("agent_left_lab", lab_slug=slug, agent_id=str(agent.id))
     return MessageResponse(message="Left lab successfully")
+
+
+@router.post("/{slug}/spin-out", response_model=ForumPostResponse, status_code=201)
+async def propose_spin_out(
+    slug: str,
+    body: SpinOutRequest,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """Any lab member can propose a spin-out, creating a tagged forum post linked to this lab."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    await require_lab_membership(db, lab.id, agent.id)
+
+    # Inherit tags from parent lab, merge with request tags
+    merged_tags = list(set((lab.tags or []) + body.tags))
+
+    post = ForumPost(
+        author_name=agent.display_name,
+        agent_id=agent.id,
+        title=body.title,
+        body=body.body,
+        domain=body.domain or (lab.domains[0] if lab.domains else None),
+        tags=merged_tags,
+        parent_lab_id=lab.id,
+    )
+    db.add(post)
+    await db.flush()
+
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        redis = None
+    await log_activity(
+        db, redis, lab.id, slug, "spin_out_proposed",
+        f"{agent.display_name} proposed spin-out: {body.title}",
+        agent_id=agent.id,
+    )
+
+    await db.commit()
+    await db.refresh(post)
+
+    logger.info("spin_out_proposed", lab_slug=slug, post_id=str(post.id))
+    return ForumPostResponse(
+        id=post.id,
+        author_name=post.author_name,
+        agent_id=post.agent_id,
+        title=post.title,
+        body=post.body,
+        domain=post.domain,
+        status=post.status,
+        claimed_by_lab=post.claimed_by_lab,
+        lab_slug=None,
+        tags=post.tags or [],
+        parent_lab_id=post.parent_lab_id,
+        parent_lab_slug=slug,
+        upvotes=post.upvotes,
+        created_at=post.created_at,
+        updated_at=post.updated_at,
+    )
 
 
 @router.get("/{slug}/members", response_model=list[LabMemberResponse])

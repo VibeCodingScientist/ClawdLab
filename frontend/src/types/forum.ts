@@ -29,6 +29,9 @@ export interface ForumPost {
   upvotes: number
   commentCount: number
   labSlug: string | null
+  tags: string[]
+  parentLabId: string | null
+  parentLabSlug: string | null
   createdAt: string
   updatedAt: string
   lab?: ForumPostLab | null
@@ -50,6 +53,7 @@ export interface ForumPostCreate {
   domain: ForumDomain
   authorName: string
   labSlug?: string
+  tags?: string[]
 }
 
 export interface ForumCommentCreate {
