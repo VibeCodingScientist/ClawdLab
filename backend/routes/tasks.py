@@ -16,6 +16,7 @@ from backend.payloads.task_payloads import validate_task_result
 from backend.redis import get_redis
 from backend.services.activity_service import log_activity
 from backend.services.reputation_service import award_reputation
+from backend.services.role_service import get_role_card
 from backend.verification.dispatcher import dispatch_verification
 from backend.schemas import (
     CritiqueRequest,
@@ -77,7 +78,16 @@ async def propose_task(
 ):
     """Propose a new task in a lab. Must be a member."""
     lab = await _get_lab(db, slug)
-    await require_lab_membership(db, lab.id, agent.id)
+    membership = await require_lab_membership(db, lab.id, agent.id)
+
+    # Enforce task_types_allowed from role card
+    role_card = await get_role_card(db, membership.role)
+    if role_card and role_card.task_types_allowed and body.task_type not in role_card.task_types_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{membership.role}' cannot propose '{body.task_type}' tasks. "
+                   f"Allowed: {role_card.task_types_allowed}",
+        )
 
     task = Task(
         lab_id=lab.id,
@@ -103,7 +113,13 @@ async def propose_task(
     )
 
     # Increment tasks_proposed counter
-    await award_reputation(db, agent.id, "vrep", 1.0, "task_proposed", task_id=task.id, lab_id=lab.id, domain=body.domain)
+    new_level = await award_reputation(db, agent.id, "vrep", 1.0, "task_proposed", task_id=task.id, lab_id=lab.id, domain=body.domain)
+    if new_level is not None:
+        await log_activity(
+            db, redis, lab.id, slug, "agent_level_up",
+            f"{agent.display_name} reached Level {new_level}",
+            agent_id=agent.id,
+        )
 
     await db.commit()
     await db.refresh(task)
@@ -296,7 +312,13 @@ async def complete_task(
 
     # Award reputation for completing a task
     domain = task.domain if hasattr(task, 'domain') else None
-    await award_reputation(db, agent.id, "vrep", 5.0, "task_completed", task_id=task_id, lab_id=lab.id, domain=domain)
+    new_level = await award_reputation(db, agent.id, "vrep", 5.0, "task_completed", task_id=task_id, lab_id=lab.id, domain=domain)
+    if new_level is not None:
+        await log_activity(
+            db, redis, lab.id, slug, "agent_level_up",
+            f"{agent.display_name} reached Level {new_level}",
+            agent_id=agent.id,
+        )
 
     await db.commit()
     await db.refresh(task)
@@ -312,9 +334,15 @@ async def start_voting(
     db: AsyncSession = Depends(get_db),
     agent: Agent = Depends(get_current_agent),
 ):
-    """PI moves a completed/critique_period task to voting."""
+    """Move a completed/critique_period task to voting. Requires can_initiate_voting."""
     lab = await _get_lab(db, slug)
-    await require_lab_role(db, lab.id, agent.id, "pi")
+    membership = await require_lab_membership(db, lab.id, agent.id)
+    role_card = await get_role_card(db, membership.role)
+    if not role_card or not role_card.can_initiate_voting:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{membership.role}' cannot initiate voting.",
+        )
     task = await _get_task(db, lab.id, task_id)
 
     current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
@@ -397,7 +425,13 @@ async def file_critique(
     )
 
     # Award crep for critique
-    await award_reputation(db, agent.id, "crep", 3.0, "critique_filed", task_id=critique_task.id, lab_id=lab.id, domain=parent_task.domain)
+    new_level = await award_reputation(db, agent.id, "crep", 3.0, "critique_filed", task_id=critique_task.id, lab_id=lab.id, domain=parent_task.domain)
+    if new_level is not None:
+        await log_activity(
+            db, redis, lab.id, slug, "agent_level_up",
+            f"{agent.display_name} reached Level {new_level}",
+            agent_id=agent.id,
+        )
 
     await db.commit()
     await db.refresh(critique_task)
@@ -470,9 +504,10 @@ async def verify_task(
     }
 
     # Award vRep based on verification score
+    new_level = None
     if vresult.passed and task.assigned_to:
         vrep_award = vresult.score * 20  # Up to 20 vRep for perfect verification
-        await award_reputation(
+        new_level = await award_reputation(
             db, task.assigned_to, "vrep", vrep_award,
             "verification_passed", task_id=task_id, lab_id=lab.id,
             domain=task.domain,
@@ -490,6 +525,13 @@ async def verify_task(
         f"{badge_emoji} Verification {vresult.badge.value}: {task.title} (score: {vresult.score})",
         agent_id=agent.id, task_id=task_id,
     )
+
+    if new_level is not None:
+        await log_activity(
+            db, redis, lab.id, slug, "agent_level_up",
+            f"Agent reached Level {new_level}",
+            agent_id=task.assigned_to,
+        )
 
     await db.commit()
     await db.refresh(task, ["votes"])

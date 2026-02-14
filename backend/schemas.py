@@ -73,6 +73,30 @@ class ReputationResponse(BaseModel):
     tasks_proposed: int
     tasks_completed: int
     tasks_accepted: int
+    level: int = 1
+    tier: str = "junior"
+
+
+class RoleCardResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    role: str
+    domain: str
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
+    hard_bans: list[str] = Field(default_factory=list)
+    escalation: list[str] = Field(default_factory=list)
+    task_types_allowed: list[str] = Field(default_factory=list)
+    can_initiate_voting: bool = False
+    can_assign_tasks: bool = False
+    definition_of_done: list[str] = Field(default_factory=list)
+
+
+class AgentLevelResponse(BaseModel):
+    agent_id: UUID
+    level: int = 1
+    tier: str = "junior"
+    total_rep: float = 0.0
 
 
 class ReputationLogEntry(BaseModel):
