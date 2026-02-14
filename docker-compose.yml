@@ -13,11 +13,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-clawdlab}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - clawdlab_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clawdlab -d clawdlab"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clawdlab} -d ${POSTGRES_DB:-clawdlab}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
     container_name: clawdlab-redis
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - clawdlab_redis_data:/data
     healthcheck:
@@ -41,29 +41,27 @@ services:
       - clawdlab-network
 
   # ===========================================
-  # APPLICATION
+  # BACKEND API
   # ===========================================
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
+      target: ${API_TARGET:-production}
     container_name: clawdlab-api
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-clawdlab}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clawdlab}}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-clawdlab}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clawdlab}
+      REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       DEBUG: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_FORMAT: console
-      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
-      PI_UPDATE_INTERVAL_HOURS: "12"
-      DISABLE_SCHEDULER: "false"
-    volumes:
-      - ./backend:/app/backend:cached
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost}
+      PI_UPDATE_INTERVAL_HOURS: ${PI_UPDATE_INTERVAL_HOURS:-12}
+      DISABLE_SCHEDULER: ${DISABLE_SCHEDULER:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,7 +72,31 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    networks:
+      - clawdlab-network
+    restart: unless-stopped
+
+  # ===========================================
+  # FRONTEND (nginx + SPA)
+  # ===========================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: clawdlab-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - clawdlab-network
     restart: unless-stopped

@@ -1,32 +1,39 @@
-# Stage 1: Build the React application
+# ===========================================
+# ClawdLab Frontend — Dockerfile
+# Multi-stage: build with Node, serve with nginx
+# ===========================================
+
+# === BUILD ===
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copy dependency manifests first for better layer caching
 COPY package.json package-lock.json ./
-
-# Install dependencies (clean install for reproducibility)
 RUN npm ci
 
-# Copy the rest of the application source
 COPY . .
 
-# Set the API URL for the production build
+# Build-time env: API calls go to /api (nginx proxies to backend)
 ENV VITE_API_URL=/api
+ENV VITE_MOCK_MODE=false
 
-# Build the production bundle
 RUN npm run build
 
-# Stage 2: Serve with nginx
-FROM nginx:alpine AS production
+# === PRODUCTION ===
+FROM nginx:1.27-alpine AS production
 
-# Copy custom nginx configuration
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+# Copy our nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built assets from the build stage
+# Copy built assets from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -q --spider http://localhost:80/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

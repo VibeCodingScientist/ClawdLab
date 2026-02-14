@@ -13,7 +13,9 @@ from backend.logging_config import get_logger
 from backend.redis import get_redis
 from backend.services.activity_service import log_activity
 from backend.services.role_service import get_role_card
+from backend.services.signature_service import sign_and_append
 from backend.schemas import (
+    CritiqueSummary,
     ForumPostResponse,
     JoinLabRequest,
     LabChildSummary,
@@ -34,8 +36,10 @@ from backend.schemas import (
     RoundtableStateResponse,
     SpinOutRequest,
     TaskDetailResponse,
+    TaskFeedbackResponse,
     TaskResponse,
     VoteResponse,
+    VoteSummary,
 )
 from backend.models import (
     Agent, AgentReputation, ForumComment, ForumPost, Lab, LabDiscussion,
@@ -100,6 +104,11 @@ async def create_lab(
     )
     db.add(lab)
     await db.flush()
+
+    await sign_and_append(
+        db, "lab", lab.id, "lab_created", agent.id,
+        {"slug": body.slug, "name": body.name, "governance": body.governance_type},
+    )
 
     # Creator becomes PI
     membership = LabMembership(
@@ -397,6 +406,11 @@ async def join_lab(
     )
     db.add(membership)
 
+    await sign_and_append(
+        db, "lab", lab.id, "agent_joined", agent.id,
+        {"role": body.role},
+    )
+
     try:
         redis = get_redis()
     except RuntimeError:
@@ -445,7 +459,14 @@ async def leave_lab(
     if membership is None:
         raise HTTPException(status_code=404, detail="Not a member of this lab")
 
+    previous_role = membership.role
     membership.status = "left"
+
+    await sign_and_append(
+        db, "lab", lab.id, "agent_left", agent.id,
+        {"previous_role": previous_role},
+    )
+
     await db.commit()
 
     logger.info("agent_left_lab", lab_slug=slug, agent_id=str(agent.id))
@@ -481,6 +502,11 @@ async def propose_spin_out(
     )
     db.add(post)
     await db.flush()
+
+    await sign_and_append(
+        db, "forum_post", post.id, "spin_out_proposed", agent.id,
+        {"title": body.title, "parent_lab_slug": slug},
+    )
 
     try:
         redis = get_redis()
@@ -631,6 +657,83 @@ async def get_lab_research(
         )
         for task, vote_count in rows
     ]
+
+
+@router.get("/{slug}/feedback", response_model=list[TaskFeedbackResponse])
+async def get_lab_feedback(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get resolved tasks with vote summaries, reasoning, and critiques for closed-loop learning."""
+    lab_result = await db.execute(select(Lab).where(Lab.slug == slug))
+    lab = lab_result.scalar_one_or_none()
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    result = await db.execute(
+        select(Task)
+        .where(
+            Task.lab_id == lab.id,
+            Task.status.in_([TaskStatusEnum.accepted, TaskStatusEnum.rejected]),
+        )
+        .options(selectinload(Task.votes))
+        .order_by(Task.resolved_at.desc().nulls_last())
+    )
+    tasks = result.scalars().all()
+
+    feedback_items: list[TaskFeedbackResponse] = []
+    for task in tasks:
+        # Vote summary
+        approve = sum(1 for v in task.votes if v.vote == "approve")
+        reject = sum(1 for v in task.votes if v.vote == "reject")
+        abstain = sum(1 for v in task.votes if v.vote == "abstain")
+
+        vote_reasoning = [
+            VoteResponse(
+                id=v.id, task_id=v.task_id, agent_id=v.agent_id,
+                vote=v.vote, reasoning=v.reasoning, created_at=v.created_at,
+            )
+            for v in task.votes
+        ]
+
+        # Critique child tasks
+        critique_result = await db.execute(
+            select(Task).where(
+                Task.parent_task_id == task.id,
+                Task.task_type == TaskTypeEnum.critique,
+            )
+        )
+        critique_tasks = critique_result.scalars().all()
+        critiques = [
+            CritiqueSummary(
+                critique_task_id=ct.id,
+                title=ct.title,
+                issues=(ct.result or {}).get("issues", []),
+                author_id=ct.proposed_by,
+            )
+            for ct in critique_tasks
+        ]
+
+        task_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
+
+        feedback_items.append(TaskFeedbackResponse(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            task_type=task.task_type.value if isinstance(task.task_type, TaskTypeEnum) else task.task_type,
+            status=task_status,
+            domain=task.domain,
+            proposed_by=task.proposed_by,
+            assigned_to=task.assigned_to,
+            result=task.result,
+            vote_summary=VoteSummary(approve=approve, reject=reject, abstain=abstain, total=len(task.votes)),
+            vote_reasoning=vote_reasoning,
+            critiques=critiques,
+            outcome=task_status,
+            resolved_at=task.resolved_at,
+        ))
+
+    return feedback_items
 
 
 @router.get("/{slug}/roundtable/{task_id}")

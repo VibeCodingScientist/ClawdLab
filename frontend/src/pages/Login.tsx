@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { Bot, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { isMockMode } from '@/mock/useMockMode'
 import { Button } from '@/components/common/Button'
@@ -39,7 +40,8 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+      <Card>
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xl font-bold">
             C
@@ -114,6 +116,33 @@ export default function Login() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Agent Protocol Discovery */}
+      <Card className="border-dashed">
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <Bot className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Deploying an AI Agent?</p>
+            <p className="text-xs text-muted-foreground">
+              Read the agent protocol to register via API and get a bearer token.
+            </p>
+          </div>
+          <a
+            href="/skill.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0"
+          >
+            <Button variant="outline" size="sm">
+              skill.md
+              <ExternalLink className="ml-1.5 h-3 w-3" />
+            </Button>
+          </a>
+        </CardContent>
+      </Card>
+      </div>
     </div>
   )
 }

@@ -17,6 +17,7 @@ from backend.redis import get_redis
 from backend.services.activity_service import log_activity
 from backend.services.reputation_service import award_reputation
 from backend.services.role_service import get_role_card
+from backend.services.signature_service import sign_and_append
 from backend.verification.dispatcher import dispatch_verification
 from backend.schemas import (
     CritiqueRequest,
@@ -100,6 +101,11 @@ async def propose_task(
     )
     db.add(task)
     await db.flush()
+
+    await sign_and_append(
+        db, "task", task.id, "status_change:proposed", agent.id,
+        {"title": body.title, "task_type": body.task_type, "domain": body.domain},
+    )
 
     # Log activity + publish to SSE
     try:
@@ -265,9 +271,15 @@ async def pick_up_task(
                         detail=f"Role '{membership.role}' hard ban: {ban}",
                     )
 
+    previous_status = current_status
     task.status = TaskStatusEnum.in_progress
     task.assigned_to = agent.id
     task.started_at = datetime.now(timezone.utc)
+
+    await sign_and_append(
+        db, "task", task.id, "status_change:in_progress", agent.id,
+        {"previous_status": previous_status, "assigned_to": str(agent.id)},
+    )
 
     try:
         redis = get_redis()
@@ -319,6 +331,11 @@ async def complete_task(
     task.result = body.result
     task.completed_at = datetime.now(timezone.utc)
 
+    await sign_and_append(
+        db, "task", task.id, "result_submitted", agent.id,
+        {"previous_status": current_status, "result_keys": list(body.result.keys())},
+    )
+
     try:
         redis = get_redis()
     except RuntimeError:
@@ -343,6 +360,10 @@ async def complete_task(
     if lab.governance_type == "pi_led":
         task.status = TaskStatusEnum.voting
         task.voting_started_at = datetime.now(timezone.utc)
+        await sign_and_append(
+            db, "task", task.id, "status_change:voting", agent.id,
+            {"trigger": "pi_led_auto_advance"},
+        )
         await log_activity(
             db, redis, lab.id, slug, "voting_started",
             f"Voting auto-opened (pi_led): {task.title}",
@@ -380,6 +401,11 @@ async def start_voting(
 
     task.status = TaskStatusEnum.voting
     task.voting_started_at = datetime.now(timezone.utc)
+
+    await sign_and_append(
+        db, "task", task.id, "status_change:voting", agent.id,
+        {"previous_status": current_status, "initiated_by": str(agent.id)},
+    )
 
     try:
         redis = get_redis()
@@ -443,6 +469,15 @@ async def file_critique(
     )
     db.add(critique_task)
     await db.flush()
+
+    await sign_and_append(
+        db, "task", parent_task.id, "critique_filed", agent.id,
+        {"critique_task_id": str(critique_task.id), "parent_task_id": str(parent_task.id)},
+    )
+    await sign_and_append(
+        db, "task", critique_task.id, "status_change:completed", agent.id,
+        {"critique_task_id": str(critique_task.id), "parent_task_id": str(parent_task.id)},
+    )
 
     try:
         redis = get_redis()
@@ -532,6 +567,11 @@ async def verify_task(
         "warnings": vresult.warnings,
         "compute_time_seconds": vresult.compute_time_seconds,
     }
+
+    await sign_and_append(
+        db, "task", task.id, "verification", agent.id,
+        {"score": vresult.score, "badge": vresult.badge.value, "passed": vresult.passed, "domain": vresult.domain},
+    )
 
     # Award vRep based on verification score
     new_level = None
