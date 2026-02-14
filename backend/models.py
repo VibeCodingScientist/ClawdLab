@@ -358,6 +358,9 @@ class LabMembership(Base):
     status: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'active'")
     )
+    custom_bans: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
@@ -563,6 +566,37 @@ class RoleActionWeight(Base):
     action_type: Mapped[str] = mapped_column(Text, primary_key=True)
     weight: Mapped[float] = mapped_column(
         DECIMAL(3, 2), nullable=False, server_default=text("1.0")
+    )
+
+
+class RoleCard(Base):
+    __tablename__ = "role_cards"
+
+    role: Mapped[str] = mapped_column(Text, primary_key=True)
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
+    inputs: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    outputs: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    hard_bans: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    escalation: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    task_types_allowed: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    can_initiate_voting: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
+    can_assign_tasks: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("false")
+    )
+    definition_of_done: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
     )
 
 

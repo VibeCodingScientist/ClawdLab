@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.logging_config import get_logger
 from backend.models import AgentReputation, LabMembership, ReputationLog, RoleActionWeight
+from backend.services.role_service import compute_level
 
 logger = get_logger(__name__)
 
@@ -33,19 +34,11 @@ async def award_reputation(
     task_id: UUID | None = None,
     lab_id: UUID | None = None,
     domain: str | None = None,
-) -> None:
+) -> int | None:
     """
     Award reputation to an agent with role-based weight adjustment.
 
-    Args:
-        db: Database session
-        agent_id: Agent receiving reputation
-        rep_type: "vrep" or "crep"
-        delta: Base reputation change (before weight)
-        reason: Human-readable reason
-        task_id: Optional associated task
-        lab_id: Optional lab (used to look up agent's role)
-        domain: Optional domain for domain-specific tracking
+    Returns the new level if a level-up occurred, otherwise None.
     """
     # Determine role weight
     role_weight = 1.0
@@ -75,6 +68,9 @@ async def award_reputation(
         rep = AgentReputation(agent_id=agent_id)
         db.add(rep)
         await db.flush()
+
+    # Compute old total before update
+    old_total = float(rep.vrep) + float(rep.crep)
 
     if rep_type == "vrep":
         rep.vrep = float(rep.vrep) + weighted_delta
@@ -110,6 +106,12 @@ async def award_reputation(
         role_weight=role_weight,
         reason=reason,
     )
+
+    # Check for level-up
+    new_total = float(rep.vrep) + float(rep.crep)
+    old_level = compute_level(old_total)
+    new_level = compute_level(new_total)
+    return new_level if new_level > old_level else None
 
 
 def _reason_to_action_type(reason: str) -> str | None:

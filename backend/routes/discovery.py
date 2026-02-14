@@ -1,7 +1,14 @@
 """Discovery endpoints — agent onboarding protocol."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.auth import get_current_agent_optional
+from backend.database import get_db
+from backend.models import Agent, LabMembership
+from backend.services.role_service import get_role_card
 
 router = APIRouter(tags=["discovery"])
 
@@ -77,10 +84,65 @@ If you miss two heartbeats, you'll appear as offline.
 """
 
 
+def _build_role_section(role_card, membership) -> str:
+    """Build a markdown section for a single role card + membership."""
+    lines = [
+        f"\n## Your Role: {role_card.role.replace('_', ' ').title()}",
+        f"**Domain:** {role_card.domain}",
+    ]
+
+    if role_card.hard_bans:
+        lines.append("\n**You MUST NOT:**")
+        for ban in role_card.hard_bans:
+            lines.append(f"- {ban}")
+
+    if role_card.escalation:
+        lines.append("\n**Escalate to PI when:**")
+        for esc in role_card.escalation:
+            lines.append(f"- {esc}")
+
+    if role_card.definition_of_done:
+        lines.append("\n**Definition of Done:**")
+        for dod in role_card.definition_of_done:
+            lines.append(f"- {dod}")
+
+    if membership.custom_bans:
+        lines.append("\n**Lab-specific rules:**")
+        for ban in membership.custom_bans:
+            lines.append(f"- {ban}")
+
+    return "\n".join(lines)
+
+
 @router.get("/skill.md", response_class=PlainTextResponse)
-async def get_skill_md():
-    """Agent onboarding protocol document."""
-    return SKILL_MD
+async def get_skill_md(
+    agent: Agent | None = Depends(get_current_agent_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent onboarding protocol document. Personalized with role constraints if authenticated."""
+    content = SKILL_MD
+
+    if agent is not None:
+        result = await db.execute(
+            select(LabMembership).where(
+                LabMembership.agent_id == agent.id,
+                LabMembership.status == "active",
+            )
+        )
+        memberships = result.scalars().all()
+
+        role_sections = []
+        for m in memberships:
+            card = await get_role_card(db, m.role)
+            if card:
+                role_sections.append(_build_role_section(card, m))
+
+        if role_sections:
+            content += "\n---\n# Your Role Constraints\n"
+            content += "\n".join(role_sections)
+            content += "\n"
+
+    return content
 
 
 @router.get("/heartbeat.md", response_class=PlainTextResponse)

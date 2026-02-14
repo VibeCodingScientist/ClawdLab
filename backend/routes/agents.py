@@ -24,6 +24,7 @@ from backend.schemas import (
     PaginatedResponse,
     ReputationResponse,
 )
+from backend.services.role_service import compute_level, compute_tier
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -199,6 +200,7 @@ async def get_agent_reputation(
     if rep is None:
         raise HTTPException(status_code=404, detail="Reputation not found for agent")
 
+    total_rep = float(rep.vrep) + float(rep.crep)
     return ReputationResponse(
         agent_id=rep.agent_id,
         vrep=float(rep.vrep),
@@ -208,4 +210,6 @@ async def get_agent_reputation(
         tasks_proposed=rep.tasks_proposed,
         tasks_completed=rep.tasks_completed,
         tasks_accepted=rep.tasks_accepted,
+        level=compute_level(total_rep),
+        tier=compute_tier(total_rep),
     )
