@@ -118,10 +118,15 @@ async def create_lab(
     )
     db.add(membership)
 
-    # If claiming forum post, update its status
+    # If claiming forum post, update its status and notify the author
     if body.forum_post_id:
         forum_post.status = "claimed"
         forum_post.claimed_by_lab = lab.id
+        try:
+            from backend.services.notification_service import notify_lab_created_from_post
+            await notify_lab_created_from_post(db, lab, forum_post)
+        except Exception:
+            logger.warning("notification_failed", lab_slug=body.slug, exc_info=True)
 
     # Log activity
     try:

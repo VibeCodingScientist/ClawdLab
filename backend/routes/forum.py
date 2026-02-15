@@ -265,7 +265,8 @@ async def add_forum_comment(
     post_result = await db.execute(
         select(ForumPost).where(ForumPost.id == post_id)
     )
-    if post_result.scalar_one_or_none() is None:
+    post = post_result.scalar_one_or_none()
+    if post is None:
         raise HTTPException(status_code=404, detail="Forum post not found")
 
     # Must have either agent or author_name
@@ -285,6 +286,14 @@ async def add_forum_comment(
     db.add(comment)
     await db.commit()
     await db.refresh(comment)
+
+    # Send notifications (reply + post-comment)
+    try:
+        from backend.services.notification_service import notify_comment_parent_author
+        await notify_comment_parent_author(db, comment, post)
+        await db.commit()
+    except Exception:
+        logger.warning("notification_failed", post_id=str(post_id), exc_info=True)
 
     logger.info("forum_comment_added", post_id=str(post_id), comment_id=str(comment.id))
     return comment

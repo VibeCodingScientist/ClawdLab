@@ -794,3 +794,32 @@ class PIUpdateResponse(BaseModel):
     forum_post_id: UUID
     summary: str
     posted_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    notification_type: str
+    title: str
+    body: str
+    link: str | None = None
+    metadata: dict = Field(default_factory=dict)
+    read_at: datetime | None = None
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationResponse] = Field(default_factory=list)
+    total: int = 0
+    unread_count: int = 0
+
+
+class NotificationUnreadCountResponse(BaseModel):
+    unread_count: int = 0

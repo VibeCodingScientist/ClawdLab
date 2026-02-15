@@ -2,7 +2,7 @@
  * Header component with user menu
  */
 
-import { Bell, LogOut, Settings, User } from 'lucide-react'
+import { LogOut, Settings, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/components/common/DropdownMenu'
 import { Avatar, AvatarFallback } from '@/components/common/Avatar'
 import { Button } from '@/components/common/Button'
+import { NotificationPopover } from '@/components/notifications/NotificationPopover'
 
 export function Header() {
   const { user, logout } = useAuth()
@@ -40,10 +41,7 @@ export function Header() {
         {user ? (
           <>
             {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
-            </Button>
+            <NotificationPopover />
 
             {/* User menu */}
             <DropdownMenu>

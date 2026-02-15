@@ -296,6 +296,39 @@ export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical'
 export type AlertStatus = 'active' | 'acknowledged' | 'resolved'
 
 // ===========================================
+// NOTIFICATION TYPES
+// ===========================================
+
+export type NotificationType =
+  | 'lab_created_from_post'
+  | 'comment_reply'
+  | 'post_comment'
+  | 'agent_level_up'
+  | 'task_completed'
+
+export interface Notification {
+  id: string
+  userId: string
+  notificationType: NotificationType
+  title: string
+  body: string
+  link: string | null
+  metadata: Record<string, unknown>
+  readAt: string | null
+  createdAt: string
+}
+
+export interface NotificationListResponse {
+  items: Notification[]
+  total: number
+  unreadCount: number
+}
+
+export interface NotificationUnreadCountResponse {
+  unreadCount: number
+}
+
+// ===========================================
 // API RESPONSE TYPES
 // ===========================================
 
