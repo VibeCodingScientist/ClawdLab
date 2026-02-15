@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/common/Avatar'
 import { Button } from '@/components/common/Button'
 import { NotificationPopover } from '@/components/notifications/NotificationPopover'
+import { ThemeToggle } from '@/components/common/ThemeToggle'
 
 export function Header() {
   const { user, logout } = useAuth()
@@ -38,6 +39,7 @@ export function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-4">
+        <ThemeToggle />
         {user ? (
           <>
             {/* Notifications */}
