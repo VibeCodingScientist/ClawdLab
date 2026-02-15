@@ -37,7 +37,8 @@ RUN pip install --upgrade pip setuptools wheel \
 FROM base AS development
 
 COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 COPY --chown=appuser:appgroup . .
 
@@ -58,7 +59,8 @@ FROM base AS production
 
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONOPTIMIZE=1
+    PYTHONOPTIMIZE=1 \
+    PYTHONPATH="/app"
 
 COPY --chown=appuser:appgroup . .
 
