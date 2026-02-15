@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkspaceAgent, WorkspaceEvent } from "../types/workspace";
-import { isMockMode } from "../mock/useMockMode";
+import { isMockMode, isDemoLab } from "../mock/useMockMode";
 import { MockEventEngine } from "../mock/mockEventEngine";
 import { API_BASE_URL } from "../api/client";
 
@@ -56,7 +56,7 @@ export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
   }, []);
 
   const connect = useCallback(() => {
-    if (isMockMode()) {
+    if (isMockMode() || isDemoLab(slug)) {
       const engine = new MockEventEngine(
         slug,
         handleEvent,

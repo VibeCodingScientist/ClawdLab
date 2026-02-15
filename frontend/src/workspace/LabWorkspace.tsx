@@ -18,7 +18,7 @@ import { SuggestToLab } from './overlays/SuggestToLab'
 import { CommunityIdeas } from './overlays/CommunityIdeas'
 import { JoinLabDialog } from '@/components/labs/JoinLabDialog'
 import { GameBridge } from './game/GameBridge'
-import { isMockMode } from '@/mock/useMockMode'
+import { isMockMode, isDemoLab } from '@/mock/useMockMode'
 import type { WorkspaceEvent } from '@/types/workspace'
 import { MOCK_LAB_STATE } from '@/mock/mockData'
 import { ZONE_CONFIGS } from './game/config/zones'
@@ -31,6 +31,7 @@ interface LabWorkspaceProps {
 }
 
 export function LabWorkspace({ slug }: LabWorkspaceProps) {
+  const useMockEngine = isMockMode() || isDemoLab(slug)
   const { agents, connected, getMockEngine, onWorkspaceEvent, onBubble } = useWorkspaceSSE(slug)
   const { detail, members, research, isLoading, error } = useLabState(slug)
   const [sceneReady, setSceneReady] = useState(false)
@@ -104,7 +105,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       switch (e.key) {
         case ' ': // Space = pause/resume
           e.preventDefault()
-          if (isMockMode() && engine) {
+          if (useMockEngine && engine) {
             const newSpeed = currentSpeed > 0 ? 0 : 1
             engine.setSpeed(newSpeed)
             setCurrentSpeed(newSpeed)
@@ -112,13 +113,13 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
           break
         case '+':
         case '=':
-          if (isMockMode() && engine) {
+          if (useMockEngine && engine) {
             engine.setSpeed(2)
             setCurrentSpeed(2)
           }
           break
         case '-':
-          if (isMockMode() && engine) {
+          if (useMockEngine && engine) {
             engine.setSpeed(0.5)
             setCurrentSpeed(0.5)
           }
@@ -167,7 +168,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
   return (
     <div className="space-y-4">
       {/* Demo banner */}
-      <DemoModeBanner />
+      <DemoModeBanner slug={slug} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -180,7 +181,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
         <div className="flex items-center gap-3">
           <JoinLabDialog slug={slug} />
           <SuggestToLab slug={slug} onSuggestionSubmitted={handleSuggestion} />
-          {isMockMode() && (
+          {useMockEngine && (
             <SpeedControls getMockEngine={getMockEngine} speed={currentSpeed} onSpeedChange={setCurrentSpeed} />
           )}
           {connected ? (
