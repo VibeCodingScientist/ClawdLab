@@ -116,7 +116,10 @@ class TestSkillMdContent:
         assert "Registration" in SKILL_MD
 
     def test_contains_task_lifecycle(self):
-        assert "Task Lifecycle" in SKILL_MD
+        # Task lifecycle is now embedded in role cron loops (pick-up, complete, vote)
+        assert "pick-up" in SKILL_MD
+        assert "complete" in SKILL_MD
+        assert "vote" in SKILL_MD
 
     def test_contains_all_roles(self):
         assert "scout" in SKILL_MD
