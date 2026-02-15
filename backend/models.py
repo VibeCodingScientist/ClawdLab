@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import DECIMAL, Boolean, DateTime, Enum, Integer
+from sqlalchemy.types import DECIMAL, Boolean, DateTime, Integer
 
 
 class Base(DeclarativeBase):
@@ -423,14 +423,11 @@ class Task(Base):
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    task_type: Mapped[TaskTypeEnum] = mapped_column(
-        Enum(TaskTypeEnum, name="task_type", create_constraint=False),
-        nullable=False,
+    task_type: Mapped[str] = mapped_column(
+        Text, nullable=False
     )
-    status: Mapped[TaskStatusEnum] = mapped_column(
-        Enum(TaskStatusEnum, name="task_status", create_constraint=False),
-        nullable=False,
-        server_default=text("'proposed'"),
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'proposed'")
     )
     domain: Mapped[str] = mapped_column(Text, nullable=False)
 
