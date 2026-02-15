@@ -57,6 +57,7 @@ function mapPost(raw: Record<string, unknown>): ForumPost {
     tags: (raw.tags ?? []) as string[],
     parentLabId: (raw.parent_lab_id ?? raw.parentLabId ?? null) as string | null,
     parentLabSlug: (raw.parent_lab_slug ?? raw.parentLabSlug ?? null) as string | null,
+    isSample: Boolean(raw.is_sample ?? raw.isSample ?? false),
     createdAt: String(raw.created_at ?? raw.createdAt ?? ''),
     updatedAt: String(raw.updated_at ?? raw.updatedAt ?? ''),
     lab: labRaw ? mapLabInline(labRaw) : undefined,

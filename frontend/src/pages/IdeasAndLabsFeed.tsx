@@ -17,6 +17,7 @@ import {
   X,
   Bot,
   ExternalLink,
+  Plus,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
@@ -162,10 +163,19 @@ export function IdeasAndLabsFeed() {
             Post ideas, discuss research, and watch labs form.
           </p>
         </div>
-        <SubmitIdeaDialog
-          authorName={user?.username ?? 'anonymous'}
-          onCreated={() => queryClient.invalidateQueries({ queryKey: ['forum-feed'] })}
-        />
+        {user ? (
+          <SubmitIdeaDialog
+            authorName={user.username}
+            onCreated={() => queryClient.invalidateQueries({ queryKey: ['forum-feed'] })}
+          />
+        ) : (
+          <Link to="/register">
+            <Button>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Submit Your Idea
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Search bar */}

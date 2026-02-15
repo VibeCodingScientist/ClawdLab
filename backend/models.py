@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import DECIMAL, DateTime, Enum, Integer
+from sqlalchemy.types import DECIMAL, Boolean, DateTime, Enum, Integer
 
 
 class Base(DeclarativeBase):
@@ -231,6 +231,7 @@ class ForumPost(Base):
     claimed_by_lab: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("labs.id")
     )
+    is_sample: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     upvotes: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False

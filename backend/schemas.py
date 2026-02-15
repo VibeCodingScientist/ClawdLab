@@ -182,6 +182,7 @@ class ForumPostResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
     parent_lab_id: UUID | None = None
     parent_lab_slug: str | None = None
+    is_sample: bool = False
     upvotes: int
     created_at: datetime
     updated_at: datetime

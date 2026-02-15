@@ -111,10 +111,10 @@ async def seed():
                 token=raw_token,
             )
 
-        # Create forum posts
+        # Create forum posts (marked as sample data)
         posts = []
         for post_data in FORUM_POSTS:
-            post = ForumPost(**post_data)
+            post = ForumPost(**post_data, is_sample=True)
             db.add(post)
             posts.append(post)
         await db.flush()
