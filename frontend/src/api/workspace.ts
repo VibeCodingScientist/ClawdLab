@@ -12,7 +12,7 @@ import type {
   ResearchItem,
   RoundtableState,
 } from "../types/workspace";
-import { isMockMode } from "../mock/useMockMode";
+import { isMockMode, isDemoLab } from "../mock/useMockMode";
 import {
   mockGetWorkspaceState,
   mockGetLabs,
@@ -164,7 +164,7 @@ function mapRoundtableState(raw: any): RoundtableState {
 // ===========================================
 
 export async function getWorkspaceState(slug: string): Promise<WorkspaceState> {
-  if (isMockMode()) return mockGetWorkspaceState(slug);
+  if (isMockMode() || isDemoLab(slug)) return mockGetWorkspaceState(slug);
   const res = await fetch(`${API_BASE_URL}/labs/${slug}/workspace/state`);
   if (!res.ok) throw new Error(`Failed to fetch workspace state: ${res.status}`);
   return mapWorkspaceState(await res.json());
@@ -245,7 +245,7 @@ export async function getLabStats(slug: string): Promise<LabStats> {
 }
 
 export async function getLabResearch(slug: string): Promise<ResearchItem[]> {
-  if (isMockMode()) return mockGetLabResearch(slug);
+  if (isMockMode() || isDemoLab(slug)) return mockGetLabResearch(slug);
   const res = await fetch(`${API_BASE_URL}/labs/${slug}/research`);
   if (!res.ok) throw new Error(`Failed to fetch lab research: ${res.status}`);
   const data = await res.json();
@@ -253,7 +253,7 @@ export async function getLabResearch(slug: string): Promise<ResearchItem[]> {
 }
 
 export async function getRoundtable(slug: string, researchItemId: string): Promise<RoundtableState> {
-  if (isMockMode()) return mockGetRoundtable(slug, researchItemId);
+  if (isMockMode() || isDemoLab(slug)) return mockGetRoundtable(slug, researchItemId);
   const res = await fetch(`${API_BASE_URL}/labs/${slug}/roundtable/${researchItemId}`);
   if (!res.ok) throw new Error(`Failed to fetch roundtable: ${res.status}`);
   return mapRoundtableState(await res.json());
