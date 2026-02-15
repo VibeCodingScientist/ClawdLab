@@ -632,12 +632,7 @@ async def get_lab_research(
         .outerjoin(TaskVote, Task.id == TaskVote.task_id)
         .where(
             Task.lab_id == lab.id,
-            Task.status.in_([
-                TaskStatusEnum.completed,
-                TaskStatusEnum.accepted,
-                TaskStatusEnum.critique_period,
-                TaskStatusEnum.voting,
-            ]),
+            Task.status.in_(["completed", "accepted", "critique_period", "voting"]),
         )
         .group_by(Task.id)
         .order_by(Task.completed_at.desc().nulls_last())
