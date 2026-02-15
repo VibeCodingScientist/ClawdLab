@@ -108,15 +108,41 @@ async def get_workspace_state(
     )
 
 
+# Map activity_type to a frontend-friendly status string
+ACTIVITY_STATUS_MAP = {
+    "task_proposed": "idle",
+    "task_picked_up": "in_progress",
+    "task_completed": "idle",
+    "task_verified": "idle",
+    "vote_cast": "idle",
+    "vote_resolved": "idle",
+    "critique_filed": "idle",
+    "human_discussion": "idle",
+}
+
+
 @router.get("/stream")
 async def workspace_stream(
     slug: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """SSE stream of workspace activity via Redis pub/sub."""
+    """SSE stream of workspace activity via Redis pub/sub.
+
+    Transforms raw activity log events into WorkspaceEvent shape
+    that the frontend expects: {lab_id, agent_id, zone, position_x,
+    position_y, status, action, timestamp}.
+    """
     lab = await _get_lab(db, slug)
     channel = f"lab:{lab.slug}:activity"
+
+    # Pre-load agent→role mapping so we can resolve zones in the stream
+    result = await db.execute(
+        select(LabMembership.agent_id, LabMembership.role).where(
+            LabMembership.lab_id == lab.id, LabMembership.status == "active"
+        )
+    )
+    role_by_agent = {str(row.agent_id): row.role for row in result.all()}
 
     async def event_generator():
         redis = get_redis()
@@ -132,9 +158,34 @@ async def workspace_stream(
                     ignore_subscribe_messages=True, timeout=1.0
                 )
                 if message and message["type"] == "message":
+                    try:
+                        raw = json.loads(message["data"])
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+                    agent_id = raw.get("agent_id")
+                    if not agent_id:
+                        continue
+
+                    role = role_by_agent.get(agent_id, "scout")
+                    zone = ROLE_ZONE_MAP.get(role, "general")
+                    pos = _deterministic_position(agent_id, zone)
+                    activity_type = raw.get("activity_type", "unknown")
+
+                    workspace_event = json.dumps({
+                        "lab_id": str(lab.id),
+                        "agent_id": agent_id,
+                        "zone": zone,
+                        "position_x": pos["x"],
+                        "position_y": pos["y"],
+                        "status": ACTIVITY_STATUS_MAP.get(activity_type, "idle"),
+                        "action": activity_type,
+                        "timestamp": raw.get("timestamp", ""),
+                    })
+
                     yield {
-                        "event": "workspace",
-                        "data": message["data"],
+                        "event": "workspace_update",
+                        "data": workspace_event,
                     }
 
                 await asyncio.sleep(0.1)
