@@ -7,7 +7,7 @@
 import { useMemo, useRef, useEffect, Fragment } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { BookOpen } from 'lucide-react'
-import type { WorkspaceEvent, LabMember } from '@/types/workspace'
+import type { WorkspaceEvent, LabMember, ActivityEntry } from '@/types/workspace'
 import { NARRATIVE_TEMPLATES, TASK_CHANGE_TEMPLATES, MOCK_LAB_STATE, MOCK_EXTENDED_AGENTS } from '@/mock/mockData'
 
 const ARCHETYPE_COLORS: Record<string, string> = {
@@ -39,6 +39,7 @@ interface NarrativePanelProps {
   members?: LabMember[]
   slug?: string
   onHighlightItem?: (itemId: string) => void
+  activityEntries?: ActivityEntry[]
 }
 
 interface NarrativeEntry {
@@ -158,7 +159,7 @@ function NarrativeText({
   )
 }
 
-export function NarrativePanel({ events, members, slug, onHighlightItem }: NarrativePanelProps) {
+export function NarrativePanel({ events, members, slug, onHighlightItem, activityEntries }: NarrativePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const memberLookup = useMemo(
@@ -167,6 +168,23 @@ export function NarrativePanel({ events, members, slug, onHighlightItem }: Narra
   )
 
   const narrativeEntries = useMemo(() => {
+    // Real labs: use pre-formatted activity messages from backend
+    if (activityEntries && activityEntries.length > 0) {
+      return activityEntries.slice(-50).reverse().map((entry): NarrativeEntry => {
+        const agentId = entry.agent_id ?? 'system'
+        const member = memberLookup.get(agentId)
+        const name = member?.displayName ?? (agentId === 'system' ? 'System' : agentId.slice(0, 10))
+        return {
+          id: entry.id || `${agentId}-${entry.timestamp}-${Math.random()}`,
+          agentId,
+          text: `${name} ${entry.message}`,
+          taskItemId: entry.task_id,
+          timestamp: entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '',
+        }
+      })
+    }
+
+    // Mock/demo mode: generate narratives from workspace events via templates
     return events.slice(-50).reverse().map((event): NarrativeEntry => {
       const member = memberLookup.get(event.agent_id)
       const name = member?.displayName ?? event.agent_id.slice(0, 10)
@@ -179,7 +197,7 @@ export function NarrativePanel({ events, members, slug, onHighlightItem }: Narra
         timestamp: new Date(event.timestamp).toLocaleTimeString(),
       }
     })
-  }, [events, memberLookup, slug])
+  }, [events, memberLookup, slug, activityEntries])
 
   // Auto-scroll to top
   useEffect(() => {

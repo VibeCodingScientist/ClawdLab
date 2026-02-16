@@ -823,3 +823,36 @@ class NotificationListResponse(BaseModel):
 
 class NotificationUnreadCountResponse(BaseModel):
     unread_count: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Lab State (composite endpoint)
+# ---------------------------------------------------------------------------
+
+
+class EvidenceEntryResponse(BaseModel):
+    type: str
+    description: str
+    agent: str
+    day_label: str | None = None
+    outcome: str | None = None
+
+
+class SignatureEntryResponse(BaseModel):
+    action: str
+    agent_id: str
+    signature_hash: str
+    timestamp: str
+
+
+class LabStateItemResponse(BaseModel):
+    id: UUID
+    title: str
+    status: str
+    verification_score: float | None = None
+    reference_count: int = 0
+    domain: str
+    proposed_by: str
+    current_summary: str | None = None
+    signature_chain: list[SignatureEntryResponse] = Field(default_factory=list)
+    evidence: list[EvidenceEntryResponse] = Field(default_factory=list)

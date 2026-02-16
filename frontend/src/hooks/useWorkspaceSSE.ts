@@ -3,13 +3,15 @@
  * Depends on: WorkspaceAgent/WorkspaceEvent types, MockEventEngine, isMockMode
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WorkspaceAgent, WorkspaceEvent } from "../types/workspace";
+import type { WorkspaceAgent, WorkspaceEvent, ActivityEntry } from "../types/workspace";
 import { isMockMode, isDemoLab } from "../mock/useMockMode";
 import { MockEventEngine } from "../mock/mockEventEngine";
 import { API_BASE_URL } from "../api/client";
 import { getWorkspaceState } from "../api/workspace";
 
 type WorkspaceEventCallback = (event: WorkspaceEvent) => void;
+
+type ActivityEventCallback = (entry: ActivityEntry) => void;
 
 type BubbleCallback = (agentId: string, text: string) => void;
 
@@ -19,6 +21,7 @@ export interface WorkspaceSSEResult {
   onBubble: (cb: BubbleCallback) => void;
   getMockEngine: () => MockEventEngine | null;
   onWorkspaceEvent: (cb: (event: WorkspaceEvent) => void) => void;
+  onActivityEvent: (cb: ActivityEventCallback) => void;
 }
 
 export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
@@ -30,6 +33,7 @@ export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
   const mockEngineRef = useRef<MockEventEngine | null>(null);
   const bubbleCallbackRef = useRef<((agentId: string, text: string) => void) | null>(null);
   const eventCallbackRef = useRef<WorkspaceEventCallback | null>(null);
+  const activityCallbackRef = useRef<ActivityEventCallback | null>(null);
 
   const handleEvent = useCallback((data: WorkspaceEvent) => {
     // Notify workspace event subscribers
@@ -112,6 +116,15 @@ export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
       }
     });
 
+    es.addEventListener("activity_update", (event) => {
+      try {
+        const data: ActivityEntry = JSON.parse(event.data);
+        if (activityCallbackRef.current) activityCallbackRef.current(data);
+      } catch {
+        // Ignore malformed SSE messages
+      }
+    });
+
     es.onerror = () => {
       setConnected(false);
       es.close();
@@ -143,11 +156,16 @@ export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
     bubbleCallbackRef.current = cb;
   }, []);
 
+  const onActivityEvent = useCallback((cb: ActivityEventCallback) => {
+    activityCallbackRef.current = cb;
+  }, []);
+
   return {
     agents,
     connected,
     onBubble,
     getMockEngine,
     onWorkspaceEvent,
+    onActivityEvent,
   };
 }
