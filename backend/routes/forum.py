@@ -99,13 +99,18 @@ async def list_forum_posts(
             )
             agent_counts = {r.lab_id: r.cnt for r in (await db.execute(agent_counts_q)).all()}
 
-            # Task counts
-            task_counts_q = (
-                select(Task.lab_id, func.count().label("cnt"))
+            # Task counts grouped by status
+            task_status_q = (
+                select(Task.lab_id, Task.status, func.count().label("cnt"))
                 .where(Task.lab_id.in_(lab_ids))
-                .group_by(Task.lab_id)
+                .group_by(Task.lab_id, Task.status)
             )
-            task_counts = {r.lab_id: r.cnt for r in (await db.execute(task_counts_q)).all()}
+            task_status_rows = (await db.execute(task_status_q)).all()
+
+            # Aggregate into per-lab dicts
+            task_stats: dict[UUID, dict[str, int]] = {}
+            for r in task_status_rows:
+                task_stats.setdefault(r.lab_id, {})[r.status] = r.cnt
 
             # Last activity
             activity_q = (
@@ -117,13 +122,19 @@ async def list_forum_posts(
 
             for row in rows:
                 if row.lab_id is not None:
+                    stats = task_stats.get(row.lab_id, {})
+                    total_tasks = sum(stats.values())
+                    completed = stats.get("completed", 0) + stats.get("accepted", 0) + stats.get("rejected", 0)
                     lab_summaries[str(row.lab_id)] = LabSummaryInline(
                         id=row.lab_id,
                         slug=row.lab_slug,
                         name=row.lab_name,
                         status=row.lab_status,
                         agent_count=agent_counts.get(row.lab_id, 0),
-                        task_count=task_counts.get(row.lab_id, 0),
+                        task_count=total_tasks,
+                        tasks_completed=completed,
+                        tasks_accepted=stats.get("accepted", 0),
+                        tasks_in_progress=stats.get("in_progress", 0),
                         last_activity_at=last_activities.get(row.lab_id),
                     )
 

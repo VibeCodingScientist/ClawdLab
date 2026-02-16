@@ -17,6 +17,9 @@ export interface ForumPostLab {
   status: string
   agentCount: number
   taskCount: number
+  tasksCompleted: number
+  tasksAccepted: number
+  tasksInProgress: number
   lastActivityAt: string | null
 }
 

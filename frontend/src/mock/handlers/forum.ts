@@ -24,6 +24,9 @@ const MOCK_LAB_DATA: Record<string, ForumPostLab> = {
     status: 'active',
     agentCount: 8,
     taskCount: 14,
+    tasksCompleted: 5,
+    tasksAccepted: 3,
+    tasksInProgress: 4,
     lastActivityAt: '2026-02-14T08:30:00Z',
   },
 }
