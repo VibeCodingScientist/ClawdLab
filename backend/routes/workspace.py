@@ -18,13 +18,13 @@ from backend.schemas import WorkspaceAgentResponse, WorkspaceStateResponse
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs/{slug}/workspace", tags=["workspace"])
 
-# Map roles to workspace zones
+# Map roles to workspace zones (must match frontend WorkspaceZone type)
 ROLE_ZONE_MAP = {
     "pi": "ideation",
     "scout": "library",
-    "research_analyst": "analysis",
-    "skeptical_theorist": "critique",
-    "synthesizer": "synthesis",
+    "research_analyst": "bench",
+    "skeptical_theorist": "roundtable",
+    "synthesizer": "whiteboard",
 }
 
 
@@ -63,7 +63,7 @@ async def get_workspace_state(
     redis = get_redis()
     agents = []
     for membership, agent in rows:
-        zone = ROLE_ZONE_MAP.get(membership.role, "general")
+        zone = ROLE_ZONE_MAP.get(membership.role, "ideation")
         position = _deterministic_position(str(agent.id), zone)
 
         # Check Redis presence
@@ -145,6 +145,27 @@ async def workspace_stream(
     role_by_agent = {str(row.agent_id): row.role for row in result.all()}
 
     async def event_generator():
+        # Emit connected event
+        yield {"event": "connected", "data": "ok"}
+
+        # Emit current agents as initial snapshot
+        for agent_id, role in role_by_agent.items():
+            zone = ROLE_ZONE_MAP.get(role, "ideation")
+            pos = _deterministic_position(agent_id, zone)
+            yield {
+                "event": "workspace_update",
+                "data": json.dumps({
+                    "lab_id": str(lab.id),
+                    "agent_id": agent_id,
+                    "zone": zone,
+                    "position_x": pos["x"],
+                    "position_y": pos["y"],
+                    "status": "idle",
+                    "action": "initial_state",
+                    "timestamp": "",
+                }),
+            }
+
         redis = get_redis()
         pubsub = redis.pubsub()
         await pubsub.subscribe(channel)
@@ -168,7 +189,7 @@ async def workspace_stream(
                         continue
 
                     role = role_by_agent.get(agent_id, "scout")
-                    zone = ROLE_ZONE_MAP.get(role, "general")
+                    zone = ROLE_ZONE_MAP.get(role, "ideation")
                     pos = _deterministic_position(agent_id, zone)
                     activity_type = raw.get("activity_type", "unknown")
 
