@@ -5,6 +5,7 @@ from uuid import uuid4
 from backend.payloads.task_payloads import (
     AnalysisResult,
     BioinformaticsPayload,
+    ChemistryPayload,
     CompBioPayload,
     CritiqueResult,
     DeepResearchResult,
@@ -12,6 +13,7 @@ from backend.payloads.task_payloads import (
     MaterialsSciencePayload,
     MathematicsPayload,
     MLAIPayload,
+    PhysicsPayload,
     SynthesisResult,
     validate_task_result,
 )
@@ -97,6 +99,7 @@ class TestMathematicsPayload:
         }
         model = MathematicsPayload.model_validate(data)
         assert model.claim_type == "theorem"
+        assert model.proof_system == "lean4"  # default
 
     def test_valid_conjecture(self):
         data = {
@@ -105,6 +108,31 @@ class TestMathematicsPayload:
         }
         model = MathematicsPayload.model_validate(data)
         assert model.claim_type == "conjecture"
+
+    def test_valid_coq(self):
+        data = {
+            "claim_type": "theorem",
+            "proof_system": "coq",
+            "proof_code": "Theorem test : True. Proof. trivial. Qed.",
+        }
+        model = MathematicsPayload.model_validate(data)
+        assert model.proof_system == "coq"
+
+    def test_valid_isabelle(self):
+        data = {
+            "claim_type": "theorem",
+            "proof_system": "isabelle",
+            "proof_code": "lemma test: True by simp",
+            "theory_name": "MyTheory",
+        }
+        model = MathematicsPayload.model_validate(data)
+        assert model.proof_system == "isabelle"
+        assert model.theory_name == "MyTheory"
+
+    def test_invalid_proof_system(self):
+        data = {"claim_type": "theorem", "proof_system": "agda", "proof_code": "A" * 10}
+        with pytest.raises(Exception):
+            MathematicsPayload.model_validate(data)
 
     def test_invalid_claim_type(self):
         data = {"claim_type": "lemma", "proof_code": "A" * 10}
@@ -122,6 +150,26 @@ class TestMLAIPayload:
         }
         model = MLAIPayload.model_validate(data)
         assert model.model_id == "meta-llama/Llama-3-8B"
+        assert model.sample_size == 20  # default
+
+    def test_valid_benchmark_live(self):
+        data = {
+            "claim_type": "benchmark_live",
+            "model_id": "test/model",
+            "benchmark": "mmlu",
+            "sample_size": 30,
+        }
+        model = MLAIPayload.model_validate(data)
+        assert model.claim_type == "benchmark_live"
+        assert model.sample_size == 30
+
+    def test_sample_size_bounds(self):
+        # Too small
+        with pytest.raises(Exception):
+            MLAIPayload.model_validate({"claim_type": "benchmark_live", "sample_size": 2})
+        # Too large
+        with pytest.raises(Exception):
+            MLAIPayload.model_validate({"claim_type": "benchmark_live", "sample_size": 100})
 
     def test_valid_architecture(self):
         data = {
@@ -211,3 +259,70 @@ class TestValidateTaskResult:
         valid, errors = validate_task_result("analysis", "mathematics", result)
         # No domain fields present, so domain validation is skipped
         assert valid is True
+
+
+class TestChemistryPayload:
+    def test_valid_reaction(self):
+        data = {
+            "claim_type": "reaction_mechanism",
+            "smiles": "CC.O>>CCO",
+        }
+        model = ChemistryPayload.model_validate(data)
+        assert model.claim_type == "reaction_mechanism"
+
+    def test_valid_molecular_property(self):
+        data = {
+            "claim_type": "molecular_property",
+            "smiles": "CCO",
+            "claimed_properties": {"molecular_weight": 46.07},
+        }
+        model = ChemistryPayload.model_validate(data)
+        assert model.smiles == "CCO"
+
+    def test_valid_retrosynthesis(self):
+        data = {
+            "claim_type": "retrosynthesis",
+            "precursors": ["CC=O", "CC"],
+            "products": ["CC(O)CC"],
+        }
+        model = ChemistryPayload.model_validate(data)
+        assert len(model.precursors) == 2
+
+    def test_invalid_claim_type(self):
+        data = {"claim_type": "alchemy"}
+        with pytest.raises(Exception):
+            ChemistryPayload.model_validate(data)
+
+
+class TestPhysicsPayload:
+    def test_valid_simulation(self):
+        data = {
+            "claim_type": "numerical_simulation",
+            "conservation_quantities": {"energy": {"initial": 100, "final": 100}},
+        }
+        model = PhysicsPayload.model_validate(data)
+        assert model.claim_type == "numerical_simulation"
+
+    def test_valid_derivation(self):
+        data = {
+            "claim_type": "analytical_derivation",
+            "expression": "E = m * c**2",
+            "units": {"E": "joule", "m": "kilogram", "c": "meter/second"},
+        }
+        model = PhysicsPayload.model_validate(data)
+        assert model.expression == "E = m * c**2"
+
+    def test_valid_dimensional_analysis(self):
+        data = {
+            "claim_type": "dimensional_analysis",
+            "lhs": "F",
+            "rhs": "m * a",
+            "units": {"F": "newton", "m": "kilogram", "a": "meter/second**2"},
+        }
+        model = PhysicsPayload.model_validate(data)
+        assert model.lhs == "F"
+
+    def test_invalid_claim_type(self):
+        data = {"claim_type": "string_theory"}
+        with pytest.raises(Exception):
+            PhysicsPayload.model_validate(data)

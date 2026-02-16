@@ -1,6 +1,7 @@
 """Mathematics verification via Lean 4 + Mathlib in Docker sandbox."""
 import asyncio
 import tempfile
+import re
 import time
 from pathlib import Path
 
@@ -12,8 +13,14 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 # Configurable via env
-LEAN4_IMAGE = "clawdlab/lean4-mathlib:latest"
+LEAN4_IMAGE = "clawdlab/lean4-mathlib:v4.3.0"
 LEAN4_TIMEOUT = 300  # 5 min max
+
+COQ_IMAGE = "clawdlab/coq:8.18"
+COQ_TIMEOUT = 300
+
+ISABELLE_IMAGE = "clawdlab/isabelle:2024"
+ISABELLE_TIMEOUT = 300
 
 
 class Lean4Adapter(VerificationAdapter):
@@ -25,9 +32,17 @@ class Lean4Adapter(VerificationAdapter):
             return VerificationResult.fail(self.domain, ["No proof_code in result"])
 
         claim_type = task_result.get("claim_type", "theorem")
+        proof_system = task_result.get("proof_system", "lean4")
         dependencies = task_result.get("dependencies", [])
         statement = task_result.get("statement")
 
+        # Route to proof system
+        if proof_system == "coq":
+            return await self._verify_coq(task_result)
+        elif proof_system == "isabelle":
+            return await self._verify_isabelle(task_result)
+
+        # Default: Lean 4
         if claim_type == "theorem":
             return await self._verify_theorem(proof_code, dependencies, statement)
         elif claim_type == "conjecture":
@@ -42,7 +57,9 @@ class Lean4Adapter(VerificationAdapter):
         start = time.monotonic()
 
         # Build the full .lean file
-        imports = "\n".join(f"import {dep}" for dep in dependencies) if dependencies else "import Mathlib"
+        # Sanitize dependencies — only allow Mathlib.* and Lean stdlib patterns
+        safe_deps = [dep for dep in dependencies if re.match(r'^[A-Za-z][A-Za-z0-9_.]*$', dep)]
+        imports = "\n".join(f"import {dep}" for dep in safe_deps) if safe_deps else "import Mathlib"
         full_code = f"{imports}\n\n{proof_code}"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -168,3 +185,156 @@ class Lean4Adapter(VerificationAdapter):
             "tactics_used": tactics_used,
             "tactic_count": sum(tactics_used.values()),
         }
+
+    # ------------------------------------------------------------------
+    # Coq verification
+    # ------------------------------------------------------------------
+
+    async def _verify_coq(self, task_result: dict) -> VerificationResult:
+        """Verify proof using Coq in Docker sandbox."""
+        start = time.monotonic()
+
+        proof_code = task_result.get("proof_code", "")
+        statement = task_result.get("statement")
+        dependencies = task_result.get("dependencies", [])
+
+        # Build .v file
+        safe_deps = [dep for dep in dependencies if re.match(r'^[A-Za-z][A-Za-z0-9_.]*$', dep)]
+        imports = "\n".join(f"Require Import {dep}." for dep in safe_deps) if safe_deps else ""
+        full_code = f"{imports}\n\n{proof_code}" if imports else proof_code
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proof_path = Path(tmpdir) / "Proof.v"
+            proof_path.write_text(full_code)
+
+            cmd = [
+                "docker", "run", "--rm",
+                "--network=none",
+                "--memory=4g",
+                "--cpus=2",
+                "-v", f"{tmpdir}:/workspace:ro",
+                "-w", "/workspace",
+                COQ_IMAGE,
+                "coqc", "Proof.v",
+            ]
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=COQ_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                return VerificationResult.fail(
+                    self.domain, ["Coq compilation timed out (5 min limit)"],
+                )
+
+        elapsed = time.monotonic() - start
+        stderr_text = stderr.decode(errors="replace")
+
+        if proc.returncode == 0:
+            return VerificationResult(
+                passed=True,
+                score=1.0,
+                badge=VerificationBadge.GREEN,
+                domain=self.domain,
+                details={
+                    "compiler": "coq",
+                    "compile_time_seconds": round(elapsed, 2),
+                    "statement": statement,
+                },
+                compute_time_seconds=elapsed,
+            )
+        else:
+            errors = [line for line in stderr_text.splitlines() if "Error" in line][:10]
+            return VerificationResult(
+                passed=False,
+                score=0.0,
+                badge=VerificationBadge.RED,
+                domain=self.domain,
+                errors=errors or [stderr_text[:500]],
+                details={"compiler": "coq", "compiler_output": stderr_text[:2000]},
+                compute_time_seconds=elapsed,
+            )
+
+    # ------------------------------------------------------------------
+    # Isabelle verification
+    # ------------------------------------------------------------------
+
+    async def _verify_isabelle(self, task_result: dict) -> VerificationResult:
+        """Verify proof using Isabelle/HOL in Docker sandbox."""
+        start = time.monotonic()
+
+        proof_code = task_result.get("proof_code", "")
+        statement = task_result.get("statement")
+        theory_name = re.sub(r'[^A-Za-z0-9_]', '_', task_result.get("theory_name", "Proof"))
+
+        # Build .thy file
+        full_code = f'theory {theory_name}\nimports Main\nbegin\n\n{proof_code}\n\nend'
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            thy_path = Path(tmpdir) / f"{theory_name}.thy"
+            thy_path.write_text(full_code)
+
+            # Write ROOT file for isabelle build
+            root_path = Path(tmpdir) / "ROOT"
+            root_path.write_text(f'session "{theory_name}" = HOL +\n  theories {theory_name}\n')
+
+            cmd = [
+                "docker", "run", "--rm",
+                "--network=none",
+                "--memory=4g",
+                "--cpus=2",
+                "-v", f"{tmpdir}:/workspace:ro",
+                "-w", "/workspace",
+                ISABELLE_IMAGE,
+                "isabelle", "build", "-D", ".",
+            ]
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=ISABELLE_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                return VerificationResult.fail(
+                    self.domain, ["Isabelle build timed out (5 min limit)"],
+                )
+
+        elapsed = time.monotonic() - start
+        stdout_text = stdout.decode(errors="replace")
+        stderr_text = stderr.decode(errors="replace")
+
+        if proc.returncode == 0:
+            return VerificationResult(
+                passed=True,
+                score=1.0,
+                badge=VerificationBadge.GREEN,
+                domain=self.domain,
+                details={
+                    "compiler": "isabelle",
+                    "compile_time_seconds": round(elapsed, 2),
+                    "statement": statement,
+                    "theory_name": theory_name,
+                },
+                compute_time_seconds=elapsed,
+            )
+        else:
+            combined = f"{stdout_text}\n{stderr_text}"
+            errors = [line for line in combined.splitlines() if "Error" in line or "***" in line][:10]
+            return VerificationResult(
+                passed=False,
+                score=0.0,
+                badge=VerificationBadge.RED,
+                domain=self.domain,
+                errors=errors or [combined[:500]],
+                details={"compiler": "isabelle", "compiler_output": combined[:2000]},
+                compute_time_seconds=elapsed,
+            )

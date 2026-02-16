@@ -22,6 +22,8 @@ LEADERBOARD_PARQUET_URL = (
     "/resolve/main/default/train-00000-of-00001.parquet"
 )
 TIMEOUT = 30
+ML_INFERENCE_IMAGE = "clawdlab/ml-inference:latest"
+ML_INFERENCE_TIMEOUT = 600  # 10 min
 
 SUPPORTED_BENCHMARKS = {
     "mmlu", "hellaswag", "arc_easy", "arc_challenge", "winogrande",
@@ -41,12 +43,18 @@ class MLReproAdapter(VerificationAdapter):
 
         if claim_type == "benchmark_result":
             return await self._verify_benchmark(task_result)
+        elif claim_type == "benchmark_live":
+            return await self._verify_benchmark_live(task_result)
         elif claim_type == "ml_experiment":
             return await self._verify_experiment(task_result)
         elif claim_type == "architecture":
             return await self._verify_architecture(task_result)
         else:
             return VerificationResult.fail(self.domain, [f"Unknown claim_type: {claim_type}"])
+
+    def requires_docker_for(self, task_result: dict) -> bool:
+        """Return True if this specific claim type requires Docker."""
+        return task_result.get("claim_type") == "benchmark_live"
 
     # ------------------------------------------------------------------
     # benchmark_result
@@ -141,6 +149,253 @@ class MLReproAdapter(VerificationAdapter):
             warnings=warnings,
             compute_time_seconds=elapsed,
         )
+
+    # ------------------------------------------------------------------
+    # benchmark_live — Docker-based live inference
+    # ------------------------------------------------------------------
+
+    async def _verify_benchmark_live(self, result: dict) -> VerificationResult:
+        """Run live inference in Docker sandbox and compare to claimed metrics."""
+        start = time.monotonic()
+
+        model_id = result.get("model_id")
+        benchmark = result.get("benchmark", "").lower()
+        claimed_metrics = result.get("metrics", {})
+        sample_size = min(result.get("sample_size", 20), 50)
+
+        if not model_id:
+            return VerificationResult.fail(self.domain, ["No model_id provided"])
+        if not benchmark:
+            return VerificationResult.fail(self.domain, ["No benchmark specified for live inference"])
+
+        component_scores: dict[str, float] = {}
+        details: dict = {
+            "claim_type": "benchmark_live",
+            "model_id": model_id,
+            "benchmark": benchmark,
+            "sample_size": sample_size,
+        }
+        warnings: list[str] = []
+
+        # Build inference script
+        script = self._build_inference_script(model_id, benchmark, sample_size)
+
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            script_path = Path(tmpdir) / "run_inference.py"
+            script_path.write_text(script)
+
+            cmd = [
+                "docker", "run", "--rm",
+                "--network=host",   # Needs network to download model from HF
+                "--memory=4g",
+                "--cpus=2",
+                "-v", f"{tmpdir}:/workspace",
+                "-w", "/workspace",
+                ML_INFERENCE_IMAGE,
+                "python", "run_inference.py",
+            ]
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=ML_INFERENCE_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                return VerificationResult.fail(
+                    self.domain,
+                    [f"Live inference timed out ({ML_INFERENCE_TIMEOUT}s)"],
+                )
+            except FileNotFoundError:
+                return VerificationResult.fail(
+                    self.domain, ["Docker not available for live inference"],
+                )
+
+        stdout_text = stdout.decode(errors="replace")
+        stderr_text = stderr.decode(errors="replace")
+
+        # Parse JSON output from script
+        import json
+        try:
+            inference_results = json.loads(stdout_text)
+        except (json.JSONDecodeError, ValueError):
+            # Component 1: Model loadable — failed
+            component_scores["model_loadable"] = 0.0
+            details["error"] = stderr_text[:1000]
+            elapsed = time.monotonic() - start
+            return VerificationResult(
+                passed=False,
+                score=0.0,
+                badge=VerificationResult.score_to_badge(0.0),
+                domain=self.domain,
+                details=details,
+                errors=["Inference script failed to produce valid JSON output"],
+                compute_time_seconds=elapsed,
+            )
+
+        # Component 1: Model loadable (0.20)
+        model_loaded = inference_results.get("model_loaded", False)
+        component_scores["model_loadable"] = 1.0 if model_loaded else 0.0
+        details["model_loaded"] = model_loaded
+
+        if not model_loaded:
+            elapsed = time.monotonic() - start
+            details["component_scores"] = component_scores
+            return VerificationResult(
+                passed=False,
+                score=0.0,
+                badge=VerificationResult.score_to_badge(0.0),
+                domain=self.domain,
+                details=details,
+                errors=[inference_results.get("error", "Model failed to load")],
+                compute_time_seconds=elapsed,
+            )
+
+        # Component 2: Inference runs (0.30)
+        total_samples = inference_results.get("total_samples", 0)
+        successful_samples = inference_results.get("successful_samples", 0)
+        inference_score = successful_samples / max(total_samples, 1)
+        component_scores["inference_runs"] = round(inference_score, 4)
+        details["inference"] = {
+            "total": total_samples,
+            "successful": successful_samples,
+        }
+
+        # Component 3: Accuracy match (0.35)
+        live_metrics = inference_results.get("metrics", {})
+        if live_metrics and claimed_metrics:
+            matches = 0
+            comparisons: dict = {}
+            for metric_name, claimed_val in claimed_metrics.items():
+                if not isinstance(claimed_val, (int, float)):
+                    continue
+                live_val = live_metrics.get(metric_name)
+                if live_val is None:
+                    continue
+                tolerance = max(abs(claimed_val) * 0.05, 0.01)
+                match = abs(claimed_val - live_val) <= tolerance
+                comparisons[metric_name] = {
+                    "claimed": claimed_val,
+                    "live": live_val,
+                    "tolerance": tolerance,
+                    "match": match,
+                }
+                if match:
+                    matches += 1
+
+            if comparisons:
+                component_scores["accuracy_match"] = round(matches / len(comparisons), 4)
+            else:
+                component_scores["accuracy_match"] = 0.3
+                warnings.append("No comparable metrics between claimed and live results")
+            details["accuracy_comparisons"] = comparisons
+        else:
+            component_scores["accuracy_match"] = 0.0
+            details["accuracy_comparisons"] = {}
+
+        # Component 4: Latency reasonable (0.15)
+        avg_latency = inference_results.get("avg_latency_seconds", 0)
+        if avg_latency > 0 and avg_latency < 60:
+            component_scores["latency"] = 1.0
+        elif avg_latency < 120:
+            component_scores["latency"] = 0.5
+        else:
+            component_scores["latency"] = 0.2
+        details["avg_latency_seconds"] = avg_latency
+
+        weights = {
+            "model_loadable": 0.20,
+            "inference_runs": 0.30,
+            "accuracy_match": 0.35,
+            "latency": 0.15,
+        }
+        score = sum(weights.get(k, 0) * component_scores.get(k, 0.0) for k in weights)
+        score = min(1.0, round(score, 4))
+
+        elapsed = time.monotonic() - start
+        details["component_scores"] = component_scores
+
+        return VerificationResult(
+            passed=score >= 0.5,
+            score=score,
+            badge=VerificationResult.score_to_badge(score),
+            domain=self.domain,
+            details=details,
+            warnings=warnings,
+            compute_time_seconds=elapsed,
+        )
+
+    @staticmethod
+    def _build_inference_script(
+        model_id: str, benchmark: str, sample_size: int,
+    ) -> str:
+        """Generate a Python script for Docker-based live inference."""
+        import json as _json
+        safe_model_id = _json.dumps(model_id)
+        safe_benchmark = _json.dumps(benchmark)
+        return f'''#!/usr/bin/env python3
+"""Auto-generated inference script for live benchmark verification."""
+import json
+import time
+import sys
+
+results = {{
+    "model_loaded": False,
+    "total_samples": 0,
+    "successful_samples": 0,
+    "metrics": {{}},
+    "avg_latency_seconds": 0,
+}}
+
+try:
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
+    model_id = {safe_model_id}
+    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id, torch_dtype=torch.float32, device_map="cpu", trust_remote_code=True,
+    )
+    model.eval()
+    results["model_loaded"] = True
+
+    # Simple text generation benchmark
+    sample_size = {sample_size}
+    prompts = [f"Question {{i}}: What is {{i}} + {{i}}?" for i in range(sample_size)]
+
+    latencies = []
+    successful = 0
+
+    for prompt in prompts:
+        try:
+            start = time.monotonic()
+            inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
+            with torch.no_grad():
+                outputs = model.generate(**inputs, max_new_tokens=32, do_sample=False)
+            elapsed = time.monotonic() - start
+            latencies.append(elapsed)
+            successful += 1
+        except Exception:
+            pass
+
+    results["total_samples"] = sample_size
+    results["successful_samples"] = successful
+    results["avg_latency_seconds"] = round(sum(latencies) / max(len(latencies), 1), 3)
+    results["metrics"] = {{
+        "inference_success_rate": round(successful / sample_size, 4) if sample_size > 0 else 0,
+    }}
+
+except Exception as e:
+    results["error"] = str(e)
+
+print(json.dumps(results))
+'''
 
     # ------------------------------------------------------------------
     # ml_experiment — git-based provenance

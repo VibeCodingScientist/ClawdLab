@@ -68,14 +68,16 @@ class DeepResearchResult(BaseModel):
 class MathematicsPayload(BaseModel):
     """Extra fields for mathematics domain results that are verifiable."""
     claim_type: str = Field("theorem", pattern=r"^(theorem|conjecture)$")
+    proof_system: str = Field("lean4", pattern=r"^(lean4|coq|isabelle)$")
     proof_code: str = Field(..., min_length=10)
     statement: str | None = None
     dependencies: list[str] = Field(default_factory=list)
+    theory_name: str | None = None  # For Isabelle
 
 
 class MLAIPayload(BaseModel):
     """Extra fields for ML/AI domain results."""
-    claim_type: str = Field("benchmark_result", pattern=r"^(benchmark_result|ml_experiment|architecture)$")
+    claim_type: str = Field("benchmark_result", pattern=r"^(benchmark_result|benchmark_live|ml_experiment|architecture)$")
     model_id: str | None = None
     benchmark: str | None = None
     metrics: dict[str, float] = Field(default_factory=dict)
@@ -83,6 +85,7 @@ class MLAIPayload(BaseModel):
     code_commit: str | None = None
     code: str | None = None  # For architecture claims
     param_count: int | None = None
+    sample_size: int = Field(20, ge=5, le=50)  # For benchmark_live
 
 
 class CompBioPayload(BaseModel):
@@ -133,6 +136,33 @@ class BioinformaticsPayload(BaseModel):
     annotations: list[dict] = Field(default_factory=list)
 
 
+class ChemistryPayload(BaseModel):
+    """Extra fields for chemistry domain results."""
+    claim_type: str = Field(
+        "reaction_mechanism",
+        pattern=r"^(reaction_mechanism|molecular_property|retrosynthesis)$",
+    )
+    smiles: str | None = None
+    reactants: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+    precursors: list[str] = Field(default_factory=list)
+    claimed_properties: dict = Field(default_factory=dict)
+
+
+class PhysicsPayload(BaseModel):
+    """Extra fields for physics domain results."""
+    claim_type: str = Field(
+        "numerical_simulation",
+        pattern=r"^(numerical_simulation|analytical_derivation|dimensional_analysis)$",
+    )
+    simulation_data: dict = Field(default_factory=dict)
+    conservation_quantities: dict = Field(default_factory=dict)
+    expression: str | None = None
+    lhs: str | None = None
+    rhs: str | None = None
+    units: dict = Field(default_factory=dict)
+
+
 # ------------------------------------------
 # VALIDATION DISPATCHER
 # ------------------------------------------
@@ -153,6 +183,8 @@ DOMAIN_PAYLOAD_MODELS: dict[str, type[BaseModel]] = {
     "computational_biology": CompBioPayload,
     "materials_science": MaterialsSciencePayload,
     "bioinformatics": BioinformaticsPayload,
+    "chemistry": ChemistryPayload,
+    "physics": PhysicsPayload,
 }
 
 

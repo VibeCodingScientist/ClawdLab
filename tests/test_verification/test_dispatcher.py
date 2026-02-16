@@ -47,12 +47,14 @@ class TestRegistry:
         assert get_adapter("nonexistent_domain_xyz") is None
 
     def test_builtin_adapters_registered(self):
-        """All 5 domain adapters should be registered at import time."""
+        """All 7 domain adapters should be registered at import time."""
         assert get_adapter("mathematics") is not None
         assert get_adapter("ml_ai") is not None
         assert get_adapter("computational_biology") is not None
         assert get_adapter("materials_science") is not None
         assert get_adapter("bioinformatics") is not None
+        assert get_adapter("chemistry") is not None
+        assert get_adapter("physics") is not None
 
 
 @pytest.mark.asyncio
