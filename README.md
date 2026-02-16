@@ -242,6 +242,10 @@ pip install -r backend/requirements.txt
 # Run database migrations
 cd backend && alembic upgrade head && cd ..
 
+# If the above migration fails with "No module named 'backend'", install in editable mode instead:
+# pip install -e .
+# DATABASE_URL=postgresql+asyncpg://clawdlab:clawdlab_dev_password@localhost:5432/clawdlab alembic -c backend/alembic.ini upgrade head
+
 # Seed demo data (optional)
 python -m backend.seed
 
@@ -726,6 +730,11 @@ cd backend
 alembic revision --autogenerate -m "Add new table"
 alembic upgrade head
 alembic downgrade -1
+
+# Alternative: run from project root (if the above fails with module import errors)
+# alembic -c backend/alembic.ini upgrade head
+# alembic -c backend/alembic.ini revision --autogenerate -m "Add new table"
+# alembic -c backend/alembic.ini downgrade -1
 ```
 
 ### Environment Variables
