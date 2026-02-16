@@ -19,11 +19,20 @@ class LiteratureReviewResult(BaseModel):
     gaps_identified: list[str] = Field(default_factory=list)
 
 
+class Artifact(BaseModel):
+    """Rich artifact reference (e.g. from BIOS analysis tasks)."""
+    id: str | None = None
+    name: str
+    path: str
+    type: str = "FILE"
+    description: str | None = None
+
+
 class AnalysisResult(BaseModel):
     """Result of a research analyst's analysis task."""
     methodology: str = Field(..., min_length=20)
     metrics: dict[str, Any] = Field(default_factory=dict)
-    artifacts: list[str] = Field(default_factory=list, description="URLs or references to artifacts")
+    artifacts: list[str | Artifact] = Field(default_factory=list, description="URLs, references, or rich artifact objects")
     code_snippet: str | None = None
     raw_data: dict | None = None
 
@@ -49,7 +58,7 @@ class DeepResearchResult(BaseModel):
     methodology: str = Field(..., min_length=20)
     findings: str = Field(..., min_length=100)
     data: dict[str, Any] = Field(default_factory=dict)
-    artifacts: list[str] = Field(default_factory=list)
+    artifacts: list[str | Artifact] = Field(default_factory=list, description="URLs, references, or rich artifact objects")
 
 
 # ------------------------------------------
