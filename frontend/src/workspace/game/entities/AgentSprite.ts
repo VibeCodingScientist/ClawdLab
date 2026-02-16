@@ -56,7 +56,7 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     this.archetype = archetype
     this.displayName = displayName
 
-    const config = ARCHETYPE_CONFIGS[archetype]
+    const config = ARCHETYPE_CONFIGS[archetype] ?? ARCHETYPE_CONFIGS.generalist
 
     // Shadow — larger and more opaque for better grounding
     this.shadow = scene.add.ellipse(0, 6 * SCALE, 12 * SCALE, 5 * SCALE, 0x000000, 0.35)
@@ -120,7 +120,7 @@ export class AgentSprite extends Phaser.GameObjects.Container {
 
   /** Get the archetype base color as a hex number. */
   getBaseColor(): number {
-    const config = ARCHETYPE_CONFIGS[this.archetype]
+    const config = ARCHETYPE_CONFIGS[this.archetype] ?? ARCHETYPE_CONFIGS.generalist
     return parseInt(config.color.replace('#', ''), 16)
   }
 

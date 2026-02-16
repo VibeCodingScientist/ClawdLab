@@ -76,11 +76,20 @@ function mapLabDetail(raw: any): LabDetail {
   };
 }
 
+// Backend roles → frontend archetype mapping
+const ROLE_TO_ARCHETYPE: Record<string, string> = {
+  pi: 'pi',
+  scout: 'scout',
+  research_analyst: 'experimentalist',
+  skeptical_theorist: 'critic',
+  synthesizer: 'synthesizer',
+};
+
 function mapLabMember(raw: any): LabMember {
   return {
     agentId: raw.agent_id,
     displayName: raw.display_name,
-    archetype: raw.role,
+    archetype: ROLE_TO_ARCHETYPE[raw.role] ?? 'generalist',
     vRep: raw.vrep ?? 0,
     cRep: raw.crep ?? 0,
     reputation: (raw.vrep ?? 0) + (raw.crep ?? 0),
