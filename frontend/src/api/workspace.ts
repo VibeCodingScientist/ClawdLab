@@ -12,6 +12,7 @@ import type {
   ResearchItem,
   RoundtableState,
   LabStateItem,
+  LabStateObjective,
   ActivityEntry,
 } from "../types/workspace";
 import { isMockMode, isDemoLab } from "../mock/useMockMode";
@@ -24,7 +25,7 @@ import {
   mockGetLabResearch,
   mockGetRoundtable,
 } from "../mock/handlers/workspace";
-import { MOCK_LAB_STATE } from "../mock/mockData";
+import { MOCK_LAB_STATE, MOCK_LAB_STATE_OBJECTIVES } from "../mock/mockData";
 import { API_BASE_URL } from "./client";
 
 // ===========================================
@@ -309,6 +310,85 @@ export async function getLabState(slug: string): Promise<LabStateItem[]> {
   if (!res.ok) throw new Error(`Failed to fetch lab state: ${res.status}`);
   const data = await res.json();
   return (Array.isArray(data) ? data : []).map(mapLabStateItem);
+}
+
+// ===========================================
+// LAB STATES (research objectives)
+// ===========================================
+
+function mapLabStateObjective(raw: any): LabStateObjective {
+  return {
+    id: raw.id,
+    labId: raw.lab_id,
+    version: raw.version,
+    title: raw.title,
+    hypothesis: raw.hypothesis ?? null,
+    objectives: raw.objectives ?? [],
+    status: raw.status,
+    conclusionSummary: raw.conclusion_summary ?? null,
+    activatedAt: raw.activated_at ?? null,
+    concludedAt: raw.concluded_at ?? null,
+    createdAt: raw.created_at,
+    taskCount: raw.task_count ?? 0,
+  };
+}
+
+export async function getLabStates(slug: string): Promise<LabStateObjective[]> {
+  if (isMockMode() || isDemoLab(slug)) {
+    const obj = MOCK_LAB_STATE_OBJECTIVES[slug];
+    return obj ? [obj] : [];
+  }
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/lab-states`);
+  if (!res.ok) throw new Error(`Failed to fetch lab states: ${res.status}`);
+  const data = await res.json();
+  return (Array.isArray(data) ? data : []).map(mapLabStateObjective);
+}
+
+export async function createLabState(
+  slug: string,
+  data: { title: string; hypothesis?: string; objectives?: string[] },
+): Promise<LabStateObjective> {
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/lab-states`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to create lab state: ${res.status}`);
+  }
+  return mapLabStateObjective(await res.json());
+}
+
+export async function activateLabState(
+  slug: string,
+  stateId: string,
+): Promise<LabStateObjective> {
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/lab-states/${stateId}/activate`, {
+    method: "PATCH",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to activate lab state: ${res.status}`);
+  }
+  return mapLabStateObjective(await res.json());
+}
+
+export async function concludeLabState(
+  slug: string,
+  stateId: string,
+  data: { outcome: string; conclusionSummary: string },
+): Promise<LabStateObjective> {
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/lab-states/${stateId}/conclude`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ outcome: data.outcome, conclusion_summary: data.conclusionSummary }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to conclude lab state: ${res.status}`);
+  }
+  return mapLabStateObjective(await res.json());
 }
 
 export async function getLabActivity(slug: string): Promise<ActivityEntry[]> {

@@ -175,6 +175,29 @@ export interface RoundtableState {
   resolved: boolean;
 }
 
+export type LabStateObjectiveStatus =
+  | 'draft'
+  | 'active'
+  | 'concluded_proven'
+  | 'concluded_disproven'
+  | 'concluded_pivoted'
+  | 'concluded_inconclusive'
+
+export interface LabStateObjective {
+  id: string
+  labId: string
+  version: number
+  title: string
+  hypothesis: string | null
+  objectives: string[]
+  status: LabStateObjectiveStatus
+  conclusionSummary: string | null
+  activatedAt: string | null
+  concludedAt: string | null
+  createdAt: string
+  taskCount: number
+}
+
 export interface ActivityEntry {
   id: string;
   activity_type: string;

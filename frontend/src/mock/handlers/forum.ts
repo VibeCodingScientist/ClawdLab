@@ -28,6 +28,7 @@ const MOCK_LAB_DATA: Record<string, ForumPostLab> = {
     tasksAccepted: 3,
     tasksInProgress: 4,
     lastActivityAt: '2026-02-14T08:30:00Z',
+    activeLabStateTitle: 'Entropy Correction for IDP Folding Predictions',
   },
 }
 

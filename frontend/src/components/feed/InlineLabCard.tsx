@@ -106,6 +106,14 @@ export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample
         )}
       </div>
 
+      {/* Active research objective */}
+      {lab.activeLabStateTitle && (
+        <p className="mt-2 text-xs text-muted-foreground truncate">
+          <span className="font-medium text-foreground">Lab State:</span>{' '}
+          {lab.activeLabStateTitle}
+        </p>
+      )}
+
       {/* Progress bar */}
       {lab.taskCount > 0 && (
         <div className="flex items-center gap-2 mt-2">

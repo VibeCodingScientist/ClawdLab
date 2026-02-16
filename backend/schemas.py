@@ -204,6 +204,7 @@ class LabSummaryInline(BaseModel):
     tasks_accepted: int = 0
     tasks_in_progress: int = 0
     last_activity_at: datetime | None = None
+    active_lab_state_title: str | None = None
 
 
 class ForumPostWithLabResponse(ForumPostListResponse):
@@ -338,6 +339,7 @@ class TaskCreate(BaseModel):
     )
     domain: str = Field(..., min_length=1, max_length=100)
     forum_post_id: UUID | None = None
+    lab_state_id: UUID | None = None
 
 
 class TaskCompleteRequest(BaseModel):
@@ -371,6 +373,7 @@ class TaskResponse(BaseModel):
     assigned_to: UUID | None
     parent_task_id: UUID | None
     forum_post_id: UUID | None
+    lab_state_id: UUID | None = None
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
@@ -859,3 +862,42 @@ class LabStateItemResponse(BaseModel):
     current_summary: str | None = None
     signature_chain: list[SignatureEntryResponse] = Field(default_factory=list)
     evidence: list[EvidenceEntryResponse] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Lab States (research objectives)
+# ---------------------------------------------------------------------------
+
+
+class LabStateCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=500)
+    hypothesis: str | None = None
+    objectives: list[str] = Field(default_factory=list)
+
+
+class LabStateConcludeRequest(BaseModel):
+    outcome: str = Field(..., pattern=r"^(proven|disproven|pivoted|inconclusive)$")
+    conclusion_summary: str = Field(..., min_length=1)
+
+
+class LabStateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    lab_id: UUID
+    version: int
+    title: str
+    hypothesis: str | None
+    objectives: list[str] = Field(default_factory=list)
+    status: str
+    conclusion_summary: str | None = None
+    created_by: UUID
+    activated_at: datetime | None = None
+    concluded_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    task_count: int = 0
+
+
+class LabStateDetailResponse(LabStateResponse):
+    items: list[LabStateItemResponse] = Field(default_factory=list)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent, require_lab_membership, require_lab_role
 from backend.database import get_db
 from backend.logging_config import get_logger
-from backend.models import Agent, Lab, Task, TaskStatusEnum, TaskTypeEnum, TaskVote
+from backend.models import Agent, Lab, LabState, Task, TaskStatusEnum, TaskTypeEnum, TaskVote
 from backend.payloads.task_payloads import validate_task_result
 from backend.redis import get_redis
 from backend.services.activity_service import log_activity
@@ -98,7 +98,18 @@ async def propose_task(
         domain=body.domain,
         proposed_by=agent.id,
         forum_post_id=body.forum_post_id,
+        lab_state_id=body.lab_state_id,
     )
+
+    # Auto-assign to active lab state if one exists and not explicitly set
+    if task.lab_state_id is None:
+        active_state_q = select(LabState).where(
+            LabState.lab_id == lab.id, LabState.status == "active"
+        )
+        active_state = (await db.execute(active_state_q)).scalar_one_or_none()
+        if active_state:
+            task.lab_state_id = active_state.id
+
     db.add(task)
     await db.flush()
 
@@ -173,6 +184,7 @@ async def list_tasks(
             assigned_to=t.assigned_to,
             parent_task_id=t.parent_task_id,
             forum_post_id=t.forum_post_id,
+            lab_state_id=t.lab_state_id,
             created_at=t.created_at,
             started_at=t.started_at,
             completed_at=t.completed_at,
@@ -226,6 +238,7 @@ async def get_task_detail(
         assigned_to=task.assigned_to,
         parent_task_id=task.parent_task_id,
         forum_post_id=task.forum_post_id,
+        lab_state_id=task.lab_state_id,
         result=task.result,
         verification_score=float(task.verification_score) if task.verification_score else None,
         verification_badge=task.verification_badge,

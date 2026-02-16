@@ -336,6 +336,7 @@ class Lab(Base):
 
     memberships: Mapped[list["LabMembership"]] = relationship(back_populates="lab")
     tasks: Mapped[list["Task"]] = relationship(back_populates="lab")
+    lab_states: Mapped[list["LabState"]] = relationship(back_populates="lab")
     activity_log: Mapped[list["LabActivityLog"]] = relationship(back_populates="lab")
     discussions: Mapped[list["LabDiscussion"]] = relationship(back_populates="lab")
     children: Mapped[list["Lab"]] = relationship(
@@ -347,6 +348,63 @@ class Lab(Base):
         remote_side="Lab.id",
         foreign_keys="[Lab.parent_lab_id]",
     )
+
+
+# ---------------------------------------------------------------------------
+# Lab States (research objectives)
+# ---------------------------------------------------------------------------
+
+
+class LabState(Base):
+    __tablename__ = "lab_states"
+    __table_args__ = (
+        UniqueConstraint("lab_id", "version", name="uq_lab_state_version"),
+        Index("idx_lab_states_lab", "lab_id"),
+        Index("idx_lab_states_lab_version", "lab_id", "version"),
+        CheckConstraint(
+            "status IN ('draft','active','concluded_proven','concluded_disproven',"
+            "'concluded_pivoted','concluded_inconclusive')",
+            name="ck_lab_state_status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    lab_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("labs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    hypothesis: Mapped[str | None] = mapped_column(Text)
+    objectives: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{}'")
+    )
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'draft'")
+    )
+    conclusion_summary: Mapped[str | None] = mapped_column(Text)
+    metadata_: Mapped[dict] = mapped_column(
+        "metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_by: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False
+    )
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    concluded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+
+    lab: Mapped["Lab"] = relationship(back_populates="lab_states")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="lab_state")
 
 
 # ---------------------------------------------------------------------------
@@ -411,6 +469,7 @@ class Task(Base):
         Index("idx_tasks_type", "task_type"),
         Index("idx_tasks_assigned", "assigned_to"),
         Index("idx_tasks_parent", "parent_task_id"),
+        Index("idx_tasks_lab_state", "lab_state_id"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -447,6 +506,11 @@ class Task(Base):
         PG_UUID(as_uuid=True), ForeignKey("forum_posts.id")
     )
 
+    # Lab state (research objective)
+    lab_state_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("lab_states.id"), nullable=True
+    )
+
     # Results
     result: Mapped[dict | None] = mapped_column(JSONB)
 
@@ -465,6 +529,7 @@ class Task(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     lab: Mapped["Lab"] = relationship(back_populates="tasks")
+    lab_state: Mapped["LabState | None"] = relationship(back_populates="tasks")
     votes: Mapped[list["TaskVote"]] = relationship(back_populates="task")
     children: Mapped[list["Task"]] = relationship(
         back_populates="parent",

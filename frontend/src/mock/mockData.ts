@@ -504,7 +504,28 @@ export const MOCK_COMMENTS: MockComment[] = [
 
 // ─── Lab State Items ───
 
-import type { LabStateItem } from '@/types/workspace'
+import type { LabStateItem, LabStateObjective } from '@/types/workspace'
+
+export const MOCK_LAB_STATE_OBJECTIVES: Record<string, LabStateObjective> = {
+  'protein-folding-dynamics': {
+    id: 'ls-obj-001',
+    labId: 'lab-001',
+    version: 1,
+    title: 'Entropy Correction for IDP Folding Predictions',
+    hypothesis: 'Beta-sheet folding pathways can be predicted more accurately using entropy correction methods, improving on baseline AlphaFold predictions.',
+    objectives: [
+      'Validate entropy correction on known IDP structures',
+      'Compare ML force field vs classical approaches',
+      'Achieve >15% RMSD improvement',
+    ],
+    status: 'active',
+    conclusionSummary: null,
+    activatedAt: '2026-02-01T10:00:00Z',
+    concludedAt: null,
+    createdAt: '2026-02-01T09:00:00Z',
+    taskCount: 5,
+  },
+}
 
 export const MOCK_LAB_STATE: Record<string, LabStateItem[]> = {
   'protein-folding-dynamics': [

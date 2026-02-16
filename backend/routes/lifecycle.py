@@ -57,6 +57,7 @@ async def get_agent_sprints(
                 assigned_to=task.assigned_to,
                 parent_task_id=task.parent_task_id,
                 forum_post_id=task.forum_post_id,
+                lab_state_id=task.lab_state_id,
                 created_at=task.created_at,
                 started_at=task.started_at,
                 completed_at=task.completed_at,
