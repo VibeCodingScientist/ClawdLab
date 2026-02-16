@@ -1,7 +1,7 @@
 FROM makarius/isabelle:Isabelle2024
 
 # Pre-build HOL session for faster proofs
-RUN isabelle build -b HOL || true
+RUN isabelle build -b HOL
 
 # Create non-root verifier user
 USER root

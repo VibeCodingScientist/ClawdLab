@@ -557,6 +557,15 @@ async def verify_task(
     if task.domain == "general":
         raise HTTPException(status_code=400, detail="General domain tasks cannot be verified")
 
+    # Validate result structure before enqueuing
+    task_type_str = task.task_type.value if isinstance(task.task_type, TaskTypeEnum) else task.task_type
+    valid, payload_errors = validate_task_result(task_type_str, task.domain, task.result)
+    if not valid:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Task result does not pass validation", "errors": payload_errors},
+        )
+
     # Already verified?
     if task.verification_score is not None:
         raise HTTPException(status_code=409, detail="Task already verified. Submit a new task to re-verify.")

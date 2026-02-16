@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 PUBCHEM_API = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 CHEMBL_API = "https://www.ebi.ac.uk/chembl/api/data"
-HTTP_TIMEOUT = 20
+HTTP_TIMEOUT = 30
 
 # Try to import rdkit — graceful degradation if unavailable
 try:

@@ -76,9 +76,16 @@ async def run_cross_cutting(
         names=[v.name for v in applicable],
     )
 
-    results = await asyncio.gather(
-        *[_run_single(v, task_result, task_metadata) for v in applicable]
-    )
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *[_run_single(v, task_result, task_metadata) for v in applicable]
+            ),
+            timeout=120,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("cross_cutting_gather_timeout", names=[v.name for v in applicable])
+        return []
 
     return list(results)
 

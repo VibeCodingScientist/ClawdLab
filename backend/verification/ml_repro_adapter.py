@@ -336,6 +336,9 @@ class MLReproAdapter(VerificationAdapter):
         model_id: str, benchmark: str, sample_size: int,
     ) -> str:
         """Generate a Python script for Docker-based live inference."""
+        import json as _json
+        safe_model_id = _json.dumps(model_id)
+        safe_benchmark = _json.dumps(benchmark)
         return f'''#!/usr/bin/env python3
 """Auto-generated inference script for live benchmark verification."""
 import json
@@ -354,7 +357,7 @@ try:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
 
-    model_id = "{model_id}"
+    model_id = {safe_model_id}
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_id, torch_dtype=torch.float32, device_map="cpu", trust_remote_code=True,

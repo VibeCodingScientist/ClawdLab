@@ -26,7 +26,7 @@ OPENALEX_API = "https://api.openalex.org/works"
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper"
 
 MAX_CITATIONS = 10
-HTTP_TIMEOUT = 15
+HTTP_TIMEOUT = 30
 
 # Fields in fast-moving domains get freshness penalties
 FAST_MOVING_DOMAINS = {"ml_ai", "bioinformatics", "computational_biology"}

@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
+import shlex
 import tempfile
 import time
 from pathlib import Path
@@ -191,6 +193,13 @@ class ReproducibilityExecutor(CrossCuttingVerifier):
         if not entry_point:
             return False, {
                 "error": "No entry point found (Makefile, run.sh, main.py, reproduce.py)",
+                "outputs": {},
+            }
+
+        # Sanitize entry_point — must be a simple filename
+        if not re.match(r'^[A-Za-z0-9_.\-]+$', entry_point):
+            return False, {
+                "error": f"Invalid entry point name: {entry_point}",
                 "outputs": {},
             }
 

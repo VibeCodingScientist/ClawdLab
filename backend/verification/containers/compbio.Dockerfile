@@ -17,9 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \
-    biopython \
-    numpy \
-    scipy
+    "biopython>=1.82,<2" \
+    "numpy>=1.24,<2" \
+    "scipy>=1.11,<2"
 
 # Create non-root user
 RUN groupadd --gid 1001 verifier \

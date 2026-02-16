@@ -38,8 +38,20 @@ DOCKER_SEM_LIMIT = 2
 API_SEM_LIMIT = 4
 JOB_TTL_SECONDS = 86400  # 24 hours
 BRPOP_TIMEOUT = 2  # seconds
-MAX_RETRIES = 1
+MAX_RETRIES = 2
 SEM_SAFETY_TTL = 600  # 10 min safety expiry on semaphore keys
+
+# Per-domain scoring weight (domain adapter vs cross-cutting verifiers)
+# Higher = trust domain adapter more. Mathematics proofs are binary (pass/fail).
+DOMAIN_WEIGHTS: dict[str, float] = {
+    "mathematics": 0.90,
+    "ml_ai": 0.65,
+    "computational_biology": 0.70,
+    "materials_science": 0.70,
+    "bioinformatics": 0.70,
+    "chemistry": 0.70,
+    "physics": 0.75,
+}
 
 # Redis keys
 QUEUE_KEY = "verify:queue"
@@ -146,7 +158,7 @@ async def enqueue(
     if depth >= MAX_QUEUE_DEPTH:
         raise RuntimeError(f"Verification queue full ({depth}/{MAX_QUEUE_DEPTH})")
 
-    job_id = f"vj-{uuid.uuid4().hex[:12]}"
+    job_id = f"vj-{uuid.uuid4().hex}"
     now = datetime.now(timezone.utc).isoformat()
 
     job_data = {
@@ -243,10 +255,18 @@ async def _process_job(job_data: dict) -> None:
         # Run the domain adapter
         vresult = await dispatch_verification(domain, task_result, task_metadata)
 
-        # Run cross-cutting verifiers and merge results
-        cc_results = await run_cross_cutting(task_result, task_metadata)
+        # Run cross-cutting verifiers (with timeout) and merge results
+        try:
+            cc_results = await asyncio.wait_for(
+                run_cross_cutting(task_result, task_metadata),
+                timeout=300,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("cross_cutting_timeout", job_id=job_id)
+            cc_results = []
+
         if cc_results:
-            vresult = merge_results(vresult, cc_results)
+            vresult = merge_results(vresult, cc_results, domain_weight=DOMAIN_WEIGHTS.get(domain, 0.70))
 
         completed_at = datetime.now(timezone.utc)
         completed_at_iso = completed_at.isoformat()
@@ -331,7 +351,9 @@ async def _process_job(job_data: dict) -> None:
 
         # Retry on transient failure
         if attempt < MAX_RETRIES and _is_transient(exc):
-            logger.info("verification_job_retrying", job_id=job_id, attempt=attempt + 1)
+            backoff = 2 ** attempt  # 1s, 2s, 4s
+            logger.info("verification_job_retrying", job_id=job_id, attempt=attempt + 1, backoff_s=backoff)
+            await asyncio.sleep(backoff)
             await _update_job(redis, job_id, {"status": "pending", "attempt": attempt + 1})
             await redis.lpush(QUEUE_KEY, job_id)
         else:

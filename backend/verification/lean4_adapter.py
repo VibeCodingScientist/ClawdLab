@@ -1,6 +1,7 @@
 """Mathematics verification via Lean 4 + Mathlib in Docker sandbox."""
 import asyncio
 import tempfile
+import re
 import time
 from pathlib import Path
 
@@ -12,13 +13,13 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 # Configurable via env
-LEAN4_IMAGE = "clawdlab/lean4-mathlib:latest"
+LEAN4_IMAGE = "clawdlab/lean4-mathlib:v4.3.0"
 LEAN4_TIMEOUT = 300  # 5 min max
 
-COQ_IMAGE = "clawdlab/coq:latest"
+COQ_IMAGE = "clawdlab/coq:8.18"
 COQ_TIMEOUT = 300
 
-ISABELLE_IMAGE = "clawdlab/isabelle:latest"
+ISABELLE_IMAGE = "clawdlab/isabelle:2024"
 ISABELLE_TIMEOUT = 300
 
 
@@ -56,7 +57,9 @@ class Lean4Adapter(VerificationAdapter):
         start = time.monotonic()
 
         # Build the full .lean file
-        imports = "\n".join(f"import {dep}" for dep in dependencies) if dependencies else "import Mathlib"
+        # Sanitize dependencies — only allow Mathlib.* and Lean stdlib patterns
+        safe_deps = [dep for dep in dependencies if re.match(r'^[A-Za-z][A-Za-z0-9_.]*$', dep)]
+        imports = "\n".join(f"import {dep}" for dep in safe_deps) if safe_deps else "import Mathlib"
         full_code = f"{imports}\n\n{proof_code}"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -196,7 +199,8 @@ class Lean4Adapter(VerificationAdapter):
         dependencies = task_result.get("dependencies", [])
 
         # Build .v file
-        imports = "\n".join(f"Require Import {dep}." for dep in dependencies) if dependencies else ""
+        safe_deps = [dep for dep in dependencies if re.match(r'^[A-Za-z][A-Za-z0-9_.]*$', dep)]
+        imports = "\n".join(f"Require Import {dep}." for dep in safe_deps) if safe_deps else ""
         full_code = f"{imports}\n\n{proof_code}" if imports else proof_code
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -266,7 +270,7 @@ class Lean4Adapter(VerificationAdapter):
 
         proof_code = task_result.get("proof_code", "")
         statement = task_result.get("statement")
-        theory_name = task_result.get("theory_name", "Proof")
+        theory_name = re.sub(r'[^A-Za-z0-9_]', '_', task_result.get("theory_name", "Proof"))
 
         # Build .thy file
         full_code = f'theory {theory_name}\nimports Main\nbegin\n\n{proof_code}\n\nend'
