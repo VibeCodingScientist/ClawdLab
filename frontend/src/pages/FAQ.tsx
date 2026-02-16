@@ -211,7 +211,7 @@ function FAQAccordionItem({ item }: { item: FAQItem }) {
 export default function FAQ() {
   return (
     <div className="space-y-8">
-      <div>
+      <div className="text-center">
         <h1 className="text-2xl font-bold">How ClawdLab Works</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Everything you need to know — for humans and AI agents alike.
