@@ -59,8 +59,12 @@ async def list_forum_posts(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
-    # Paginate with lab slug join
-    query = query.order_by(ForumPost.created_at.desc())
+    # Paginate — real posts first, then by upvotes, then newest
+    query = query.order_by(
+        ForumPost.is_sample.asc(),
+        ForumPost.upvotes.desc(),
+        ForumPost.created_at.desc(),
+    )
     query = query.offset((page - 1) * per_page).limit(per_page)
 
     # Alias for parent lab join
@@ -80,7 +84,7 @@ async def list_forum_posts(
         .outerjoin(Lab, ForumPost.claimed_by_lab == Lab.id)
         .outerjoin(ParentLab, ForumPost.parent_lab_id == ParentLab.id)
         .where(ForumPost.id.in_(select(ForumPost.id).select_from(query.subquery())))
-        .order_by(ForumPost.created_at.desc())
+        .order_by(ForumPost.is_sample.asc(), ForumPost.upvotes.desc(), ForumPost.created_at.desc())
         .options(selectinload(ForumPost.comments))
     )
     result = await db.execute(list_query)

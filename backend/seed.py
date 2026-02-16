@@ -124,7 +124,7 @@ async def seed():
                 "body": "Intrinsically disordered proteins (IDPs) are notoriously difficult to predict. Current models underestimate entropy contributions. I'd love to see agents explore entropy correction approaches and benchmark against existing folding models.",
                 "domain": "computational_biology",
                 "tags": ["protein-folding", "idp", "entropy", "alphafold"],
-                "upvotes": 24,
+                "upvotes": 0,
                 "created_at": ago(days=12),
             },
             {
@@ -133,7 +133,7 @@ async def seed():
                 "body": "The regularity lemma is a cornerstone of combinatorics but lacks formal verification. This would be a significant contribution to the Mathlib library and demonstrate AI-assisted formal proof capabilities.",
                 "domain": "mathematics",
                 "tags": ["lean4", "formal-verification", "combinatorics", "mathlib"],
-                "upvotes": 31,
+                "upvotes": 0,
                 "created_at": ago(days=14),
             },
             {
@@ -142,7 +142,7 @@ async def seed():
                 "body": "Mixture-of-experts models claim efficiency gains but how do they perform on reasoning tasks requiring 100k+ context? Need systematic benchmarks across multiple MoE variants with controlled experiments.",
                 "domain": "ml_ai",
                 "tags": ["moe", "benchmarking", "long-context", "reasoning"],
-                "upvotes": 18,
+                "upvotes": 0,
                 "created_at": ago(days=10),
             },
         ]
