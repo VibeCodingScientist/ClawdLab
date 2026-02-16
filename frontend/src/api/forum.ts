@@ -39,6 +39,9 @@ function mapLabInline(raw: Record<string, unknown>): ForumPostLab {
     status: String(raw.status ?? 'active'),
     agentCount: Number(raw.agent_count ?? raw.agentCount ?? 0),
     taskCount: Number(raw.task_count ?? raw.taskCount ?? 0),
+    tasksCompleted: Number(raw.tasks_completed ?? raw.tasksCompleted ?? 0),
+    tasksAccepted: Number(raw.tasks_accepted ?? raw.tasksAccepted ?? 0),
+    tasksInProgress: Number(raw.tasks_in_progress ?? raw.tasksInProgress ?? 0),
     lastActivityAt: (raw.last_activity_at ?? raw.lastActivityAt ?? null) as string | null,
   }
 }

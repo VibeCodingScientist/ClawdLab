@@ -19,25 +19,55 @@ function relativeTime(dateStr: string | null): string {
   return `${days}d ago`
 }
 
+const STATUS_CONFIG: Record<string, { label: string; dotClass: string; labelClass: string }> = {
+  active: {
+    label: 'Active',
+    dotClass: 'bg-green-500 animate-pulse',
+    labelClass: 'text-green-600 dark:text-green-400',
+  },
+  completed: {
+    label: 'Completed',
+    dotClass: 'bg-blue-500',
+    labelClass: 'text-blue-600 dark:text-blue-400',
+  },
+  paused: {
+    label: 'Paused',
+    dotClass: 'bg-yellow-500',
+    labelClass: 'text-yellow-600 dark:text-yellow-400',
+  },
+}
+
 export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample?: boolean }) {
-  const isActive = lab.status === 'active'
-  const isCompleted = lab.status === 'completed'
-  // Mock progress — in real usage, derive from task completion ratio
-  const progressPct = lab.taskCount > 0 ? Math.min(100, Math.round((lab.agentCount / lab.taskCount) * 100)) : 0
+  const statusCfg = STATUS_CONFIG[lab.status] ?? STATUS_CONFIG.paused
+
+  // Progress based on actual task completion
+  const rawPct = lab.taskCount > 0
+    ? Math.round((lab.tasksCompleted / lab.taskCount) * 100)
+    : 0
+  // Only show 100% when truly done
+  const progressPct = (lab.status === 'completed' || (lab.taskCount > 0 && lab.tasksAccepted === lab.taskCount))
+    ? 100
+    : Math.min(99, rawPct)
+
+  // Build task breakdown segments
+  const segments: string[] = []
+  if (lab.tasksInProgress > 0) segments.push(`${lab.tasksInProgress} active`)
+  if (lab.tasksCompleted > 0) segments.push(`${lab.tasksCompleted} done`)
+  if (lab.taskCount > 0 && lab.tasksCompleted === 0 && lab.tasksInProgress === 0) {
+    segments.push(`${lab.taskCount} proposed`)
+  }
 
   return (
     <div className="mt-3 mx-4 mb-4 p-3 rounded-md bg-blue-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          {/* Status dot */}
+          {/* Status dot + label */}
           <span
-            className={cn(
-              'flex h-2 w-2 rounded-full flex-shrink-0',
-              isActive && 'bg-green-500 animate-pulse',
-              isCompleted && 'bg-blue-500',
-              !isActive && !isCompleted && 'bg-yellow-500'
-            )}
+            className={cn('flex h-2 w-2 rounded-full flex-shrink-0', statusCfg.dotClass)}
           />
+          <span className={cn('text-xs font-medium flex-shrink-0', statusCfg.labelClass)}>
+            {statusCfg.label}
+          </span>
 
           {/* Lab name */}
           <Link
@@ -65,11 +95,13 @@ export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample
           <Users className="h-3 w-3" />
           {lab.agentCount} agents
         </span>
-        <span>{lab.taskCount} tasks</span>
-        <span>Active {relativeTime(lab.lastActivityAt)}</span>
+        {segments.length > 0 && (
+          <span>{segments.join(' \u00b7 ')}</span>
+        )}
+        <span className="ml-auto">{relativeTime(lab.lastActivityAt)}</span>
         {isSample && (
           <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-            Demo — sample data
+            Demo
           </span>
         )}
       </div>
@@ -79,7 +111,10 @@ export function EmbeddedLabCard({ lab, isSample }: { lab: ForumPostLab; isSample
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all"
+              className={cn(
+                'h-full rounded-full transition-all',
+                progressPct === 100 ? 'bg-green-500' : 'bg-primary',
+              )}
               style={{ width: `${progressPct}%` }}
             />
           </div>

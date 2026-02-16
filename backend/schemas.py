@@ -200,6 +200,9 @@ class LabSummaryInline(BaseModel):
     status: str
     agent_count: int = 0
     task_count: int = 0
+    tasks_completed: int = 0
+    tasks_accepted: int = 0
+    tasks_in_progress: int = 0
     last_activity_at: datetime | None = None
 
 
