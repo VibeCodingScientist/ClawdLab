@@ -13,15 +13,15 @@ import { ZonePanel } from './overlays/ZonePanel'
 import { RoundtablePanel } from './overlays/RoundtablePanel'
 import { SpeedControls } from './overlays/SpeedControls'
 import { DemoModeBanner } from './overlays/DemoModeBanner'
-import { NarrativePanel } from './overlays/NarrativePanel'
-import { HumanDiscussion } from './overlays/HumanDiscussion'
+import { TaskBoard } from './overlays/TaskBoard'
+import { LabDiscussion } from './overlays/LabDiscussion'
 import { LabStatePanel } from './overlays/LabStatePanel'
 import { SuggestToLab } from './overlays/SuggestToLab'
 import { CommunityIdeas } from './overlays/CommunityIdeas'
 import { JoinLabDialog } from '@/components/labs/JoinLabDialog'
 import { GameBridge } from './game/GameBridge'
 import { isMockMode, isDemoLab } from '@/mock/useMockMode'
-import type { WorkspaceEvent, ActivityEntry } from '@/types/workspace'
+import type { ActivityEntry } from '@/types/workspace'
 import { getLabActivity } from '@/api/workspace'
 import { ZONE_CONFIGS } from './game/config/zones'
 import { Wifi, WifiOff } from 'lucide-react'
@@ -34,12 +34,11 @@ interface LabWorkspaceProps {
 
 export function LabWorkspace({ slug }: LabWorkspaceProps) {
   const useMockEngine = isMockMode() || isDemoLab(slug)
-  const { agents, connected, getMockEngine, onWorkspaceEvent, onBubble, onActivityEvent } = useWorkspaceSSE(slug)
+  const { agents, connected, getMockEngine, onBubble, onActivityEvent } = useWorkspaceSSE(slug)
   const { detail, members, research, isLoading, error } = useLabState(slug)
   const { labStateItems, activeObjective, invalidate: invalidateLabState } = useLabStateData(slug)
   const [sceneReady, setSceneReady] = useState(false)
   const [roundtableItemId, setRoundtableItemId] = useState<string | null>(null)
-  const [workspaceEvents, setWorkspaceEvents] = useState<WorkspaceEvent[]>([])
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([])
   const [currentSpeed, setCurrentSpeed] = useState(1)
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null)
@@ -71,13 +70,6 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
     }
   }, [research, labStateItems])
 
-  // Wire mock engine events → React state
-  useEffect(() => {
-    onWorkspaceEvent((event) => {
-      setWorkspaceEvents(prev => [...prev, event].slice(-200))
-    })
-  }, [onWorkspaceEvent])
-
   // Wire activity SSE events → activity entries state + invalidate lab state
   useEffect(() => {
     onActivityEvent((entry) => {
@@ -100,20 +92,11 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
     setSceneReady(true)
   }, [])
 
-  // Handle suggestion submissions -- add to workspace events as a human entry
-  const handleSuggestion = useCallback((text: string, category: string) => {
-    const event: WorkspaceEvent = {
-      lab_id: slug,
-      agent_id: 'human',
-      zone: 'roundtable',
-      position_x: 0,
-      position_y: 0,
-      status: 'suggesting',
-      action: `Human suggestion (${category}): ${text}`,
-      timestamp: new Date().toISOString(),
-    }
-    setWorkspaceEvents(prev => [...prev, event].slice(-200))
-  }, [slug])
+  // Handle suggestion submissions
+  const handleSuggestion = useCallback((_text: string, _category: string) => {
+    // Suggestions are submitted via the SuggestToLab dialog and stored server-side.
+    // No client-side state tracking needed.
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -281,21 +264,22 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       {/* Lab state panel -- full width */}
       <LabStatePanel slug={slug} highlightItemId={highlightItemId} items={labStateItems.length > 0 ? labStateItems : undefined} activeObjective={activeObjective} />
 
-      {/* Below-workspace panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <NarrativePanel
-          events={workspaceEvents}
-          members={members}
-          slug={slug}
-          onHighlightItem={(id) => {
-            setHighlightItemId(id)
-            setTimeout(() => setHighlightItemId(null), 2000)
-          }}
-          activityEntries={useMockEngine ? undefined : activityEntries}
-        />
-        <HumanDiscussion slug={slug} />
-        <CommunityIdeas slug={slug} />
-      </div>
+      {/* Task board -- full width */}
+      <TaskBoard slug={slug} members={members} activityEntries={useMockEngine ? undefined : activityEntries} />
+
+      {/* Lab discussion -- full width, merged narrative + discussion */}
+      <LabDiscussion
+        slug={slug}
+        members={members}
+        activityEntries={useMockEngine ? undefined : activityEntries}
+        onHighlightItem={(id) => {
+          setHighlightItemId(id)
+          setTimeout(() => setHighlightItemId(null), 2000)
+        }}
+      />
+
+      {/* Community ideas -- full width, compact */}
+      <CommunityIdeas slug={slug} />
     </div>
   )
 }
