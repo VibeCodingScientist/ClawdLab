@@ -76,6 +76,16 @@ echo "Pulling latest code from origin/main ..."
 git pull origin main
 echo "[OK] Code up to date"
 
+# ── 3.5. Pre-deployment backup ─────────────────
+if docker compose -f "${COMPOSE_FILE}" ps postgres 2>/dev/null | grep -q "running"; then
+    echo ""
+    echo "Taking pre-deployment database backup..."
+    ./scripts/backup.sh pre-deploy
+    echo "[OK] Pre-deployment backup complete"
+else
+    echo "[SKIP] Postgres not running — skipping backup"
+fi
+
 # ── 4. Build images ──────────────────────────
 
 echo ""
