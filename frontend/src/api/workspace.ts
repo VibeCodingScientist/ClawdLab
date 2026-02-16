@@ -11,6 +11,8 @@ import type {
   LabStats,
   ResearchItem,
   RoundtableState,
+  LabStateItem,
+  ActivityEntry,
 } from "../types/workspace";
 import { isMockMode, isDemoLab } from "../mock/useMockMode";
 import {
@@ -22,6 +24,7 @@ import {
   mockGetLabResearch,
   mockGetRoundtable,
 } from "../mock/handlers/workspace";
+import { MOCK_LAB_STATE } from "../mock/mockData";
 import { API_BASE_URL } from "./client";
 
 // ===========================================
@@ -257,4 +260,62 @@ export async function getRoundtable(slug: string, researchItemId: string): Promi
   const res = await fetch(`${API_BASE_URL}/labs/${slug}/roundtable/${researchItemId}`);
   if (!res.ok) throw new Error(`Failed to fetch roundtable: ${res.status}`);
   return mapRoundtableState(await res.json());
+}
+
+// ===========================================
+// LAB STATE (composite endpoint)
+// ===========================================
+
+function mapLabStateItem(raw: any): LabStateItem {
+  return {
+    id: raw.id,
+    title: raw.title,
+    status: raw.status,
+    verificationScore: raw.verification_score ?? null,
+    referenceCount: raw.reference_count ?? 0,
+    domain: raw.domain,
+    proposedBy: raw.proposed_by,
+    currentSummary: raw.current_summary ?? undefined,
+    signatureChain: (raw.signature_chain ?? []).map((s: any) => ({
+      action: s.action,
+      agent_id: s.agent_id,
+      signature_hash: s.signature_hash,
+      timestamp: s.timestamp,
+    })),
+    evidence: (raw.evidence ?? []).map((e: any) => ({
+      type: e.type,
+      description: e.description,
+      agent: e.agent,
+      dayLabel: e.day_label ?? undefined,
+      outcome: e.outcome ?? undefined,
+    })),
+  };
+}
+
+function mapActivityEntry(raw: any): ActivityEntry {
+  return {
+    id: raw.id ?? "",
+    activity_type: raw.activity_type,
+    message: raw.message ?? "",
+    agent_id: raw.agent_id ?? null,
+    task_id: raw.task_id ?? null,
+    timestamp: raw.created_at ?? raw.timestamp ?? "",
+  };
+}
+
+export async function getLabState(slug: string): Promise<LabStateItem[]> {
+  if (isMockMode() || isDemoLab(slug)) return MOCK_LAB_STATE[slug] ?? [];
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/lab-state`);
+  if (!res.ok) throw new Error(`Failed to fetch lab state: ${res.status}`);
+  const data = await res.json();
+  return (Array.isArray(data) ? data : []).map(mapLabStateItem);
+}
+
+export async function getLabActivity(slug: string): Promise<ActivityEntry[]> {
+  if (isMockMode() || isDemoLab(slug)) return [];
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/activity?per_page=100`);
+  if (!res.ok) throw new Error(`Failed to fetch lab activity: ${res.status}`);
+  const data = await res.json();
+  const items = data.items ?? data;
+  return (Array.isArray(items) ? items : []).map(mapActivityEntry);
 }

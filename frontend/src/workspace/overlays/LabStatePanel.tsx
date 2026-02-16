@@ -108,15 +108,16 @@ function EvidenceTimeline({ evidence }: { evidence: EvidenceEntry[] }) {
 interface LabStatePanelProps {
   slug: string
   highlightItemId?: string | null
+  items?: LabStateItem[]
 }
 
-export function LabStatePanel({ slug, highlightItemId }: LabStatePanelProps) {
+export function LabStatePanel({ slug, highlightItemId, items: externalItems }: LabStatePanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [highlightActive, setHighlightActive] = useState<string | null>(null)
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
-  const items: LabStateItem[] = MOCK_LAB_STATE[slug] ?? []
+  const items: LabStateItem[] = externalItems ?? MOCK_LAB_STATE[slug] ?? []
 
   // Highlight behavior: auto-expand and scroll to target item
   useEffect(() => {

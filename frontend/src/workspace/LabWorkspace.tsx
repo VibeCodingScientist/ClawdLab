@@ -5,6 +5,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { useWorkspaceSSE } from '@/hooks/useWorkspaceSSE'
 import { useLabState } from './hooks/useLabState'
+import { useLabStateData } from './hooks/useLabStateData'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { AgentTooltip } from './overlays/AgentTooltip'
 import { ZonePanel } from './overlays/ZonePanel'
@@ -19,8 +20,8 @@ import { CommunityIdeas } from './overlays/CommunityIdeas'
 import { JoinLabDialog } from '@/components/labs/JoinLabDialog'
 import { GameBridge } from './game/GameBridge'
 import { isMockMode, isDemoLab } from '@/mock/useMockMode'
-import type { WorkspaceEvent } from '@/types/workspace'
-import { MOCK_LAB_STATE } from '@/mock/mockData'
+import type { WorkspaceEvent, ActivityEntry } from '@/types/workspace'
+import { getLabActivity } from '@/api/workspace'
 import { ZONE_CONFIGS } from './game/config/zones'
 import { Wifi, WifiOff } from 'lucide-react'
 
@@ -32,21 +33,30 @@ interface LabWorkspaceProps {
 
 export function LabWorkspace({ slug }: LabWorkspaceProps) {
   const useMockEngine = isMockMode() || isDemoLab(slug)
-  const { agents, connected, getMockEngine, onWorkspaceEvent, onBubble } = useWorkspaceSSE(slug)
+  const { agents, connected, getMockEngine, onWorkspaceEvent, onBubble, onActivityEvent } = useWorkspaceSSE(slug)
   const { detail, members, research, isLoading, error } = useLabState(slug)
+  const { labStateItems, invalidate: invalidateLabState } = useLabStateData(slug)
   const [sceneReady, setSceneReady] = useState(false)
   const [roundtableItemId, setRoundtableItemId] = useState<string | null>(null)
   const [workspaceEvents, setWorkspaceEvents] = useState<WorkspaceEvent[]>([])
+  const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([])
   const [currentSpeed, setCurrentSpeed] = useState(1)
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null)
 
   useWorkspaceEvents(agents, members, sceneReady)
 
+  // Fetch initial activity entries for real labs
+  useEffect(() => {
+    if (useMockEngine) return
+    getLabActivity(slug)
+      .then(entries => setActivityEntries(entries))
+      .catch(() => {})
+  }, [slug, useMockEngine])
+
   // Emit lab state to whiteboard renderer
   useEffect(() => {
-    const labState = MOCK_LAB_STATE[slug]
-    if (labState && labState.length > 0) {
-      const items = labState.slice(0, 3).map(i => ({
+    if (labStateItems.length > 0) {
+      const items = labStateItems.slice(0, 3).map(i => ({
         title: i.title,
         score: i.verificationScore,
         status: i.status,
@@ -58,7 +68,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       const underDebate = research.filter(r => r.status === 'under_debate').length
       GameBridge.getInstance().emit('update_progress', verified, inProgress, underDebate)
     }
-  }, [research, slug])
+  }, [research, labStateItems])
 
   // Wire mock engine events → React state
   useEffect(() => {
@@ -66,6 +76,17 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       setWorkspaceEvents(prev => [...prev, event].slice(-200))
     })
   }, [onWorkspaceEvent])
+
+  // Wire activity SSE events → activity entries state + invalidate lab state
+  useEffect(() => {
+    onActivityEvent((entry) => {
+      setActivityEntries(prev => [...prev, entry].slice(-200))
+      // Invalidate lab state query when task-related events arrive
+      if (entry.task_id) {
+        invalidateLabState()
+      }
+    })
+  }, [onActivityEvent, invalidateLabState])
 
   // Wire bubble callback → GameBridge so Phaser shows speech bubbles
   useEffect(() => {
@@ -249,7 +270,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       </div>
 
       {/* Lab state panel -- full width */}
-      <LabStatePanel slug={slug} highlightItemId={highlightItemId} />
+      <LabStatePanel slug={slug} highlightItemId={highlightItemId} items={labStateItems.length > 0 ? labStateItems : undefined} />
 
       {/* Below-workspace panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -261,6 +282,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
             setHighlightItemId(id)
             setTimeout(() => setHighlightItemId(null), 2000)
           }}
+          activityEntries={useMockEngine ? undefined : activityEntries}
         />
         <HumanDiscussion slug={slug} />
         <CommunityIdeas slug={slug} />

@@ -103,6 +103,7 @@ from backend.routes.challenges import router as challenges_router  # noqa: E402
 from backend.routes.monitoring import router as monitoring_router  # noqa: E402
 from backend.routes.lifecycle import router as lifecycle_router  # noqa: E402
 from backend.routes.notifications import router as notifications_router  # noqa: E402
+from backend.routes.lab_state import router as lab_state_router  # noqa: E402
 
 import backend.verification.dispatcher  # noqa: F401,E402
 
@@ -123,6 +124,7 @@ app.include_router(challenges_router)
 app.include_router(monitoring_router)
 app.include_router(lifecycle_router)
 app.include_router(notifications_router)
+app.include_router(lab_state_router)
 
 
 @app.get("/health")

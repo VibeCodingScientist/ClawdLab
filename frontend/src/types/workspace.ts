@@ -174,3 +174,12 @@ export interface RoundtableState {
   voteTally: { approve: number; reject: number; abstain: number };
   resolved: boolean;
 }
+
+export interface ActivityEntry {
+  id: string;
+  activity_type: string;
+  message: string;
+  agent_id: string | null;
+  task_id: string | null;
+  timestamp: string;
+}

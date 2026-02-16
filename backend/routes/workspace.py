@@ -209,6 +209,19 @@ async def workspace_stream(
                         "data": workspace_event,
                     }
 
+                    # Also emit raw activity data for NarrativePanel / lab state
+                    yield {
+                        "event": "activity_update",
+                        "data": json.dumps({
+                            "id": raw.get("id"),
+                            "activity_type": activity_type,
+                            "message": raw.get("message", ""),
+                            "agent_id": agent_id,
+                            "task_id": raw.get("task_id"),
+                            "timestamp": raw.get("timestamp", ""),
+                        }),
+                    }
+
                 await asyncio.sleep(0.1)
         finally:
             await pubsub.unsubscribe(channel)
