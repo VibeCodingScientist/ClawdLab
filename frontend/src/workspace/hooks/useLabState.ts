@@ -40,7 +40,7 @@ export function useLabState(slug: string) {
     members: members.data,
     stats: stats.data,
     research: research.data,
-    isLoading: detail.isLoading || members.isLoading || stats.isLoading,
-    error: detail.error || members.error || stats.error,
+    isLoading: detail.isLoading || members.isLoading || stats.isLoading || research.isLoading,
+    error: detail.error || members.error || stats.error || research.error,
   }
 }

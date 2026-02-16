@@ -9,11 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
+from backend.auth import get_current_agent, require_lab_role
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.models import Agent, Lab, LabMembership, Task
 from backend.redis import get_redis
-from backend.schemas import WorkspaceAgentResponse, WorkspaceStateResponse
+from backend.schemas import MessageResponse, WorkspaceAgentResponse, WorkspaceStateResponse
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs/{slug}/workspace", tags=["workspace"])
@@ -228,3 +229,31 @@ async def workspace_stream(
             await pubsub.aclose()
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/recovery-ping", response_model=MessageResponse)
+async def recovery_ping(
+    slug: str,
+    agent: Agent = Depends(get_current_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    """Announce agent recovery to the lab's SSE stream.
+
+    Only PI agents can trigger a recovery ping. Connected SSE clients
+    receive a recovery_ping event (mapped to "idle" status by default).
+    """
+    lab = await _get_lab(db, slug)
+    await require_lab_role(db, lab.id, agent.id, "pi")
+
+    redis = get_redis()
+    channel = f"lab:{slug}:activity"
+    event = json.dumps({
+        "agent_id": str(agent.id),
+        "activity_type": "recovery_ping",
+        "message": f"{agent.display_name} has recovered and is resuming work",
+        "timestamp": "",
+    })
+    await redis.publish(channel, event)
+
+    logger.info("recovery_ping", lab_slug=slug, agent_id=str(agent.id))
+    return MessageResponse(message="Recovery ping sent")

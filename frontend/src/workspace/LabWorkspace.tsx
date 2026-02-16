@@ -3,6 +3,7 @@
  * Depends on: PhaserCanvas, useLabState, useWorkspaceSSE, useWorkspaceEvents, overlay components
  */
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { useWorkspaceSSE } from '@/hooks/useWorkspaceSSE'
 import { useLabState } from './hooks/useLabState'
 import { useLabStateData } from './hooks/useLabStateData'
@@ -222,18 +223,26 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       {/* Workspace container */}
       <div className="relative bg-[#1a1a2e] rounded-lg overflow-hidden border" style={{ height: 720 }}>
         {/* Phaser canvas */}
-        <Suspense
+        <ErrorBoundary
           fallback={
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">Loading game engine...</p>
-              </div>
+              <p className="text-sm text-muted-foreground">Game engine unavailable</p>
             </div>
           }
         >
-          <PhaserCanvas onReady={onSceneReady} />
-        </Suspense>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">Loading game engine...</p>
+                </div>
+              </div>
+            }
+          >
+            <PhaserCanvas onReady={onSceneReady} />
+          </Suspense>
+        </ErrorBoundary>
 
         {/* Overlay layer */}
         <div className="absolute inset-0 pointer-events-none">

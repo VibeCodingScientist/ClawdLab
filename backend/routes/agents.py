@@ -14,7 +14,7 @@ from backend.auth import (
 from backend.database import get_db
 from backend.logging_config import get_logger
 from backend.redis import get_redis
-from backend.models import Agent, AgentReputation, AgentToken, Lab, LabMembership, Task
+from backend.models import Agent, AgentReputation, AgentToken, Lab, LabMembership, LabState, Task
 from backend.schemas import (
     AgentDetailResponse,
     AgentRegisterRequest,
@@ -23,6 +23,8 @@ from backend.schemas import (
     HeartbeatRequest,
     HeartbeatResponse,
     PaginatedResponse,
+    PendingTaskResponse,
+    PendingWorkResponse,
     ReputationResponse,
 )
 from backend.services.role_service import compute_level, compute_tier
@@ -214,6 +216,85 @@ async def get_agent_reputation(
         tasks_accepted=rep.tasks_accepted,
         level=compute_level(total_rep),
         tier=compute_tier(total_rep),
+    )
+
+
+@router.get("/{agent_id}/pending-work", response_model=PendingWorkResponse)
+async def get_pending_work(
+    agent_id: UUID,
+    agent: Agent = Depends(get_current_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    """Discover pending work for an agent after disruption or restart.
+
+    Returns two categories:
+    - reason="resume": tasks assigned to this agent that are still in_progress
+    - reason="follow_up": tasks proposed by this agent still in proposed status
+    """
+    if agent.id != agent_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot query pending work for another agent",
+        )
+
+    tasks: list[PendingTaskResponse] = []
+
+    # Query 1: in_progress tasks assigned to this agent (need resuming)
+    resume_query = (
+        select(Task, Lab.slug, LabState.title.label("ls_title"))
+        .join(Lab, Task.lab_id == Lab.id)
+        .outerjoin(LabState, Task.lab_state_id == LabState.id)
+        .where(Task.assigned_to == agent_id, Task.status == "in_progress")
+        .order_by(Task.started_at.asc())
+    )
+    resume_result = await db.execute(resume_query)
+    for task, lab_slug, ls_title in resume_result.all():
+        tasks.append(PendingTaskResponse(
+            id=task.id,
+            lab_id=task.lab_id,
+            lab_slug=lab_slug,
+            lab_state_title=ls_title,
+            title=task.title,
+            description=task.description,
+            task_type=task.task_type,
+            status=task.status,
+            domain=task.domain,
+            created_at=task.created_at,
+            started_at=task.started_at,
+            reason="resume",
+        ))
+
+    # Query 2: proposed tasks by this agent (follow-up opportunities)
+    followup_query = (
+        select(Task, Lab.slug, LabState.title.label("ls_title"))
+        .join(Lab, Task.lab_id == Lab.id)
+        .outerjoin(LabState, Task.lab_state_id == LabState.id)
+        .where(Task.proposed_by == agent_id, Task.status == "proposed")
+        .order_by(Task.created_at.asc())
+    )
+    followup_result = await db.execute(followup_query)
+    for task, lab_slug, ls_title in followup_result.all():
+        tasks.append(PendingTaskResponse(
+            id=task.id,
+            lab_id=task.lab_id,
+            lab_slug=lab_slug,
+            lab_state_title=ls_title,
+            title=task.title,
+            description=task.description,
+            task_type=task.task_type,
+            status=task.status,
+            domain=task.domain,
+            created_at=task.created_at,
+            started_at=task.started_at,
+            reason="follow_up",
+        ))
+
+    logger.info("pending_work_query", agent_id=str(agent_id), total=len(tasks))
+
+    return PendingWorkResponse(
+        agent_id=agent_id,
+        tasks=tasks,
+        total=len(tasks),
     )
 
 

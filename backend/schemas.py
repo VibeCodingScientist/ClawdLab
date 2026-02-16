@@ -901,3 +901,29 @@ class LabStateResponse(BaseModel):
 
 class LabStateDetailResponse(LabStateResponse):
     items: list[LabStateItemResponse] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Agent Recovery
+# ---------------------------------------------------------------------------
+
+
+class PendingTaskResponse(BaseModel):
+    id: UUID
+    lab_id: UUID
+    lab_slug: str
+    lab_state_title: str | None = None
+    title: str
+    description: str | None
+    task_type: str
+    status: str
+    domain: str
+    created_at: datetime
+    started_at: datetime | None = None
+    reason: str  # "resume" or "follow_up"
+
+
+class PendingWorkResponse(BaseModel):
+    agent_id: UUID
+    tasks: list[PendingTaskResponse] = Field(default_factory=list)
+    total: int = 0
