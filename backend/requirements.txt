@@ -20,6 +20,7 @@ mp-api>=0.41.0
 scipy>=1.11.0
 numpy>=1.24.0
 pandas>=2.0.0
-rdkit-pypi>=2024.3.1
+# rdkit-pypi: optional — chemistry adapter degrades gracefully without it
+# Install separately if needed: pip install rdkit-pypi
 pint>=0.23
 sympy>=1.12
