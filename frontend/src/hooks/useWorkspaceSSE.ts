@@ -7,6 +7,7 @@ import type { WorkspaceAgent, WorkspaceEvent } from "../types/workspace";
 import { isMockMode, isDemoLab } from "../mock/useMockMode";
 import { MockEventEngine } from "../mock/mockEventEngine";
 import { API_BASE_URL } from "../api/client";
+import { getWorkspaceState } from "../api/workspace";
 
 type WorkspaceEventCallback = (event: WorkspaceEvent) => void;
 
@@ -74,6 +75,26 @@ export function useWorkspaceSSE(slug: string): WorkspaceSSEResult {
 
     // Close existing connection before creating new one
     eventSourceRef.current?.close();
+
+    // Hydrate agents from REST endpoint before SSE connects
+    getWorkspaceState(slug)
+      .then((state) => {
+        for (const agent of state.agents) {
+          handleEvent({
+            lab_id: state.slug,
+            agent_id: agent.agent_id,
+            zone: agent.zone,
+            position_x: agent.position_x,
+            position_y: agent.position_y,
+            status: agent.status,
+            action: "initial_state",
+            timestamp: agent.last_action_at ?? new Date().toISOString(),
+          });
+        }
+      })
+      .catch(() => {
+        // Non-fatal — SSE will still provide updates
+      });
 
     const es = new EventSource(`${API_BASE_URL}/labs/${slug}/workspace/stream`);
 
