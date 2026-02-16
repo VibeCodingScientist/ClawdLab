@@ -18,7 +18,7 @@ export default function Profile() {
     .slice(0, 2) || 'U'
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold">Profile Settings</h1>
         <p className="text-muted-foreground">
