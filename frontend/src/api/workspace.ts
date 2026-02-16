@@ -27,6 +27,7 @@ import {
 } from "../mock/handlers/workspace";
 import { MOCK_LAB_STATE, MOCK_LAB_STATE_OBJECTIVES } from "../mock/mockData";
 import { API_BASE_URL } from "./client";
+import type { RoleArchetype } from "../workspace/game/config/archetypes";
 
 // ===========================================
 // SNAKE_CASE → CAMELCASE MAPPERS
@@ -77,7 +78,7 @@ function mapLabDetail(raw: any): LabDetail {
 }
 
 // Backend roles → frontend archetype mapping
-const ROLE_TO_ARCHETYPE: Record<string, string> = {
+const ROLE_TO_ARCHETYPE: Record<string, RoleArchetype> = {
   pi: 'pi',
   scout: 'scout',
   research_analyst: 'experimentalist',
