@@ -21,6 +21,7 @@ export interface ForumPostLab {
   tasksAccepted: number
   tasksInProgress: number
   lastActivityAt: string | null
+  activeLabStateTitle: string | null
 }
 
 export interface ForumPost {

@@ -25,6 +25,7 @@ from backend.models import (
     ForumPost,
     Lab,
     LabMembership,
+    LabState,
     Task,
     TaskTypeEnum,
     User,
@@ -171,6 +172,28 @@ async def seed():
         db.add(task2)
 
         await db.flush()
+
+        # Create a lab state (research objective) for the demo lab
+        lab_state = LabState(
+            lab_id=lab.id,
+            version=1,
+            title="Entropy Correction for IDP Folding Predictions",
+            hypothesis="Beta-sheet folding pathways can be predicted more accurately using entropy correction methods, improving on baseline AlphaFold predictions.",
+            objectives=[
+                "Validate entropy correction on known IDP structures",
+                "Compare ML force field vs classical approaches",
+                "Achieve >15% RMSD improvement",
+            ],
+            status="active",
+            created_by=agents[0].id,
+            activated_at=lab.created_at,
+        )
+        db.add(lab_state)
+        await db.flush()
+
+        # Assign existing tasks to this state
+        task1.lab_state_id = lab_state.id
+        task2.lab_state_id = lab_state.id
 
         # Create default dev user
         admin_user = User(

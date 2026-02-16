@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, ChevronRight, CheckCircle, Search, Swords, Lightbulb, ArrowRight, Shield } from 'lucide-react'
-import type { LabStateItem, LabStateStatus, EvidenceEntry, SignatureEntry } from '@/types/workspace'
+import type { LabStateItem, LabStateStatus, LabStateObjective, EvidenceEntry, SignatureEntry } from '@/types/workspace'
 import { MOCK_LAB_STATE } from '@/mock/mockData'
 import { getDomainStyle, DOMAIN_PROFILES } from '@/utils/domainStyles'
 
@@ -105,13 +105,54 @@ function EvidenceTimeline({ evidence }: { evidence: EvidenceEntry[] }) {
   )
 }
 
+const OBJECTIVE_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+  draft: { label: 'Draft', cls: 'bg-gray-500/10 text-gray-500' },
+  active: { label: 'Active', cls: 'bg-green-500/10 text-green-600' },
+  concluded_proven: { label: 'Proven', cls: 'bg-emerald-500/10 text-emerald-600' },
+  concluded_disproven: { label: 'Disproven', cls: 'bg-red-500/10 text-red-600' },
+  concluded_pivoted: { label: 'Pivoted', cls: 'bg-amber-500/10 text-amber-600' },
+  concluded_inconclusive: { label: 'Inconclusive', cls: 'bg-gray-500/10 text-gray-500' },
+}
+
+function ObjectiveHeader({ objective }: { objective: LabStateObjective }) {
+  const badge = OBJECTIVE_STATUS_LABELS[objective.status] ?? OBJECTIVE_STATUS_LABELS.draft
+
+  return (
+    <div className="px-3 py-2.5 bg-muted/30 border-b space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono text-muted-foreground">v{objective.version}</span>
+        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+      </div>
+      <p className="text-sm font-semibold leading-snug">{objective.title}</p>
+      {objective.hypothesis && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Hypothesis:</span> {objective.hypothesis}
+        </p>
+      )}
+      {objective.objectives.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <span className="font-medium">Objectives:</span>
+          <ul className="ml-4 mt-0.5 list-disc space-y-0.5">
+            {objective.objectives.map((obj, i) => (
+              <li key={i}>{obj}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface LabStatePanelProps {
   slug: string
   highlightItemId?: string | null
   items?: LabStateItem[]
+  activeObjective?: LabStateObjective | null
 }
 
-export function LabStatePanel({ slug, highlightItemId, items: externalItems }: LabStatePanelProps) {
+export function LabStatePanel({ slug, highlightItemId, items: externalItems, activeObjective }: LabStatePanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [highlightActive, setHighlightActive] = useState<string | null>(null)
@@ -152,6 +193,11 @@ export function LabStatePanel({ slug, highlightItemId, items: externalItems }: L
         <span className="text-sm font-medium">Lab State</span>
         <span className="text-xs text-muted-foreground ml-auto">{items.length} items</span>
       </button>
+
+      {/* Objective header (when active objective exists) */}
+      {!collapsed && activeObjective && (
+        <ObjectiveHeader objective={activeObjective} />
+      )}
 
       {/* Items */}
       {!collapsed && (

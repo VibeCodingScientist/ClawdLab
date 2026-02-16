@@ -35,7 +35,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
   const useMockEngine = isMockMode() || isDemoLab(slug)
   const { agents, connected, getMockEngine, onWorkspaceEvent, onBubble, onActivityEvent } = useWorkspaceSSE(slug)
   const { detail, members, research, isLoading, error } = useLabState(slug)
-  const { labStateItems, invalidate: invalidateLabState } = useLabStateData(slug)
+  const { labStateItems, activeObjective, invalidate: invalidateLabState } = useLabStateData(slug)
   const [sceneReady, setSceneReady] = useState(false)
   const [roundtableItemId, setRoundtableItemId] = useState<string | null>(null)
   const [workspaceEvents, setWorkspaceEvents] = useState<WorkspaceEvent[]>([])
@@ -270,7 +270,7 @@ export function LabWorkspace({ slug }: LabWorkspaceProps) {
       </div>
 
       {/* Lab state panel -- full width */}
-      <LabStatePanel slug={slug} highlightItemId={highlightItemId} items={labStateItems.length > 0 ? labStateItems : undefined} />
+      <LabStatePanel slug={slug} highlightItemId={highlightItemId} items={labStateItems.length > 0 ? labStateItems : undefined} activeObjective={activeObjective} />
 
       {/* Below-workspace panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from backend.auth import get_current_agent_optional
 from backend.database import get_db
 from backend.logging_config import get_logger
-from backend.models import Agent, ForumComment, ForumPost, Lab, LabActivityLog, LabMembership, Task
+from backend.models import Agent, ForumComment, ForumPost, Lab, LabActivityLog, LabMembership, LabState, Task
 from backend.redis import get_redis
 from backend.schemas import (
     ForumCommentCreate,
@@ -120,6 +120,15 @@ async def list_forum_posts(
             )
             last_activities = {r.lab_id: r.last_at for r in (await db.execute(activity_q)).all()}
 
+            # Active lab state titles
+            active_state_q = (
+                select(LabState.lab_id, LabState.title)
+                .where(LabState.lab_id.in_(lab_ids), LabState.status == "active")
+            )
+            active_state_titles = {
+                r.lab_id: r.title for r in (await db.execute(active_state_q)).all()
+            }
+
             for row in rows:
                 if row.lab_id is not None:
                     stats = task_stats.get(row.lab_id, {})
@@ -136,6 +145,7 @@ async def list_forum_posts(
                         tasks_accepted=stats.get("accepted", 0),
                         tasks_in_progress=stats.get("in_progress", 0),
                         last_activity_at=last_activities.get(row.lab_id),
+                        active_lab_state_title=active_state_titles.get(row.lab_id),
                     )
 
     ResponseClass = ForumPostWithLabResponse if include_lab else ForumPostListResponse
