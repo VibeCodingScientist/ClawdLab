@@ -401,6 +401,57 @@ export async function concludeLabState(
   return mapLabStateObjective(await res.json());
 }
 
+// ===========================================
+// LAB TASKS (for TaskBoard)
+// ===========================================
+
+export interface LabTask {
+  id: string
+  title: string
+  description: string | null
+  taskType: string
+  status: string
+  domain: string
+  proposedBy: string
+  assignedTo: string | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+  verificationScore: number | null
+  verificationBadge: string | null
+}
+
+function mapLabTask(raw: any): LabTask {
+  return {
+    id: raw.id,
+    title: raw.title,
+    description: raw.description ?? null,
+    taskType: raw.task_type ?? raw.taskType ?? 'unknown',
+    status: raw.status ?? 'proposed',
+    domain: raw.domain ?? 'general',
+    proposedBy: raw.proposed_by ?? raw.proposedBy ?? '',
+    assignedTo: raw.assigned_to ?? raw.assignedTo ?? null,
+    startedAt: raw.started_at ?? raw.startedAt ?? null,
+    completedAt: raw.completed_at ?? raw.completedAt ?? null,
+    createdAt: raw.created_at ?? raw.createdAt ?? '',
+    verificationScore: raw.verification_score ?? raw.verificationScore ?? null,
+    verificationBadge: raw.verification_badge ?? raw.verificationBadge ?? null,
+  }
+}
+
+export async function getLabTasks(slug: string): Promise<LabTask[]> {
+  if (isMockMode() || isDemoLab(slug)) return []
+  const res = await fetch(`${API_BASE_URL}/labs/${slug}/tasks?per_page=50`)
+  if (!res.ok) throw new Error(`Failed to fetch lab tasks: ${res.status}`)
+  const data = await res.json()
+  const items = data.items ?? data
+  return (Array.isArray(items) ? items : []).map(mapLabTask)
+}
+
+// ===========================================
+// LAB ACTIVITY
+// ===========================================
+
 export async function getLabActivity(slug: string): Promise<ActivityEntry[]> {
   if (isMockMode() || isDemoLab(slug)) return [];
   const res = await fetch(`${API_BASE_URL}/labs/${slug}/activity?per_page=100`);

@@ -64,21 +64,23 @@ export function CommunityIdeas({ slug }: CommunityIdeasProps) {
       </div>
 
       {/* Content */}
-      <div className="overflow-y-auto p-3 space-y-3" style={{ maxHeight: 300 }}>
+      <div className="overflow-y-auto p-3" style={{ maxHeight: 200 }}>
         {suggestions.length === 0 ? (
-          <div className="text-center py-6">
-            <Lightbulb className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <div className="text-center py-4">
+            <Lightbulb className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
             <p className="text-xs text-muted-foreground">
-              No community suggestions yet.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Use "Suggest to Lab" to share an idea.
+              No community suggestions yet. Use "Suggest to Lab" to share an idea.
             </p>
           </div>
         ) : (
-          suggestions.map(suggestion => (
-            <SuggestionCard key={suggestion.id} suggestion={suggestion} />
-          ))
+          <div className={suggestions.length <= 3
+            ? 'flex gap-3'
+            : 'grid grid-cols-2 lg:grid-cols-3 gap-3'
+          }>
+            {suggestions.map(suggestion => (
+              <SuggestionCard key={suggestion.id} suggestion={suggestion} />
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -90,7 +92,7 @@ function SuggestionCard({ suggestion }: { suggestion: LabSuggestion }) {
   const isLong = suggestion.body.length > 150
 
   return (
-    <div className="rounded-md border border-muted/50 p-2.5 hover:border-muted transition-colors">
+    <div className="rounded-md border border-muted/50 p-2.5 hover:border-muted transition-colors flex-1 min-w-0">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
