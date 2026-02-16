@@ -48,6 +48,8 @@ services:
       LOG_LEVEL: INFO
       LOG_FORMAT: json
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy

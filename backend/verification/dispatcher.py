@@ -6,6 +6,15 @@ from backend.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# Domains that require Docker containers for verification
+DOCKER_DOMAINS: set[str] = {"mathematics", "computational_biology"}
+
+
+def is_docker_domain(domain: str) -> bool:
+    """Return True if verification for this domain runs in a Docker container."""
+    return domain in DOCKER_DOMAINS
+
+
 # Registry — populated at import time
 _ADAPTERS: dict[str, VerificationAdapter] = {}
 
@@ -51,8 +60,11 @@ def _register_all() -> None:
     from backend.verification.compbio_adapter import CompBioAdapter
     from backend.verification.materials_adapter import MaterialsAdapter
     from backend.verification.bioinfo_adapter import BioInfoAdapter
+    from backend.verification.chemistry_adapter import ChemistryAdapter
+    from backend.verification.physics_adapter import PhysicsAdapter
 
-    for cls in [Lean4Adapter, MLReproAdapter, CompBioAdapter, MaterialsAdapter, BioInfoAdapter]:
+    for cls in [Lean4Adapter, MLReproAdapter, CompBioAdapter, MaterialsAdapter,
+                BioInfoAdapter, ChemistryAdapter, PhysicsAdapter]:
         register_adapter(cls())
 
 

@@ -518,6 +518,11 @@ class Task(Base):
     verification_score: Mapped[float | None] = mapped_column(DECIMAL(5, 4))
     verification_badge: Mapped[str | None] = mapped_column(Text)
     verification_result: Mapped[dict | None] = mapped_column(JSONB)
+    verification_status: Mapped[str | None] = mapped_column(Text)
+    verification_job_id: Mapped[str | None] = mapped_column(Text)
+    verification_queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

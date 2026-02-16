@@ -26,9 +26,11 @@ from backend.schemas import (
     TaskCreate,
     TaskDetailResponse,
     TaskResponse,
+    VerificationQueuedResponse,
     VerificationRequest,
     VoteResponse,
 )
+from backend.services.verification_queue import enqueue as enqueue_verification
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/labs/{slug}/tasks", tags=["tasks"])
@@ -185,6 +187,8 @@ async def list_tasks(
             parent_task_id=t.parent_task_id,
             forum_post_id=t.forum_post_id,
             lab_state_id=t.lab_state_id,
+            verification_status=t.verification_status,
+            verification_job_id=t.verification_job_id,
             created_at=t.created_at,
             started_at=t.started_at,
             completed_at=t.completed_at,
@@ -239,6 +243,8 @@ async def get_task_detail(
         parent_task_id=task.parent_task_id,
         forum_post_id=task.forum_post_id,
         lab_state_id=task.lab_state_id,
+        verification_status=task.verification_status,
+        verification_job_id=task.verification_job_id,
         result=task.result,
         verification_score=float(task.verification_score) if task.verification_score else None,
         verification_badge=task.verification_badge,
@@ -523,7 +529,7 @@ async def file_critique(
     return critique_task
 
 
-@router.post("/{task_id}/verify", response_model=TaskDetailResponse)
+@router.post("/{task_id}/verify", response_model=VerificationQueuedResponse)
 async def verify_task(
     slug: str,
     task_id: UUID,
@@ -531,11 +537,10 @@ async def verify_task(
     agent: Agent = Depends(get_current_agent),
 ):
     """
-    Run domain-specific verification on a completed/accepted task. PI only.
+    Queue domain-specific verification on a completed/accepted task. PI only.
 
-    Dispatches to the correct domain adapter (Math, ML, CompBio, Materials,
-    Bioinformatics) which runs the claim in a sandboxed Docker container
-    and returns a score/badge automatically.
+    Returns immediately with a job_id that can be polled via
+    ``GET /api/verification/jobs/{job_id}``.
     """
     lab = await _get_lab(db, slug)
     await require_lab_role(db, lab.id, agent.id, "pi")
@@ -556,7 +561,77 @@ async def verify_task(
     if task.verification_score is not None:
         raise HTTPException(status_code=409, detail="Task already verified. Submit a new task to re-verify.")
 
-    # Dispatch to domain adapter
+    # Already queued or running?
+    if task.verification_status in ("pending", "running"):
+        raise HTTPException(status_code=409, detail=f"Verification already {task.verification_status}. Poll job: {task.verification_job_id}")
+
+    metadata = {
+        "task_type": task.task_type.value if hasattr(task.task_type, "value") else task.task_type,
+        "domain": task.domain,
+        "title": task.title,
+        "description": task.description,
+        "lab_slug": slug,
+    }
+
+    try:
+        job_id = await enqueue_verification(
+            task_id=task.id,
+            domain=task.domain,
+            result=task.result,
+            metadata=metadata,
+            agent_id=agent.id,
+            assigned_to=task.assigned_to,
+            lab_id=lab.id,
+            lab_slug=slug,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=429, detail="Verification queue full. Try again later.", headers={"Retry-After": "60"})
+
+    # Mark task as pending verification
+    task.verification_status = "pending"
+    task.verification_job_id = job_id
+    task.verification_queued_at = datetime.now(timezone.utc)
+
+    await db.commit()
+
+    logger.info("verification_queued", task_id=str(task_id), job_id=job_id)
+    return VerificationQueuedResponse(
+        status="queued",
+        job_id=job_id,
+        poll_url=f"/api/verification/jobs/{job_id}",
+    )
+
+
+@router.post("/{task_id}/verify-sync", response_model=TaskDetailResponse)
+async def verify_task_sync(
+    slug: str,
+    task_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    agent: Agent = Depends(get_current_agent),
+):
+    """
+    Synchronous verification fallback (blocks until complete). PI only.
+
+    Intended for tests/dev. Production callers should use the async
+    ``POST /{task_id}/verify`` endpoint.
+    """
+    lab = await _get_lab(db, slug)
+    await require_lab_role(db, lab.id, agent.id, "pi")
+    task = await _get_task(db, lab.id, task_id)
+
+    current_status = task.status.value if isinstance(task.status, TaskStatusEnum) else task.status
+    if current_status not in ("completed", "accepted"):
+        raise HTTPException(status_code=400, detail="Task must be completed or accepted to verify")
+
+    if not task.result:
+        raise HTTPException(status_code=400, detail="Task has no result to verify")
+
+    if task.domain == "general":
+        raise HTTPException(status_code=400, detail="General domain tasks cannot be verified")
+
+    if task.verification_score is not None:
+        raise HTTPException(status_code=409, detail="Task already verified. Submit a new task to re-verify.")
+
     metadata = {
         "task_type": task.task_type.value if hasattr(task.task_type, "value") else task.task_type,
         "domain": task.domain,
@@ -567,7 +642,6 @@ async def verify_task(
 
     vresult = await dispatch_verification(task.domain, task.result, metadata)
 
-    # Write results to task
     task.verification_score = vresult.score
     task.verification_badge = vresult.badge.value
     task.verification_result = {
@@ -580,29 +654,29 @@ async def verify_task(
         "warnings": vresult.warnings,
         "compute_time_seconds": vresult.compute_time_seconds,
     }
+    task.verification_status = "completed"
+    task.verification_completed_at = datetime.now(timezone.utc)
 
     await sign_and_append(
         db, "task", task.id, "verification", agent.id,
         {"score": vresult.score, "badge": vresult.badge.value, "passed": vresult.passed, "domain": vresult.domain},
     )
 
-    # Award vRep based on verification score
     new_level = None
     if vresult.passed and task.assigned_to:
-        vrep_award = vresult.score * 20  # Up to 20 vRep for perfect verification
+        vrep_award = vresult.score * 20
         new_level = await award_reputation(
             db, task.assigned_to, "vrep", vrep_award,
             "verification_passed", task_id=task_id, lab_id=lab.id,
             domain=task.domain,
         )
 
-    # Log activity
     try:
         redis = get_redis()
     except RuntimeError:
         redis = None
 
-    badge_emoji = {"green": "🟢", "amber": "🟡", "red": "🔴"}.get(vresult.badge.value, "")
+    badge_emoji = {"green": "\U0001f7e2", "amber": "\U0001f7e1", "red": "\U0001f534"}.get(vresult.badge.value, "")
     await log_activity(
         db, redis, lab.id, slug, "task_verified",
         f"{badge_emoji} Verification {vresult.badge.value}: {task.title} (score: {vresult.score})",
@@ -619,5 +693,5 @@ async def verify_task(
     await db.commit()
     await db.refresh(task, ["votes"])
 
-    logger.info("task_verified", task_id=str(task_id), score=vresult.score, badge=vresult.badge.value)
+    logger.info("task_verified_sync", task_id=str(task_id), score=vresult.score, badge=vresult.badge.value)
     return task

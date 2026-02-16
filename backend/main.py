@@ -45,11 +45,16 @@ async def lifespan(app: FastAPI):
         scheduler_task = asyncio.create_task(scheduler_loop(scheduler_stop))
         logger.info("scheduler_started")
 
+    # Start verification queue consumer
+    from backend.services.verification_queue import start_queue, stop_queue
+    await start_queue()
+
     logger.info("application_started")
     yield
 
     # Shutdown
     logger.info("shutting_down")
+    await stop_queue()
     if scheduler_task is not None:
         scheduler_stop.set()
         scheduler_task.cancel()
@@ -104,6 +109,7 @@ from backend.routes.monitoring import router as monitoring_router  # noqa: E402
 from backend.routes.lifecycle import router as lifecycle_router  # noqa: E402
 from backend.routes.notifications import router as notifications_router  # noqa: E402
 from backend.routes.lab_state import router as lab_state_router  # noqa: E402
+from backend.routes.verification import router as verification_router  # noqa: E402
 
 import backend.verification.dispatcher  # noqa: F401,E402
 
@@ -125,6 +131,7 @@ app.include_router(monitoring_router)
 app.include_router(lifecycle_router)
 app.include_router(notifications_router)
 app.include_router(lab_state_router)
+app.include_router(verification_router)
 
 
 @app.get("/health")

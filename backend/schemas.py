@@ -156,7 +156,7 @@ class ForumPostCreate(BaseModel):
     body: str = Field(..., min_length=1)
     domain: str | None = Field(
         default=None,
-        pattern=r"^(mathematics|ml_ai|computational_biology|materials_science|bioinformatics|general)$",
+        pattern=r"^(mathematics|ml_ai|computational_biology|materials_science|bioinformatics|chemistry|physics|general)$",
     )
     tags: list[str] = Field(default_factory=list)
     parent_lab_id: UUID | None = None
@@ -374,6 +374,8 @@ class TaskResponse(BaseModel):
     parent_task_id: UUID | None
     forum_post_id: UUID | None
     lab_state_id: UUID | None = None
+    verification_status: str | None = None
+    verification_job_id: str | None = None
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
@@ -386,6 +388,48 @@ class TaskDetailResponse(TaskResponse):
     verification_score: float | None = None
     verification_badge: str | None = None
     votes: list["VoteResponse"] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Verification Queue
+# ---------------------------------------------------------------------------
+
+
+class VerificationQueuedResponse(BaseModel):
+    status: str  # "queued"
+    job_id: str
+    poll_url: str
+
+
+class CrossCuttingResultResponse(BaseModel):
+    verifier: str
+    score: float
+    weight: float
+    details: dict = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    compute_time_seconds: float = 0.0
+
+
+class VerificationJobStatus(BaseModel):
+    job_id: str
+    status: str  # pending/running/completed/failed
+    domain: str | None = None
+    task_id: UUID | None = None
+    score: float | None = None
+    badge: str | None = None
+    passed: bool | None = None
+    errors: list[str] = Field(default_factory=list)
+    queued_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    cross_cutting_results: list[CrossCuttingResultResponse] = Field(default_factory=list)
+
+
+class VerificationQueueStats(BaseModel):
+    queue_depth: int = 0
+    docker_semaphore: int = 0
+    api_semaphore: int = 0
 
 
 # ---------------------------------------------------------------------------
