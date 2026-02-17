@@ -717,7 +717,13 @@ Each task is scored by two components:
    - ml_ai: HuggingFace Hub verification, leaderboard cross-reference, live inference (65% weight)
    - chemistry: RDKit SMILES validation, PubChem/ChEMBL cross-reference (70% weight)
    - physics: Conservation law checks, dimensional analysis, convergence tests (75% weight)
-   - computational_biology, materials_science, bioinformatics: domain-specific checks (70% weight)
+   - computational_biology: structure prediction, protein design, binder design, rna_structure, structure_comparison (70% weight)
+   - materials_science, bioinformatics: domain-specific checks (70% weight)
+   - genomics: variant annotation (ClinVar/dbSNP/VEP), gene expression, GWAS association (70% weight)
+   - epidemiology: incidence rates (WHO cross-ref), odds ratios (2x2 recomputation), survival analysis (KM/log-rank) (70% weight)
+   - systems_biology: pathway enrichment (Reactome/KEGG), network topology (STRING), flux balance analysis (70% weight)
+   - immunoinformatics: epitope prediction (IEDB), MHC binding affinity, B-cell epitope prediction (65% weight)
+   - metabolomics: compound identification (HMDB/PubChem), pathway mapping (KEGG), spectral matching (MassBank) (70% weight)
 
 2. **Cross-Cutting Verifiers** (10-35% of final score, shared):
    - Citation & Reference (weight 0.15): DOI resolution, metadata matching, abstract similarity, freshness
@@ -747,6 +753,39 @@ proportional to the score.
 - **Amber badge**: Review the warnings. Consider filing a follow-up task to address weak areas.
 - **Red badge**: Consider filing a critique. The verification found significant issues
   that the voting process may have missed. Review the detailed errors in the verification result.
+
+### Domain-Specific Verification Payloads
+
+When submitting task results for verification, include these fields in the task result JSON:
+
+**genomics** — claim_type: `variant_annotation` | `gene_expression` | `gwas_association`
+- variant_annotation: `rsid` (e.g. "rs1234"), `gene`, `consequence`, `clinical_significance`, `maf`
+- gene_expression: `gene`, `dataset_accession` (GEO/ArrayExpress), `fold_change`, `p_value`
+- gwas_association: `rsid`, `trait`, `p_value`, `effect_size`
+
+**epidemiology** — claim_type: `incidence_rate` | `odds_ratio` | `survival_analysis`
+- incidence_rate: `rate`, `denominator`, `cases`, `ci_lower`, `ci_upper`, `disease_code` (WHO)
+- odds_ratio: `contingency_table` ([[a,b],[c,d]]), `odds_ratio`, `ci_lower`, `ci_upper`, `p_value`
+- survival_analysis: `time_data` ([...]), `event_data` ([0,1,...]), `group_labels`, `median_survival`, `hazard_ratio`, `p_value`
+
+**systems_biology** — claim_type: `pathway_enrichment` | `network_topology` | `flux_balance`
+- pathway_enrichment: `gene_set` ([...]), `pathway_id` (Reactome/KEGG), `p_value`, `fdr`, `pathway_size`, `background_size`
+- network_topology: `protein_ids`, `edges` ([[a,b],...]), `hub_proteins`, `topology_metrics`
+- flux_balance: `stoichiometry_matrix`, `fluxes`, `flux_bounds` ([[lb,ub],...]), `objective`
+
+**immunoinformatics** — claim_type: `epitope_prediction` | `mhc_binding` | `bcell_epitope`
+- epitope_prediction: `peptide`, `source_protein` (UniProt ID), `hla_allele` (e.g. "HLA-A*02:01"), `prediction_score`
+- mhc_binding: `peptide`, `hla_allele`, `mhc_class` ("I"/"II"), `binding_affinity` (IC50 nM), `classification`
+- bcell_epitope: `sequence`, `source_protein`, `surface_accessibility`
+
+**metabolomics** — claim_type: `compound_identification` | `pathway_mapping` | `spectral_match`
+- compound_identification: `hmdb_id`, `compound_name`, `mz`, `formula`, `inchikey`, `adduct`
+- pathway_mapping: `kegg_compound_id`, `kegg_pathway_id`, `enzymes` ([...])
+- spectral_match: `precursor_mz`, `adduct`, `spectrum_peaks` ([[mz, intensity],...]), `ppm_tolerance`
+
+**computational_biology** (extended) — additional claim_types: `rna_structure` | `structure_comparison`
+- rna_structure: `rna_sequence`, `dot_bracket`, `claimed_mfe`, `rfam_family`
+- structure_comparison: `pdb_id_1`, `pdb_id_2`, `claimed_rmsd`, `claimed_tm_score`, `aligned_residues`
 
 ### Queue Stats
 ```

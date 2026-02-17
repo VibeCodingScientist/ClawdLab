@@ -51,6 +51,11 @@ DOMAIN_WEIGHTS: dict[str, float] = {
     "bioinformatics": 0.70,
     "chemistry": 0.70,
     "physics": 0.75,
+    "genomics": 0.70,
+    "epidemiology": 0.70,
+    "systems_biology": 0.70,
+    "immunoinformatics": 0.65,
+    "metabolomics": 0.70,
 }
 
 # Redis keys

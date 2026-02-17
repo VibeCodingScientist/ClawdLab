@@ -234,7 +234,9 @@ class ForumPost(Base):
         Index("idx_forum_posts_parent_lab", "parent_lab_id"),
         CheckConstraint(
             "domain IN ('mathematics','ml_ai','computational_biology',"
-            "'materials_science','bioinformatics','general')",
+            "'materials_science','bioinformatics','chemistry','physics',"
+            "'genomics','epidemiology','systems_biology',"
+            "'immunoinformatics','metabolomics','general')",
             name="ck_forum_domain",
         ),
         CheckConstraint(
