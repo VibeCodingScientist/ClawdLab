@@ -179,22 +179,63 @@ class CitationVerifier(CrossCuttingVerifier):
         return match.group(0).rstrip(".,;)") if match else ""
 
     async def _resolve_doi(self, doi: str) -> dict:
-        """Resolve DOI via CrossRef API."""
+        """Resolve DOI via CrossRef API; check for retraction notices."""
         try:
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
                 resp = await client.get(f"{CROSSREF_API}/{doi}")
                 if resp.status_code == 200:
                     data = resp.json().get("message", {})
-                    return {
-                        "score": 1.0,
+
+                    # Check for retraction / correction / withdrawal via
+                    # CrossRef's "update-to" field (includes Retraction Watch data)
+                    retraction_info = self._check_retraction_status(data)
+
+                    score = 1.0
+                    if retraction_info.get("retracted"):
+                        score = 0.1  # severe penalty — paper is retracted
+                    elif retraction_info.get("has_correction"):
+                        score = 0.7  # mild penalty — paper has correction/erratum
+
+                    result = {
+                        "score": score,
                         "resolved": True,
                         "title": data.get("title", [""])[0] if data.get("title") else "",
                         "doi": doi,
                     }
+                    if retraction_info.get("retracted") or retraction_info.get("has_correction"):
+                        result["retraction_status"] = retraction_info
+                    return result
                 return {"score": 0.0, "resolved": False, "status": resp.status_code}
         except Exception as e:
             logger.warning("doi_resolution_failed", doi=doi, error=str(e))
             return {"score": 0.0, "resolved": False, "error": str(e)}
+
+    @staticmethod
+    def _check_retraction_status(crossref_data: dict) -> dict:
+        """Inspect CrossRef metadata for retraction/correction notices."""
+        update_to = crossref_data.get("update-to", [])
+        if not update_to:
+            return {"retracted": False, "has_correction": False}
+
+        retracted = False
+        has_correction = False
+        notices: list[str] = []
+
+        for update in update_to:
+            update_type = (update.get("type", "") or "").lower()
+            label = update.get("label", "") or update_type
+            if any(kw in update_type for kw in ("retraction", "withdrawal")):
+                retracted = True
+                notices.append(label)
+            elif any(kw in update_type for kw in ("correction", "erratum")):
+                has_correction = True
+                notices.append(label)
+
+        return {
+            "retracted": retracted,
+            "has_correction": has_correction,
+            "notices": notices,
+        }
 
     async def _check_metadata_match(self, citation: dict) -> dict:
         """Check title/author/year match via OpenAlex and Semantic Scholar."""

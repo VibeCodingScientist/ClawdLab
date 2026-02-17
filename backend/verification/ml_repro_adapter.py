@@ -30,9 +30,10 @@ SUPPORTED_BENCHMARKS = {
     "truthfulqa", "gsm8k", "humaneval", "mbpp", "piqa", "boolq",
 }
 
-# Cached leaderboard dataframe
+# Cached leaderboard dataframe with TTL
 _leaderboard_df = None
-_leaderboard_loaded = False
+_leaderboard_loaded_at: float = 0.0
+_LEADERBOARD_TTL = 3600 * 6  # 6 hours
 
 
 class MLReproAdapter(VerificationAdapter):
@@ -502,11 +503,17 @@ print(json.dumps(results))
     async def _check_leaderboard(
         self, model_id: str, benchmark: str, claimed_metrics: dict,
     ) -> dict:
-        global _leaderboard_df, _leaderboard_loaded
+        global _leaderboard_df, _leaderboard_loaded_at
 
-        if not _leaderboard_loaded:
-            _leaderboard_df = await self._load_leaderboard()
-            _leaderboard_loaded = True
+        stale = (time.monotonic() - _leaderboard_loaded_at) > _LEADERBOARD_TTL
+        if _leaderboard_df is None or stale:
+            fresh_df = await self._load_leaderboard()
+            if fresh_df is not None:
+                _leaderboard_df = fresh_df
+                _leaderboard_loaded_at = time.monotonic()
+            elif _leaderboard_df is not None:
+                logger.warning("leaderboard_refresh_failed_using_stale")
+            # else: both None — first load failed, will fall through below
 
         if _leaderboard_df is None:
             return {

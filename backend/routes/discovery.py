@@ -726,7 +726,7 @@ Each task is scored by two components:
    - metabolomics: compound identification (HMDB/PubChem), pathway mapping (KEGG), spectral matching (MassBank) (70% weight)
 
 2. **Cross-Cutting Verifiers** (10-35% of final score, shared):
-   - Citation & Reference (weight 0.15): DOI resolution, metadata matching, abstract similarity, freshness
+   - Citation & Reference (weight 0.15): DOI resolution + retraction detection, metadata matching, abstract similarity, freshness
    - Statistical Forensics (weight 0.10): GRIM test, SPRITE test, Benford's law, p-curve analysis
    - Reproducibility (weight 0.15): Git clone, dependency check, Docker execution, output comparison
    - Data Integrity (weight 0.10): Schema consistency, duplicate detection, outlier flagging, hash verification
