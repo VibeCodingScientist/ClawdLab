@@ -62,9 +62,16 @@ def _register_all() -> None:
     from backend.verification.bioinfo_adapter import BioInfoAdapter
     from backend.verification.chemistry_adapter import ChemistryAdapter
     from backend.verification.physics_adapter import PhysicsAdapter
+    from backend.verification.genomics_adapter import GenomicsAdapter
+    from backend.verification.epidemiology_adapter import EpidemiologyAdapter
+    from backend.verification.systems_biology_adapter import SystemsBiologyAdapter
+    from backend.verification.immunoinformatics_adapter import ImmunoinformaticsAdapter
+    from backend.verification.metabolomics_adapter import MetabolomicsAdapter
 
     for cls in [Lean4Adapter, MLReproAdapter, CompBioAdapter, MaterialsAdapter,
-                BioInfoAdapter, ChemistryAdapter, PhysicsAdapter]:
+                BioInfoAdapter, ChemistryAdapter, PhysicsAdapter,
+                GenomicsAdapter, EpidemiologyAdapter, SystemsBiologyAdapter,
+                ImmunoinformaticsAdapter, MetabolomicsAdapter]:
         register_adapter(cls())
 
 

@@ -3,13 +3,18 @@
 Uses Biopython + numpy + DSSP to validate protein structures without GPU
 re-prediction.  Checks physical plausibility (Ramachandran, clashes,
 sequence–structure match, secondary structure) rather than re-folding.
+Also validates RNA structures and protein structure comparisons via API.
 """
 import asyncio
 import json
+import re
 import tempfile
 import textwrap
 import time
+from typing import Any
 from pathlib import Path
+
+import httpx
 
 from backend.verification.base import (
     VerificationAdapter, VerificationResult, VerificationBadge,
@@ -21,6 +26,14 @@ logger = get_logger(__name__)
 COMPBIO_IMAGE = "clawdlab/compbio-cpu:latest"
 COMPBIO_TIMEOUT = 300  # 5 min — CPU validation is fast
 VALID_AMINO_ACIDS = set("ACDEFGHIKLMNPQRSTVWY")
+VALID_RNA_BASES = set("ACGU")
+
+RFAM_API = "https://rfam.org/family"
+RCSB_PDB_API = "https://data.rcsb.org/rest/v1/core/entry"
+HTTP_TIMEOUT = 30
+
+# Canonical + wobble base pairs for RNA
+CANONICAL_PAIRS = {("A", "U"), ("U", "A"), ("G", "C"), ("C", "G"), ("G", "U"), ("U", "G")}
 
 
 class CompBioAdapter(VerificationAdapter):
@@ -35,6 +48,10 @@ class CompBioAdapter(VerificationAdapter):
             return await self._verify_design(task_result)
         elif claim_type == "binder_design":
             return await self._verify_binder(task_result)
+        elif claim_type == "rna_structure":
+            return await self._verify_rna_structure(task_result)
+        elif claim_type == "structure_comparison":
+            return await self._verify_structure_comparison(task_result)
         else:
             return VerificationResult.fail(self.domain, [f"Unknown claim_type: {claim_type}"])
 
@@ -245,6 +262,364 @@ class CompBioAdapter(VerificationAdapter):
             warnings=metrics.get("warnings", []),
             compute_time_seconds=elapsed,
         )
+
+    # ------------------------------------------------------------------
+    # RNA structure verification (API-based, no Docker)
+    # ------------------------------------------------------------------
+
+    async def _verify_rna_structure(self, result: dict) -> VerificationResult:
+        """Validate RNA secondary structure claims."""
+        start = time.monotonic()
+
+        rna_sequence = result.get("rna_sequence", "")
+        dot_bracket = result.get("dot_bracket", "")
+        claimed_mfe = result.get("claimed_mfe")
+        rfam_family = result.get("rfam_family", "")
+
+        if not rna_sequence:
+            return VerificationResult.fail(self.domain, ["rna_sequence required"])
+
+        component_scores: dict[str, float] = {}
+        details: dict[str, Any] = {"claim_type": "rna_structure"}
+
+        # Component 1: sequence_valid (0.15)
+        seq_result = self._check_rna_sequence_valid(rna_sequence)
+        component_scores["sequence_valid"] = seq_result["score"]
+        details["sequence_valid"] = seq_result
+
+        # Component 2: dot_bracket_valid (0.25)
+        db_result = self._check_dot_bracket_valid(dot_bracket, rna_sequence)
+        component_scores["dot_bracket_valid"] = db_result["score"]
+        details["dot_bracket_valid"] = db_result
+
+        # Component 3: base_pairs_valid (0.25)
+        bp_result = self._check_base_pairs_valid(rna_sequence, dot_bracket)
+        component_scores["base_pairs_valid"] = bp_result["score"]
+        details["base_pairs_valid"] = bp_result
+
+        # Component 4: energy_plausible (0.20)
+        energy_result = self._check_energy_plausible(rna_sequence, claimed_mfe)
+        component_scores["energy_plausible"] = energy_result["score"]
+        details["energy_plausible"] = energy_result
+
+        # Component 5: database_match (0.15)
+        db_match = await self._check_rfam_match(rfam_family)
+        component_scores["database_match"] = db_match["score"]
+        details["database_match"] = db_match
+
+        weights = {
+            "sequence_valid": 0.15,
+            "dot_bracket_valid": 0.25,
+            "base_pairs_valid": 0.25,
+            "energy_plausible": 0.20,
+            "database_match": 0.15,
+        }
+        score = sum(weights[k] * component_scores[k] for k in weights)
+        score = min(1.0, round(score, 4))
+
+        elapsed = time.monotonic() - start
+        details["component_scores"] = component_scores
+
+        return VerificationResult(
+            passed=score >= 0.5,
+            score=score,
+            badge=VerificationResult.score_to_badge(score),
+            domain=self.domain,
+            details=details,
+            compute_time_seconds=elapsed,
+        )
+
+    # ------------------------------------------------------------------
+    # Structure comparison verification (API-based, no Docker)
+    # ------------------------------------------------------------------
+
+    async def _verify_structure_comparison(self, result: dict) -> VerificationResult:
+        """Validate protein structure comparison claims (RMSD, TM-score)."""
+        start = time.monotonic()
+
+        pdb_id_1 = result.get("pdb_id_1", "")
+        pdb_id_2 = result.get("pdb_id_2", "")
+        claimed_rmsd = result.get("claimed_rmsd")
+        claimed_tm_score = result.get("claimed_tm_score")
+        aligned_residues = result.get("aligned_residues")
+
+        if not pdb_id_1 or not pdb_id_2:
+            return VerificationResult.fail(self.domain, ["pdb_id_1 and pdb_id_2 required"])
+
+        component_scores: dict[str, float] = {}
+        details: dict[str, Any] = {"claim_type": "structure_comparison"}
+
+        # Component 1: pdb_ids_valid (0.20)
+        pdb_result = await self._check_pdb_ids_valid(pdb_id_1, pdb_id_2)
+        component_scores["pdb_ids_valid"] = pdb_result["score"]
+        details["pdb_ids_valid"] = pdb_result
+
+        # Component 2: rmsd_plausible (0.25)
+        rmsd_result = self._check_rmsd_plausible(claimed_rmsd)
+        component_scores["rmsd_plausible"] = rmsd_result["score"]
+        details["rmsd_plausible"] = rmsd_result
+
+        # Component 3: alignment_length (0.25)
+        align_result = await self._check_alignment_length(
+            pdb_id_1, pdb_id_2, aligned_residues,
+        )
+        component_scores["alignment_length"] = align_result["score"]
+        details["alignment_length"] = align_result
+
+        # Component 4: tm_score_plausible (0.30)
+        tm_result = self._check_tm_score_plausible(claimed_tm_score, claimed_rmsd)
+        component_scores["tm_score_plausible"] = tm_result["score"]
+        details["tm_score_plausible"] = tm_result
+
+        weights = {
+            "pdb_ids_valid": 0.20,
+            "rmsd_plausible": 0.25,
+            "alignment_length": 0.25,
+            "tm_score_plausible": 0.30,
+        }
+        score = sum(weights[k] * component_scores[k] for k in weights)
+        score = min(1.0, round(score, 4))
+
+        elapsed = time.monotonic() - start
+        details["component_scores"] = component_scores
+
+        return VerificationResult(
+            passed=score >= 0.5,
+            score=score,
+            badge=VerificationResult.score_to_badge(score),
+            domain=self.domain,
+            details=details,
+            compute_time_seconds=elapsed,
+        )
+
+    # ------------------------------------------------------------------
+    # RNA structure helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _check_rna_sequence_valid(seq: str) -> dict:
+        upper = seq.upper()
+        invalid = [b for b in upper if b not in VALID_RNA_BASES]
+        if invalid:
+            return {"score": 0.0, "error": f"Invalid bases: {''.join(set(invalid))}", "length": len(upper)}
+        return {"score": 1.0, "valid": True, "length": len(upper)}
+
+    @staticmethod
+    def _check_dot_bracket_valid(dot_bracket: str, sequence: str) -> dict:
+        if not dot_bracket:
+            return {"score": 0.5, "note": "No dot-bracket notation provided"}
+
+        if len(dot_bracket) != len(sequence):
+            return {
+                "score": 0.0,
+                "error": f"Length mismatch: sequence={len(sequence)}, dot_bracket={len(dot_bracket)}",
+            }
+
+        # Check balanced parentheses
+        stack: list[int] = []
+        for i, ch in enumerate(dot_bracket):
+            if ch == "(":
+                stack.append(i)
+            elif ch == ")":
+                if not stack:
+                    return {"score": 0.0, "error": f"Unmatched ')' at position {i}"}
+                stack.pop()
+            elif ch != ".":
+                return {"score": 0.0, "error": f"Invalid character '{ch}' at position {i}"}
+
+        if stack:
+            return {"score": 0.0, "error": f"Unmatched '(' at positions {stack[:5]}"}
+
+        n_pairs = dot_bracket.count("(")
+        return {"score": 1.0, "valid": True, "n_base_pairs": n_pairs, "length": len(dot_bracket)}
+
+    @staticmethod
+    def _check_base_pairs_valid(sequence: str, dot_bracket: str) -> dict:
+        if not dot_bracket or not sequence or len(dot_bracket) != len(sequence):
+            return {"score": 0.5, "note": "Cannot check base pairs"}
+
+        upper = sequence.upper()
+        stack: list[int] = []
+        canonical = 0
+        non_canonical = 0
+
+        for i, ch in enumerate(dot_bracket):
+            if ch == "(":
+                stack.append(i)
+            elif ch == ")" and stack:
+                j = stack.pop()
+                pair = (upper[j], upper[i])
+                if pair in CANONICAL_PAIRS:
+                    canonical += 1
+                else:
+                    non_canonical += 1
+
+        total = canonical + non_canonical
+        if total == 0:
+            return {"score": 0.5, "note": "No base pairs"}
+
+        score = canonical / total
+        return {
+            "score": round(score, 4),
+            "canonical": canonical,
+            "non_canonical": non_canonical,
+            "total_pairs": total,
+        }
+
+    @staticmethod
+    def _check_energy_plausible(sequence: str, claimed_mfe: float | None) -> dict:
+        if claimed_mfe is None:
+            return {"score": 0.5, "note": "No MFE claimed"}
+
+        seq_len = len(sequence)
+        # Empirical: MFE scales roughly linearly with length
+        # Typical range: -0.3 to -1.5 kcal/mol per nucleotide for structured RNAs
+        min_expected = -1.5 * seq_len
+        max_expected = 0.0  # unfolded
+
+        if min_expected <= claimed_mfe <= max_expected:
+            return {"score": 1.0, "plausible": True, "claimed_mfe": claimed_mfe}
+        elif claimed_mfe > 0:
+            return {"score": 0.0, "error": "Positive MFE is thermodynamically implausible"}
+        elif claimed_mfe < min_expected * 2:
+            return {"score": 0.2, "note": "MFE unusually low for sequence length"}
+        return {"score": 0.5, "note": "MFE borderline", "claimed_mfe": claimed_mfe}
+
+    async def _check_rfam_match(self, rfam_family: str) -> dict:
+        if not rfam_family:
+            return {"score": 0.5, "note": "No Rfam family ID provided"}
+
+        try:
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+                resp = await client.get(
+                    f"{RFAM_API}/{rfam_family}",
+                    headers={"Accept": "application/json"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {
+                        "score": 1.0,
+                        "found": True,
+                        "family_name": data.get("rfam", {}).get("id", rfam_family),
+                    }
+                return {"score": 0.0, "found": False}
+        except Exception as e:
+            logger.warning("rfam_check_failed", error=str(e))
+            return {"score": 0.3, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Structure comparison helpers
+    # ------------------------------------------------------------------
+
+    async def _check_pdb_ids_valid(self, pdb_id_1: str, pdb_id_2: str) -> dict:
+        valid = 0
+        checked_ids = {}
+        try:
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+                for pdb_id in [pdb_id_1, pdb_id_2]:
+                    resp = await client.get(f"{RCSB_PDB_API}/{pdb_id.upper()}")
+                    if resp.status_code == 200:
+                        valid += 1
+                        checked_ids[pdb_id] = True
+                    else:
+                        checked_ids[pdb_id] = False
+
+            score = valid / 2.0
+            return {"score": round(score, 4), "ids": checked_ids}
+        except Exception as e:
+            logger.warning("pdb_ids_check_failed", error=str(e))
+            return {"score": 0.3, "error": str(e)}
+
+    @staticmethod
+    def _check_rmsd_plausible(claimed_rmsd: float | None) -> dict:
+        if claimed_rmsd is None:
+            return {"score": 0.5, "note": "No RMSD claimed"}
+
+        if not isinstance(claimed_rmsd, (int, float)) or claimed_rmsd < 0:
+            return {"score": 0.0, "error": "RMSD must be non-negative"}
+
+        # Typical RMSD ranges:
+        # 0-2 Å: very similar structures
+        # 2-5 Å: same fold, different conformations
+        # 5-10 Å: related folds
+        # >10 Å: different folds
+        if 0 <= claimed_rmsd <= 30:
+            return {"score": 1.0, "plausible": True, "rmsd": claimed_rmsd}
+        return {"score": 0.2, "plausible": False, "rmsd": claimed_rmsd}
+
+    async def _check_alignment_length(
+        self, pdb_id_1: str, pdb_id_2: str, aligned_residues: int | None,
+    ) -> dict:
+        if aligned_residues is None:
+            return {"score": 0.5, "note": "No aligned residues count"}
+
+        try:
+            # Fetch polymer entity counts from RCSB
+            lengths = []
+            async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+                for pdb_id in [pdb_id_1, pdb_id_2]:
+                    resp = await client.get(f"{RCSB_PDB_API}/{pdb_id.upper()}")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        # Get deposited model count or polymer entity count
+                        struct = data.get("struct", {})
+                        n_res = data.get("rcsb_entry_info", {}).get("deposited_polymer_monomer_count", 0)
+                        if n_res:
+                            lengths.append(n_res)
+
+            if len(lengths) < 2:
+                # Just check plausibility
+                if aligned_residues > 0:
+                    return {"score": 0.7, "note": "Could not verify against PDB lengths"}
+                return {"score": 0.3, "error": "Zero aligned residues"}
+
+            shorter = min(lengths)
+            fraction = aligned_residues / shorter if shorter > 0 else 0
+
+            # Alignment should cover reasonable fraction of shorter chain
+            if fraction >= 0.5:
+                return {"score": 1.0, "fraction": round(fraction, 3), "shorter_chain": shorter}
+            elif fraction >= 0.2:
+                return {"score": 0.5, "fraction": round(fraction, 3)}
+            return {"score": 0.2, "fraction": round(fraction, 3)}
+
+        except Exception as e:
+            logger.warning("alignment_length_check_failed", error=str(e))
+            return {"score": 0.5, "error": str(e)}
+
+    @staticmethod
+    def _check_tm_score_plausible(
+        claimed_tm: float | None, claimed_rmsd: float | None,
+    ) -> dict:
+        if claimed_tm is None:
+            return {"score": 0.5, "note": "No TM-score claimed"}
+
+        if not isinstance(claimed_tm, (int, float)):
+            return {"score": 0.0, "error": "TM-score must be numeric"}
+
+        if not (0 <= claimed_tm <= 1):
+            return {"score": 0.0, "error": f"TM-score {claimed_tm} must be in [0, 1]"}
+
+        # Consistency with RMSD: high TM-score should correlate with low RMSD
+        if claimed_rmsd is not None and isinstance(claimed_rmsd, (int, float)):
+            # High TM + high RMSD is suspicious
+            if claimed_tm > 0.8 and claimed_rmsd > 10:
+                return {
+                    "score": 0.2,
+                    "note": "High TM-score inconsistent with high RMSD",
+                    "tm_score": claimed_tm,
+                    "rmsd": claimed_rmsd,
+                }
+            # Low TM + low RMSD is suspicious
+            if claimed_tm < 0.3 and claimed_rmsd < 1:
+                return {
+                    "score": 0.2,
+                    "note": "Low TM-score inconsistent with low RMSD",
+                    "tm_score": claimed_tm,
+                    "rmsd": claimed_rmsd,
+                }
+
+        return {"score": 1.0, "plausible": True, "tm_score": claimed_tm}
 
     # ------------------------------------------------------------------
     # Helpers
