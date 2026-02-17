@@ -16,6 +16,34 @@ from backend.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# ------------------------------------------------------------------
+# Optional dependencies — degrade gracefully when unavailable
+# ------------------------------------------------------------------
+try:
+    from pymatgen.core import Structure, Element
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+    PYMATGEN_AVAILABLE = True
+except ImportError:
+    PYMATGEN_AVAILABLE = False
+    Structure = None  # type: ignore[assignment,misc]
+    Element = None  # type: ignore[assignment,misc]
+    SpacegroupAnalyzer = None  # type: ignore[assignment,misc]
+    logger.warning(
+        "pymatgen_not_available",
+        note="CIF parsing / symmetry / composition checks will degrade to score=0.5",
+    )
+
+try:
+    from mp_api.client import MPRester
+    MP_API_AVAILABLE = True
+except ImportError:
+    MPRester = None  # type: ignore[assignment,misc]
+    MP_API_AVAILABLE = False
+    logger.warning(
+        "mp_api_not_available",
+        note="Materials Project client unavailable — REST fallback will be used",
+    )
+
 MP_API_KEY = os.getenv("MP_API_KEY", "")
 AFLOW_BASE = "http://aflowlib.org/API/aflux/"
 TIMEOUT = 30  # seconds total
@@ -209,8 +237,9 @@ class MaterialsAdapter(VerificationAdapter):
 
     @staticmethod
     def _check_cif_parse(cif_data: str) -> dict:
+        if not PYMATGEN_AVAILABLE:
+            return {"score": 0.5, "structure": None, "metrics": {"note": "pymatgen unavailable — skipped"}}
         try:
-            from pymatgen.core import Structure
             structure = Structure.from_str(cif_data, fmt="cif")
             if len(structure) == 0:
                 return {"score": 0.0, "metrics": {"error": "Empty structure"}}
@@ -253,8 +282,9 @@ class MaterialsAdapter(VerificationAdapter):
     def _check_symmetry(structure) -> dict:
         if structure is None:
             return {"score": 0.0, "metrics": {}}
+        if not PYMATGEN_AVAILABLE:
+            return {"score": 0.5, "metrics": {"note": "pymatgen unavailable — skipped"}}
         try:
-            from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
             analyzer = SpacegroupAnalyzer(structure)
             sg_symbol = analyzer.get_space_group_symbol()
             sg_number = analyzer.get_space_group_number()
@@ -274,8 +304,9 @@ class MaterialsAdapter(VerificationAdapter):
     def _check_composition(structure) -> dict:
         if structure is None:
             return {"score": 0.0, "metrics": {}}
+        if not PYMATGEN_AVAILABLE:
+            return {"score": 0.5, "metrics": {"note": "pymatgen unavailable — skipped"}}
         try:
-            from pymatgen.core import Element
             comp = structure.composition
             elements = comp.elements
 
@@ -416,9 +447,8 @@ class MaterialsAdapter(VerificationAdapter):
 
     async def _query_mp_api(self, formula: str) -> dict | None:
         """Query Materials Project API via mp-api client or REST fallback."""
-        if MP_API_KEY:
+        if MP_API_KEY and MP_API_AVAILABLE:
             try:
-                from mp_api.client import MPRester
                 result = await asyncio.to_thread(self._mp_rester_query, formula)
                 return result
             except Exception as e:
@@ -453,7 +483,6 @@ class MaterialsAdapter(VerificationAdapter):
 
     @staticmethod
     def _mp_rester_query(formula: str) -> dict | None:
-        from mp_api.client import MPRester
         with MPRester(MP_API_KEY) as mpr:
             docs = mpr.materials.summary.search(
                 formula=formula,
@@ -503,9 +532,8 @@ class MaterialsAdapter(VerificationAdapter):
         self, mp_id: str | None, formula: str | None,
     ) -> dict:
         """Look up material by MP ID or formula for property verification."""
-        if mp_id and MP_API_KEY:
+        if mp_id and MP_API_KEY and MP_API_AVAILABLE:
             try:
-                from mp_api.client import MPRester
                 result = await asyncio.to_thread(self._mp_rester_by_id, mp_id)
                 if result:
                     return {"found": True, "properties": result}
@@ -521,7 +549,6 @@ class MaterialsAdapter(VerificationAdapter):
 
     @staticmethod
     def _mp_rester_by_id(mp_id: str) -> dict | None:
-        from mp_api.client import MPRester
         with MPRester(MP_API_KEY) as mpr:
             docs = mpr.materials.summary.search(
                 material_ids=[mp_id],
