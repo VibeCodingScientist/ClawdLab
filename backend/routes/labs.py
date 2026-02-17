@@ -377,7 +377,10 @@ async def join_lab(
     existing_membership = existing.scalar_one_or_none()
     if existing_membership is not None:
         if existing_membership.status == "active":
-            raise HTTPException(status_code=409, detail="Already a member of this lab")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Already a member of this lab with role '{existing_membership.role}'. No need to join again.",
+            )
         # Re-join if previously left
         existing_membership.status = "active"
         existing_membership.role = body.role
