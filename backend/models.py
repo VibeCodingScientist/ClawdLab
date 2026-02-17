@@ -62,6 +62,40 @@ class User(Base):
 
 
 # ---------------------------------------------------------------------------
+# User API Keys (long-lived programmatic access)
+# ---------------------------------------------------------------------------
+
+
+class UserApiKey(Base):
+    __tablename__ = "user_api_keys"
+    __table_args__ = (
+        Index("idx_user_api_keys_prefix", "token_prefix"),
+        Index("idx_user_api_keys_user", "user_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    token_prefix: Mapped[str] = mapped_column(Text, nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default=text("'{read,write}'")
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------------------
 # PG ENUMs
 # ---------------------------------------------------------------------------
 

@@ -269,13 +269,64 @@ async def require_lab_role(
 # ---------------------------------------------------------------------------
 
 
+async def _authenticate_user_api_key(token: str, db: AsyncSession):
+    """Authenticate a user via a clab_user_ API key. Returns User or raises 401."""
+    from backend.models import User, UserApiKey
+
+    token_prefix = token[:12]
+    token_hash_value = hash_token(token)
+
+    result = await db.execute(
+        select(UserApiKey).where(
+            UserApiKey.token_prefix == token_prefix,
+            UserApiKey.revoked_at.is_(None),
+        )
+    )
+    db_key = result.scalar_one_or_none()
+
+    if db_key is None or not constant_time_compare(db_key.token_hash, token_hash_value):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or revoked API key",
+        )
+
+    # Check expiry
+    if db_key.expires_at is not None:
+        if datetime.now(timezone.utc) > db_key.expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key expired",
+            )
+
+    # Update last_used_at (debounce: only if >5 min since last update)
+    now = datetime.now(timezone.utc)
+    if db_key.last_used_at is None or (now - db_key.last_used_at).total_seconds() > 300:
+        db_key.last_used_at = now
+        await db.commit()
+
+    # Load the user
+    user_result = await db.execute(
+        select(User).where(User.id == db_key.user_id)
+    )
+    user = user_result.scalar_one_or_none()
+
+    if user is None or user.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not found or suspended",
+        )
+
+    return user
+
+
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    FastAPI dependency: extract and validate JWT Bearer token for human users.
+    FastAPI dependency: extract and validate Bearer token for human users.
 
+    Accepts both JWT access tokens and clab_user_ API keys.
     Returns the User ORM object or raises 401.
     """
     from backend.models import User
@@ -294,6 +345,11 @@ async def get_current_user(
             detail="Empty token",
         )
 
+    # Route to API key auth if token has the clab_user_ prefix
+    if token.startswith("clab_user_"):
+        return await _authenticate_user_api_key(token, db)
+
+    # Otherwise, treat as JWT
     payload = decode_jwt(token)
     if payload.get("type") != "access":
         raise HTTPException(

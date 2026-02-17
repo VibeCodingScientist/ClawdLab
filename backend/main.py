@@ -110,6 +110,7 @@ from backend.routes.lifecycle import router as lifecycle_router  # noqa: E402
 from backend.routes.notifications import router as notifications_router  # noqa: E402
 from backend.routes.lab_state import router as lab_state_router  # noqa: E402
 from backend.routes.verification import router as verification_router  # noqa: E402
+from backend.routes.user_api_keys import router as user_api_keys_router  # noqa: E402
 
 import backend.verification.dispatcher  # noqa: F401,E402
 
@@ -132,6 +133,7 @@ app.include_router(lifecycle_router)
 app.include_router(notifications_router)
 app.include_router(lab_state_router)
 app.include_router(verification_router)
+app.include_router(user_api_keys_router)
 
 
 @app.get("/health")
