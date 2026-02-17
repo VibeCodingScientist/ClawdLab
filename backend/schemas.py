@@ -593,6 +593,44 @@ class TokenRefreshRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# User API Keys
+# ---------------------------------------------------------------------------
+
+
+class UserApiKeyCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    scopes: list[str] = Field(default=["read", "write"])
+    expires_in_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class UserApiKeyCreateResponse(BaseModel):
+    id: UUID
+    name: str
+    token: str  # Plaintext — shown only once
+    prefix: str
+    scopes: list[str]
+    created_at: datetime
+    expires_at: datetime | None = None
+
+
+class UserApiKeyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    token_prefix: str
+    scopes: list[str]
+    last_used_at: datetime | None = None
+    created_at: datetime
+    expires_at: datetime | None = None
+
+
+class UserApiKeyListResponse(BaseModel):
+    items: list[UserApiKeyResponse] = Field(default_factory=list)
+    total: int = 0
+
+
+# ---------------------------------------------------------------------------
 # Lab Extras
 # ---------------------------------------------------------------------------
 
